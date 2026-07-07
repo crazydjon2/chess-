@@ -1,0 +1,396 @@
+.draft-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1a1410;
+  padding: 24px 16px;
+  gap: 16px;
+}
+
+.draft-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.draft-header-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.draft-round {
+  font-family: 'Georgia', serif;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #e8d5a3;
+}
+
+.draft-board-name {
+  font-size: 12px;
+  color: rgba(200,180,140,0.55);
+}
+
+/* ── Budgets ──────────────────────────────────────────────────────── */
+.draft-budgets {
+  display: flex;
+  gap: 18px;
+  width: min(680px, 92vw);
+  justify-content: center;
+}
+
+.draft-budget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0,0,0,0.25);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 8px 22px;
+}
+
+.draft-budget.mine { border-color: rgba(232,201,106,0.45); }
+.draft-budget.opp  { border-color: rgba(127,160,224,0.4); }
+
+.draft-budget-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(200,180,140,0.5);
+}
+
+.draft-budget-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #e8c96a;
+}
+
+.draft-budget.opp .draft-budget-value { color: #93aee0; }
+
+/* ── Pick timeline: 8 slots (double-snake order), shows exactly whose
+   pick is next and how many each side has left ─────────────────────── */
+.draft-timeline-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(680px, 92vw);
+}
+
+.draft-timeline {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.draft-timeline::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  height: 2px;
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.draft-timeline-pip {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: #1a1410;
+  color: rgba(200,180,140,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.draft-timeline-pip.mine   { border-color: rgba(232,201,106,0.55); }
+.draft-timeline-pip.opp    { border-color: rgba(120,150,220,0.5); }
+
+.draft-timeline-pip.done {
+  opacity: 0.5;
+  background: rgba(255,255,255,0.06);
+}
+
+.draft-timeline-pip.done.mine { background: rgba(232,201,106,0.18); color: #e8c96a; }
+.draft-timeline-pip.done.opp  { background: rgba(120,150,220,0.18); color: #93aee0; }
+
+.draft-timeline-pip.current {
+  transform: scale(1.25);
+  color: #1a1410;
+}
+
+.draft-timeline-pip.current.mine {
+  background: #e8c96a;
+  border-color: #e8c96a;
+  box-shadow: 0 0 14px rgba(232,201,106,0.6);
+  animation: draft-turn-pulse 1.2s ease-in-out infinite;
+}
+
+.draft-timeline-pip.current.opp {
+  background: #7fa0e0;
+  border-color: #7fa0e0;
+  box-shadow: 0 0 14px rgba(127,160,224,0.6);
+}
+
+.draft-timeline-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 12px;
+  color: rgba(200,180,140,0.6);
+}
+
+.draft-timeline-legend b { color: rgba(230,220,200,0.95); }
+
+.draft-timeline-legend .legend-mine::before,
+.draft-timeline-legend .legend-opp::before {
+  content: '●';
+  margin-right: 5px;
+  font-size: 9px;
+}
+
+.draft-timeline-legend .legend-mine::before { color: #e8c96a; }
+.draft-timeline-legend .legend-opp::before  { color: #7fa0e0; }
+
+.draft-turn-banner {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(200,180,140,0.6);
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 6px 18px;
+}
+
+.draft-turn-banner.mine {
+  color: #1a1410;
+  background: #e8c96a;
+  border-color: #e8c96a;
+  animation: draft-turn-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes draft-turn-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(232,201,106,0.3); }
+  50%      { box-shadow: 0 0 22px rgba(232,201,106,0.55); }
+}
+
+/* ── Pools ────────────────────────────────────────────────────────── */
+.draft-pools {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: min(680px, 92vw);
+}
+
+.draft-pool-group {
+  flex: 1;
+  min-width: 220px;
+  background: rgba(26,18,12,0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.draft-pool-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(200,180,140,0.5);
+  margin-bottom: 10px;
+}
+
+.draft-pool-remaining {
+  text-transform: none;
+  font-weight: 700;
+  letter-spacing: normal;
+  color: rgba(232,201,106,0.75);
+}
+
+.draft-pool-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+}
+
+.draft-pool-empty {
+  font-size: 12px;
+  color: rgba(200,180,140,0.35);
+  padding: 4px 0;
+  grid-column: 1 / -1;
+}
+
+.draft-pick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 90px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.10);
+  border-radius: 8px;
+  padding: 8px 6px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.draft-pick-btn.unaffordable {
+  border-color: rgba(200,60,50,0.35);
+}
+
+.draft-pick-price {
+  font-size: 10px;
+  font-weight: 800;
+  color: #e8c96a;
+}
+
+.draft-pick-btn.unaffordable .draft-pick-price {
+  color: #e08070;
+}
+
+.draft-pass-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(220,200,170,0.75);
+  padding: 8px 22px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.draft-pass-btn:hover:not(:disabled) {
+  border-color: rgba(232,201,106,0.4);
+  color: #e8c96a;
+}
+
+.draft-pass-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.draft-pick-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: rgba(232,201,106,0.55);
+  background: rgba(232,201,106,0.08);
+}
+
+.draft-pick-btn.card {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.draft-pick-btn.card:not(:disabled):hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.draft-pick-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.draft-pick-glyph {
+  font-size: 24px;
+  line-height: 1;
+  color: rgba(240,220,180,0.95);
+}
+
+.draft-pick-btn.card .draft-pick-glyph {
+  color: var(--accent);
+}
+
+.draft-pick-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(220,200,170,0.85);
+  line-height: 1.15;
+}
+
+/* ── Rosters ──────────────────────────────────────────────────────── */
+.draft-rosters {
+  display: flex;
+  gap: 14px;
+  width: min(680px, 92vw);
+}
+
+.draft-roster {
+  flex: 1;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.draft-roster.mine {
+  border-color: rgba(232,201,106,0.3);
+}
+
+.draft-roster-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.draft-roster-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(200,180,140,0.45);
+}
+
+.draft-roster-coins {
+  font-size: 11px;
+  font-weight: 800;
+  color: #e8c96a;
+}
+
+.draft-roster-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.draft-roster-empty {
+  font-size: 11px;
+  color: rgba(200,180,140,0.3);
+}
+
+.draft-roster-chip {
+  font-size: 18px;
+  color: rgba(240,220,180,0.9);
+  line-height: 1;
+}
+
+.draft-roster-chip.card {
+  color: var(--accent);
+}
+
+/* Carried over from a previous round — dimmed + underlined so it visually
+   reads as "already had this" rather than a fresh pick. */
+.draft-roster-chip.carried {
+  opacity: 0.6;
+  text-decoration: underline dotted rgba(200,180,140,0.5);
+  text-underline-offset: 3px;
+}

@@ -1,0 +1,352 @@
+.htp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: 20px;
+}
+
+.htp-card {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #1a1410;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 28px 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.htp-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(220,200,170,0.7);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.htp-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.htp-title {
+  font-family: 'Georgia', serif;
+  font-size: 1.7rem;
+  font-weight: bold;
+  color: #e8d5a3;
+  text-align: center;
+}
+
+.htp-subtitle {
+  font-size: 12px;
+  color: rgba(200,180,140,0.6);
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 18px;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────── */
+.htp-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.htp-tab {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(200,180,140,0.6);
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.htp-tab:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(230,215,190,0.85);
+}
+
+.htp-tab.active {
+  background: rgba(232,201,106,0.14);
+  border-color: rgba(232,201,106,0.5);
+  color: #e8c96a;
+}
+
+.htp-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.htp-step {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.htp-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  height: 74px;
+  justify-content: center;
+}
+
+/* ── Draft mockup ─────────────────────────────────────────────────── */
+.htp-draft-pool {
+  display: flex;
+  gap: 4px;
+}
+
+.htp-draft-tile {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.14);
+  color: rgba(240,220,180,0.9);
+}
+
+.htp-draft-tile.card {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.htp-draft-tile.taken { opacity: 0.3; }
+.htp-draft-tile.current {
+  border-color: #e8c96a;
+  box-shadow: 0 0 8px rgba(232,201,106,0.5);
+}
+
+.htp-draft-turns {
+  display: flex;
+  gap: 4px;
+}
+
+.htp-turn-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  color: rgba(200,180,140,0.5);
+}
+
+.htp-turn-dot.mine { border-color: rgba(232,201,106,0.5); }
+.htp-turn-dot.opp  { border-color: rgba(120,150,220,0.5); }
+.htp-turn-dot.done { opacity: 0.45; }
+.htp-turn-dot.current.mine { background: #e8c96a; color: #1a1410; }
+.htp-turn-dot.current.opp  { background: #7fa0e0; color: #1a1410; }
+
+/* ── Placement mockup ─────────────────────────────────────────────── */
+.htp-placement-badge {
+  font-size: 9px;
+  color: rgba(200,180,140,0.6);
+}
+
+.htp-mini-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  width: 96px;
+}
+
+.htp-mini-cell {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+}
+
+.htp-mini-cell.hidden {
+  color: rgba(200,180,140,0.3);
+  background: rgba(0,0,0,0.25);
+  font-size: 10px;
+}
+
+.htp-mini-cell.mine { color: #e8c96a; background: rgba(232,201,106,0.08); }
+
+/* ── Battle mockup ────────────────────────────────────────────────── */
+.htp-mini-board.battle {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.htp-mini-cell.empty { background: rgba(255,255,255,0.03); }
+.htp-mini-cell.opp   { color: #93aee0; }
+
+.htp-mini-cell.target-capture {
+  color: #93aee0;
+  box-shadow: inset 0 0 0 2px #c0392b;
+}
+
+.htp-mini-cell.target-move {
+  box-shadow: inset 0 0 0 2px #27ae60;
+}
+
+.htp-battle-coin {
+  font-size: 10px;
+  font-weight: 800;
+  color: #e8c96a;
+}
+
+/* ── Round result mockup ──────────────────────────────────────────── */
+.htp-round-trophy { font-size: 22px; }
+
+.htp-round-score {
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(220,200,170,0.8);
+}
+
+.htp-round-carry {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.htp-carry-piece { color: #e8c96a; }
+.htp-carry-arrow { font-size: 10px; color: rgba(200,180,140,0.5); margin: 0 2px; }
+.htp-carry-label { font-size: 9px; color: rgba(200,180,140,0.5); }
+
+.htp-step-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #e8c96a;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.htp-step-desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(220,205,180,0.8);
+}
+
+.htp-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.htp-card-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.htp-card-glyph {
+  font-size: 20px;
+  color: var(--accent);
+  width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.htp-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.htp-card-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(230,220,200,0.95);
+}
+
+.htp-card-desc {
+  font-size: 11px;
+  color: rgba(200,185,160,0.6);
+}
+
+.htp-card-cost {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(220,200,170,0.7);
+  flex-shrink: 0;
+}
+
+/* ── Boards tab: every pattern, grouped by round ─────────────────────── */
+.htp-boards {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.htp-boards-round-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(200,180,140,0.5);
+  margin-bottom: 10px;
+}
+
+.htp-boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.htp-board-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 8px;
+}
+
+.htp-board-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(230,220,200,0.9);
+  text-align: center;
+}
+
+.htp-board-dims {
+  font-size: 10px;
+  color: rgba(200,180,140,0.5);
+}

@@ -1,0 +1,178 @@
+.rs-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1410;
+  padding: 24px 16px;
+}
+
+.rs-card {
+  width: min(640px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: rgba(26,18,12,0.96);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* ── Big, unambiguous outcome banner ─────────────────────────────────
+   The whole point: at a glance, before reading any text, you should know
+   whether you won, lost, or drew that round. Color + icon carry that;
+   the text underneath just fills in the details. */
+.rs-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+}
+
+.rs-banner-icon {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.5));
+}
+
+.rs-banner-headline {
+  font-family: 'Georgia', serif;
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.rs-banner-sub {
+  font-size: 12px;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+.rs-banner-win {
+  background: linear-gradient(135deg, rgba(40,150,70,0.28), rgba(20,80,40,0.20));
+  border-color: rgba(80,220,120,0.5);
+}
+.rs-banner-win .rs-banner-headline { color: #8ef0a8; }
+.rs-banner-win .rs-banner-sub      { color: rgba(200,240,210,0.85); }
+
+.rs-banner-loss {
+  background: linear-gradient(135deg, rgba(160,40,35,0.28), rgba(80,20,18,0.20));
+  border-color: rgba(230,90,80,0.5);
+}
+.rs-banner-loss .rs-banner-headline { color: #f0918a; }
+.rs-banner-loss .rs-banner-sub      { color: rgba(240,205,200,0.85); }
+
+.rs-banner-draw {
+  background: linear-gradient(135deg, rgba(150,120,40,0.28), rgba(80,64,20,0.20));
+  border-color: rgba(220,180,90,0.5);
+}
+.rs-banner-draw .rs-banner-headline { color: #e8c96a; }
+.rs-banner-draw .rs-banner-sub      { color: rgba(230,215,180,0.85); }
+
+.rs-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(200,180,140,0.6);
+}
+
+.rs-score {
+  font-weight: 800;
+  color: rgba(220,200,170,0.8);
+}
+
+.rs-board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.rs-board-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(200,180,140,0.5);
+}
+
+.rs-board-wrap .board-scene-wrap {
+  pointer-events: none;
+}
+
+.rs-rosters {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.rs-roster {
+  flex: 1;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rs-roster-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(200,180,140,0.5);
+}
+
+.rs-roster-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 22px;
+}
+
+.rs-chip {
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(240,220,180,0.9);
+}
+
+.rs-chip.card {
+  color: var(--accent);
+}
+
+.rs-empty {
+  font-size: 11px;
+  color: rgba(200,180,140,0.35);
+}
+
+.rs-roster-coins {
+  font-size: 12px;
+  font-weight: 800;
+  color: #e8c96a;
+}
+
+.rs-continue-btn {
+  background: linear-gradient(135deg, #8a6228, #5c3e14);
+  color: #f0d9b5;
+  border: 1px solid rgba(180,130,60,0.35);
+  padding: 10px 24px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.rs-continue-btn:hover {
+  filter: brightness(1.1);
+}

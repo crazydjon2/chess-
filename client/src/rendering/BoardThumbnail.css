@@ -1,0 +1,20 @@
+.board-thumb {
+  display: grid;
+  gap: 1px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.board-thumb-cell {
+  background: #2a2019;
+}
+
+.board-thumb-cell.dark {
+  background: #1f1710;
+}
+
+.board-thumb-cell.blocked {
+  background: #4a2020;
+}

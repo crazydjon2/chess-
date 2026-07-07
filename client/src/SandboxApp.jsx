@@ -1,0 +1,212 @@
+import { useState, useReducer, useCallback } from 'react'
+import GameView from './rendering/GameView'
+import PromotionPicker from './rendering/PromotionPicker'
+import { createDraftRoundState } from './game/initialState'
+import { CARD_DEFS, getValidTargets } from './game/cards'
+import { isKingInCheck, needsPromotion } from './game/chess'
+import { boardModeReducer, IDLE } from './game/boardMode'
+import { getCaptured } from './game/economy'
+import { tryMove, tryPlayCard } from './game/sandboxEngine'
+
+const other = color => (color === 'white' ? 'black' : 'white')
+
+// Every card in the game, both hands, one of each piece type per side plus
+// a pawn one step from promoting — enough to manually poke at every skill
+// without going through a draft. 8x8 with two blocked holes so add_cell's
+// "reopen a hole" / border-target behavior can be exercised too.
+const SANDBOX_BOARD = { rows: 8, cols: 8, blockedCells: ['d4', 'e5'] }
+const ALL_CARD_IDS = Object.keys(CARD_DEFS)
+
+function freshSandboxState() {
+  return createDraftRoundState(
+    SANDBOX_BOARD,
+    {
+      a1: { type: 'rook', color: 'white', hp: 1 },
+      b1: { type: 'knight', color: 'white', hp: 1 },
+      c1: { type: 'bishop', color: 'white', hp: 1 },
+      d1: { type: 'queen', color: 'white', hp: 1 },
+      e2: { type: 'pawn', color: 'white', hp: 1 },
+      f2: { type: 'pawn', color: 'white', hp: 1 },
+      g7: { type: 'pawn', color: 'white', hp: 1 }, // one step from promoting
+    },
+    {
+      h8: { type: 'rook', color: 'black', hp: 1 },
+      g8: { type: 'knight', color: 'black', hp: 1 },
+      f8: { type: 'bishop', color: 'black', hp: 1 },
+      e8: { type: 'queen', color: 'black', hp: 1 },
+      d7: { type: 'pawn', color: 'black', hp: 1 },
+      c7: { type: 'pawn', color: 'black', hp: 1 },
+      b2: { type: 'pawn', color: 'black', hp: 1 }, // one step from promoting
+    },
+    ALL_CARD_IDS, ALL_CARD_IDS,
+    { white: 40, black: 40 },
+    null, // no move limit — testing shouldn't get cut off mid-poke
+  )
+}
+
+// Local hot-seat sandbox — no server, no draft/placement, straight into a
+// battle with every card in both hands so every skill can be clicked by
+// hand. Whoever's turn it is is "in control" (their hand/panel sits at the
+// bottom); the board itself never flips, so the layout stays predictable
+// while you're testing both sides yourself.
+export default function SandboxApp({ onExit }) {
+  const [gameState, setGameState] = useState(freshSandboxState)
+  const [gameResult, setGameResult] = useState(null)
+  const [errorMsg, setErrorMsg] = useState(null)
+
+  const [boardMode, dispatch] = useReducer(boardModeReducer, IDLE)
+  const [lastMoveAnim, setLastMoveAnim] = useState(null)
+  const [actionToast, setActionToast] = useState(null)
+  const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null)
+  const [pendingPromotion, setPendingPromotion] = useState(null)
+
+  const flashError = useCallback((msg) => {
+    setErrorMsg(msg)
+    setTimeout(() => setErrorMsg(null), 3000)
+  }, [])
+
+  function applyResult(res) {
+    if (res.error) { flashError(res.error); return }
+    setGameState(res.gameState)
+    dispatch({ type: 'CANCEL' })
+
+    const lastAction = res.lastAction
+    if (lastAction) {
+      if (['move', 'capture', 'bounce'].includes(lastAction.type)) {
+        setLastMoveAnim({ type: lastAction.type, from: lastAction.from, to: lastAction.to, ts: Date.now() })
+      } else if (lastAction.type === 'card') {
+        const card = CARD_DEFS[lastAction.cardId]
+        setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
+        setTimeout(() => setActionToast(null), 2000)
+      }
+    }
+    if (res.meteorStrikes && res.meteorStrikes.length > 0) {
+      setMeteorStrikeAnim({ strikes: res.meteorStrikes, ts: Date.now() })
+      setTimeout(() => setMeteorStrikeAnim(null), 900)
+    }
+    if (res.result) setGameResult(res.result)
+  }
+
+  function handleRestart() {
+    setGameState(freshSandboxState())
+    setGameResult(null)
+    setLastMoveAnim(null)
+    setActionToast(null)
+    setMeteorStrikeAnim(null)
+    setPendingPromotion(null)
+    dispatch({ type: 'CANCEL' })
+  }
+
+  const myColor  = gameState.turn // whoever's turn it is controls the bottom panel/hand
+  const oppColor = other(myColor)
+  const gameOver = !!gameResult
+  const inCheck  = !gameOver && !gameState.eliminationMode && isKingInCheck(gameState, gameState.turn)
+  const cardsLocked = gameState.cardPlayedThisTurn
+
+  const myCaptured  = getCaptured(gameState, myColor)
+  const oppCaptured = getCaptured(gameState, oppColor)
+
+  function handleMove({ from, to }) {
+    if (gameOver) return
+    if (needsPromotion(gameState, from, to)) {
+      setPendingPromotion({ from, to })
+      return
+    }
+    applyResult(tryMove(gameState, myColor, from, to))
+  }
+
+  function handlePromotionPick(promotion) {
+    if (!pendingPromotion) return
+    applyResult(tryMove(gameState, myColor, pendingPromotion.from, pendingPromotion.to, promotion))
+    setPendingPromotion(null)
+  }
+
+  function handlePromotionCancel() {
+    setPendingPromotion(null)
+  }
+
+  function handleCardSelect(card) {
+    if (gameOver || cardsLocked) return
+    if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
+      dispatch({ type: 'CANCEL' })
+      return
+    }
+    const validTargets = getValidTargets(card.id, gameState, myColor)
+    dispatch({ type: 'PLAY_CARD', card, validTargets })
+  }
+
+  function handlePlayCard({ card, target }) {
+    if (gameOver || cardsLocked) return
+    applyResult(tryPlayCard(gameState, myColor, card.id, target))
+  }
+
+  function handleBackgroundClick(e) {
+    if (e.target === e.currentTarget && boardMode.type === 'card_targeting') {
+      dispatch({ type: 'CANCEL' })
+    }
+  }
+
+  return (
+    <>
+      <button className="sandbox-exit-btn" onClick={onExit}>← Выйти из песочницы</button>
+
+      {errorMsg && <div className="sandbox-error">{errorMsg}</div>}
+
+      {pendingPromotion && (
+        <PromotionPicker
+          color={myColor}
+          onPick={handlePromotionPick}
+          onCancel={handlePromotionCancel}
+        />
+      )}
+
+      <GameView
+        gameState={gameState}
+        boardMode={boardMode}
+        dispatch={dispatch}
+        lastMoveAnim={lastMoveAnim}
+        actionToast={actionToast}
+        meteorStrikeAnim={meteorStrikeAnim}
+        boardFlipped={false}
+        boardPlayerColor={gameOver ? 'none' : myColor}
+        onMove={handleMove}
+        onPlayCard={handlePlayCard}
+        gameResult={gameResult}
+        restartLabel="Сбросить песочницу"
+        onRestart={handleRestart}
+        onBackgroundClick={handleBackgroundClick}
+        turnBar={!gameOver ? {
+          color: gameState.turn,
+          text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
+          sub: 'Песочница — ходите за обе стороны',
+          urgent: false,
+        } : null}
+        topPanel={{
+          color: oppColor,
+          capturedByMe: oppCaptured,
+          active: false,
+          inCheck: inCheck && gameState.turn === oppColor,
+          opponentCards: gameState.cards[oppColor].hand,
+          selectedCardId: null,
+          onCardClick: undefined,
+          coins: gameState.coins[oppColor],
+          controllable: false,
+        }}
+        bottomPanel={{
+          color: myColor,
+          capturedByMe: myCaptured,
+          active: true,
+          inCheck: inCheck && gameState.turn === myColor,
+          coins: gameState.coins[myColor],
+          controllable: true,
+        }}
+        bottomHand={{
+          cards: gameState.cards[myColor].hand,
+          isActive: !cardsLocked,
+          selectedCardId: boardMode.type === 'card_targeting' ? boardMode.card.id : null,
+          onCardClick: handleCardSelect,
+        }}
+      />
+    </>
+  )
+}

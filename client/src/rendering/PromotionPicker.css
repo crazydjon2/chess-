@@ -1,0 +1,80 @@
+.promo-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 350;
+  padding: 20px;
+}
+
+.promo-card {
+  background: #1a1410;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.promo-title {
+  font-family: 'Georgia', serif;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #e8d5a3;
+}
+
+.promo-options {
+  display: flex;
+  gap: 10px;
+}
+
+.promo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 70px;
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 12px 6px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.promo-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232,201,106,0.55);
+  background: rgba(232,201,106,0.08);
+}
+
+.promo-glyph {
+  font-size: 28px;
+  color: rgba(240,220,180,0.95);
+}
+
+.promo-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(220,200,170,0.85);
+}
+
+.promo-cancel {
+  background: none;
+  border: none;
+  color: rgba(200,180,140,0.5);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.promo-cancel:hover {
+  color: rgba(220,200,170,0.8);
+}
