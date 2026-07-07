@@ -228,10 +228,17 @@ export function handlePlayCard(io, socket, { cardId, target } = {}) {
 // Surrendering doesn't touch the board/hand/coins at all — it just ends the
 // round in the opponent's favor, so whatever the surrendering side still has
 // carries over untouched via the normal buildCarryOver(match.gameState) path.
+// Restricted to your own turn — same as every other battle action — so it
+// can't be used to interrupt the opponent mid-decision (e.g. right as they
+// commit to a card target or a risky move) on a turn that isn't yours.
 export function handleSurrender(io, socket) {
   const room = getRoom(socket)
   if (!room?.match?.gameState || room.match.phase !== 'battle') return
-  const color    = socket.data.color
+  const color = socket.data.color
+  if (room.match.gameState.turn !== color) {
+    socket.emit('game_error', { message: 'Можно сдаться только в свой ход' })
+    return
+  }
   const oppColor = color === 'white' ? 'black' : 'white'
   const newMatch = applyRoundResult(room.match, { type: 'surrender', winner: oppColor, loser: color })
   room.match = newMatch

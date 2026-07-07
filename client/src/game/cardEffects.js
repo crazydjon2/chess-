@@ -131,7 +131,7 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
       const cells = neighborhood3x3(targetSquare, validSquares)
       return {
         ...gameState,
-        fogZones: [...(gameState.fogZones ?? []), { owner: playerColor, cells, turnsLeft: 3 }],
+        fogZones: [...(gameState.fogZones ?? []), { owner: playerColor, cells, turnsLeft: 4 }],
       }
     }
 

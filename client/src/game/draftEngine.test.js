@@ -28,7 +28,7 @@ describe('createDraftState budgets', () => {
   // the priciest thing this round happens to be a queen, a rook, or an
   // expensive card. The multiplier escalates round to round (see
   // BUDGET_MULTIPLIER_BY_ROUND).
-  const MULTIPLIER_BY_ROUND = { 1: 1.7, 2: 1.9, 3: 2.1 }
+  const MULTIPLIER_BY_ROUND = { 1: 2.2, 2: 2, 3: 2.5 }
   it('always sets the budget to ~roundMultiplier x the pool\'s single most expensive item, whatever type that is', () => {
     for (const round of [1, 2, 3]) {
       for (let i = 0; i < 200; i++) {

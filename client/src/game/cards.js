@@ -36,7 +36,7 @@ export const CARD_DEFS = {
     desc:   'Отменяет последний ход\nсоперника.',
     accent: '#8e44ad',
     glyph:  '↺',
-    cost:   10,
+    cost:   7,
   },
   freeze: {
     id:     'freeze',
@@ -44,12 +44,12 @@ export const CARD_DEFS = {
     desc:   'Вражеская фигура не может\nходить следующий ход.',
     accent: '#2980b9',
     glyph:  '❄',
-    cost:   6,
+    cost:   10,
   },
   smoke_screen: {
     id:     'smoke_screen',
     name:   'Дымовая завеса',
-    desc:   'Скрывает от соперника ваши\nфигуры в области 3×3 на\nследующие 3 хода.',
+    desc:   'Скрывает от соперника ваши\nфигуры в области 3×3 на\nследующие 4 хода.',
     accent: '#7f8c8d',
     glyph:  '☁',
     cost:   6,

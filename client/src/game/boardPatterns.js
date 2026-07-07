@@ -11,6 +11,23 @@ export const BOARD_PATTERNS = {
     { name: 'Открытое поле', rows: 6, cols: 6, blockedCells: [] },
     { name: 'Стена по центру', rows: 6, cols: 6, blockedCells: ['c3', 'd3', 'c4', 'd4'] },
     { name: 'Фланговые щели', rows: 6, cols: 6, blockedCells: ['a3', 'a4', 'f3', 'f4'] },
+    {
+      // Point-symmetric about the board centre (b3<->e4, b4<->e3) — two
+      // solid 1x2 pillars flanking the center, leaving three lanes: the
+      // outer edges (a, f) and the center gap (c, d) between the pillars.
+      name: 'Колонны',
+      rows: 6, cols: 6,
+      blockedCells: ['b3', 'b4', 'e3', 'e4'],
+    },
+    {
+      // Point-symmetric (a3<->f4, b3<->e4, e3<->b4, f3<->a4) — the inverse
+      // of Стена по центру: flanks are sealed and only the middle c/d
+      // columns stay open, forcing traffic through one narrow gate instead
+      // of around a center block.
+      name: 'Горлышко',
+      rows: 6, cols: 6,
+      blockedCells: ['a3', 'b3', 'e3', 'f3', 'a4', 'b4', 'e4', 'f4'],
+    },
   ],
 
   // 7x7 — home ranks 1-2 / 6-7, middle band = ranks 3-5
@@ -29,6 +46,22 @@ export const BOARD_PATTERNS = {
       rows: 7, cols: 7,
       blockedCells: ['b3', 'f3', 'd4', 'b5', 'f5'],
     },
+    {
+      // Point-symmetric about d4 (self-centered, arms mirror in pairs:
+      // d3<->d5, c4<->e4) — a plus-shaped pillar in the dead center, leaving
+      // the entire rest of the band open. Sparsest of the round-2 patterns.
+      name: 'Крест',
+      rows: 7, cols: 7,
+      blockedCells: ['d3', 'd5', 'c4', 'd4', 'e4'],
+    },
+    {
+      // Point-symmetric about d4 (b3<->f5, c3<->e5, b4<->f4, c4<->e4) — two
+      // solid 2x2 bastions in opposite corners of the band, leaving the
+      // center column and the other two corners wide open.
+      name: 'Бастионы',
+      rows: 7, cols: 7,
+      blockedCells: ['b3', 'c3', 'b4', 'c4', 'e4', 'f4', 'e5', 'f5'],
+    },
   ],
 
   // 8x8 — home ranks 1-2 / 7-8, middle band = ranks 3-6
@@ -43,13 +76,30 @@ export const BOARD_PATTERNS = {
       blockedCells: ['a4', 'b4', 'c4', 'f4', 'g4', 'h4', 'a5', 'b5', 'c5', 'f5', 'g5', 'h5'],
     },
     {
-      // Point-symmetric (180° rotation about the board's centre) so neither
-      // color has an easier approach through the maze — each blocked cell
-      // in the upper half (ranks 3-4) has a mirrored twin in the lower half
-      // (ranks 5-6): b3<->g6, e3<->d6, g3<->b6, c4<->f5, f4<->c5.
-      name: 'Лабиринт',
+      // Point-symmetric about the board centre (each column is fully
+      // blocked or fully open, so it mirrors itself) — the a and h files
+      // are sealed across the whole middle band, forcing all traffic
+      // through the wide b-g corridor instead of around the sides.
+      name: 'Коридор',
       rows: 8, cols: 8,
-      blockedCells: ['b3', 'e3', 'g3', 'c4', 'f4', 'c5', 'f5', 'b6', 'd6', 'g6'],
+      blockedCells: ['a3', 'a4', 'a5', 'a6', 'h3', 'h4', 'h5', 'h6'],
+    },
+    {
+      // Point-symmetric about the board centre (c3<->f6, d3<->e6, c4<->f5,
+      // f4<->c5, ...) — a hollow fortress ring with an open 2x2 room dead
+      // center (d4/e4/d5/e5) and open corridors down both flanks, the
+      // opposite shape to Остров's side-walls-with-open-middle.
+      name: 'Крепость',
+      rows: 8, cols: 8,
+      blockedCells: ['c3', 'd3', 'e3', 'f3', 'c6', 'd6', 'e6', 'f6', 'c4', 'f4', 'c5', 'f5'],
+    },
+    {
+      // Point-symmetric about the board centre (c3<->f6, f3<->c6) — four
+      // single-cell towers in the band's far corners, the lightest-touch
+      // pattern in round 3 (just 4 blocked cells out of 32).
+      name: 'Четыре башни',
+      rows: 8, cols: 8,
+      blockedCells: ['c3', 'f3', 'c6', 'f6'],
     },
   ],
 }

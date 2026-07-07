@@ -340,7 +340,10 @@ export default function OnlineApp({ onExit }) {
           inCheck: inCheck && myTurn,
           isYou: true,
           coins: gameState.coins[myColor],
-          onSurrender: !matchOver ? () => setSurrenderConfirm(true) : undefined,
+          // Server also enforces this — surrendering mid-opponent's-turn
+          // isn't allowed — but gating the button here avoids a round-trip
+          // error toast for something the client already knows is invalid.
+          onSurrender: (!matchOver && myTurn) ? () => setSurrenderConfirm(true) : undefined,
           controllable: myTurn,
         }}
         bottomHand={{

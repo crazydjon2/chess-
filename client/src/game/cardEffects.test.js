@@ -15,7 +15,7 @@ describe('smoke_screen', () => {
     const next = applyCardEffect('smoke_screen', gs, 'c3', 'white')
     expect(next.fogZones).toHaveLength(1)
     expect(next.fogZones[0].owner).toBe('white')
-    expect(next.fogZones[0].turnsLeft).toBe(3)
+    expect(next.fogZones[0].turnsLeft).toBe(4)
     expect(next.fogZones[0].cells.sort()).toEqual(['b2', 'b3', 'b4', 'c2', 'c3', 'c4', 'd2', 'd3', 'd4'].sort())
   })
 

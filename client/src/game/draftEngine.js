@@ -25,7 +25,7 @@ import { CARD_DEFS } from './cards.js'
 // rounds, so a purely top-price-anchored budget would otherwise buy
 // proportionally LESS of a full army as the game escalates; escalating the
 // multiplier keeps pace with that.
-const BUDGET_MULTIPLIER_BY_ROUND = { 1: 1.7, 2: 1.9, 3: 2.1 }
+const BUDGET_MULTIPLIER_BY_ROUND = { 1: 2.2, 2: 2, 3: 2.5 }
 
 function maxItemPrice(pool) {
   const pieceTypes = Object.keys(pool.pieces).filter(type => pool.pieces[type] > 0)

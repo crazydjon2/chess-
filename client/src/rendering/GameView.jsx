@@ -7,15 +7,15 @@ import MatchScoreBoard from './MatchScoreBoard'
 const RESULT_TEXT = {
   checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
   elimination: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — армия соперника уничтожена`,
-  move_limit:  r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по материалу — лимит ходов исчерпан`,
-  no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по материалу — у соперника нет ходов`,
+  move_limit:  r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по капиталу — лимит ходов исчерпан`,
+  no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по капиталу — у соперника нет ходов`,
   surrender:   r => `${r.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${r.winner === 'white' ? 'белые' : 'чёрные'} победили`,
   stalemate:   ()  => 'Пат — ничья',
   draw:        r   => {
     if (r.reason === '50_move_rule') return 'Ничья — правило 50 ходов'
-    if (r.reason === 'no_moves') return 'Ничья — нет ходов, материал равен'
+    if (r.reason === 'no_moves') return 'Ничья — нет ходов, капитал равен'
     if (r.reason === 'mutual_elimination') return 'Ничья — обе армии уничтожены'
-    if (r.reason === 'move_limit') return 'Ничья — лимит ходов, материал равен'
+    if (r.reason === 'move_limit') return 'Ничья — лимит ходов, капитал равен'
     return 'Ничья — недостаточно материала'
   },
 }

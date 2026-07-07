@@ -44,7 +44,7 @@ describe('tryDraftPick — leftover draft budget becomes starting battle coins',
     const pieceTypes = Object.keys(pool.pieces).filter(t => pool.pieces[t] > 0)
     const pieceMax = pieceTypes.length > 0 ? Math.max(...pieceTypes.map(shopPieceCost)) : 0
     const cardMax   = pool.cards.length > 0 ? Math.max(...pool.cards.map(id => CARD_DEFS[id].cost)) : 0
-    const allotment = Math.round(Math.max(pieceMax, cardMax) * 1.7) // round 1 multiplier
+    const allotment = Math.round(Math.max(pieceMax, cardMax) * 2.2) // round 1 multiplier
 
     expect(budgets.white).toBe(allotment + 15)
     expect(budgets.black).toBe(allotment + 7)
@@ -71,8 +71,10 @@ describe('applyRoundResult', () => {
 
     expect(next.phase).toBe('draft')
     expect(next.previousRound).toBe(1)
-    // White's army/win follow the same player, who is now black.
-    expect(next.carryOver.black).toEqual({ pieces: ['rook', 'pawn'], cards: ['freeze'], coins: 4 })
+    // White's army/win follow the same player, who is now black. Coins
+    // include round 1's ROUND_WIN_BONUS_BY_ROUND (5) on top of what was on
+    // the board (4 + 5 = 9) — the loser gets no bonus.
+    expect(next.carryOver.black).toEqual({ pieces: ['rook', 'pawn'], cards: ['freeze'], coins: 9 })
     expect(next.carryOver.white).toEqual({ pieces: [], cards: [], coins: 1 })
     expect(next.scores).toEqual({ white: 0, black: 1 })
     // The finished round's own board is otherwise lost the moment the next
@@ -96,8 +98,29 @@ describe('applyRoundResult', () => {
     const next = applyRoundResult(match, { type: 'surrender', winner: 'black', loser: 'white' })
 
     expect(next.scores).toEqual({ white: 1, black: 0 })
-    expect(next.carryOver.white).toEqual({ pieces: ['queen'], cards: ['rollback'], coins: 7 })
+    // black won this round, so black's 7 coins get round 1's +5
+    // ROUND_WIN_BONUS_BY_ROUND before reattaching under white's key next
+    // round.
+    expect(next.carryOver.white).toEqual({ pieces: ['queen'], cards: ['rollback'], coins: 12 })
     expect(next.carryOver.black).toEqual({ pieces: ['rook'], cards: ['freeze'], coins: 4 })
+  })
+
+  it('escalates the round-win coin bonus for later rounds', () => {
+    const match2 = { ...matchWithGameState({
+      pieces: {},
+      cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+      coins: { white: 0, black: 0 },
+    }), round: 2 }
+    const next2 = applyRoundResult(match2, { type: 'elimination', winner: 'white' })
+    expect(next2.carryOver.black.coins).toBe(8) // reattached to black post-swap
+
+    const match3 = { ...matchWithGameState({
+      pieces: {},
+      cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+      coins: { white: 0, black: 0 },
+    }), round: 3 } // scores stay 0-0 -> 1-0, undecided, so applyRoundResult still starts a next round
+    const next3 = applyRoundResult(match3, { type: 'elimination', winner: 'white' })
+    expect(next3.carryOver.black.coins).toBe(10)
   })
 
   it('excludes barricades from carry-over (neutral battlefield objects, not owned army)', () => {

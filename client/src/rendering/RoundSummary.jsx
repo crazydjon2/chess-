@@ -12,13 +12,13 @@ function resultLine(result) {
   switch (result.type) {
     case 'elimination': return `${winnerLabel} уничтожили армию соперника`
     case 'checkmate':    return `${winnerLabel} поставили мат`
-    case 'move_limit':   return `${winnerLabel} победили по материалу — закончился лимит ходов`
-    case 'no_moves':     return `${winnerLabel} победили по материалу — у соперника не осталось ходов`
+    case 'move_limit':   return `${winnerLabel} победили по капиталу — закончился лимит ходов`
+    case 'no_moves':     return `${winnerLabel} победили по капиталу — у соперника не осталось ходов`
     case 'surrender':    return `${result.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${winnerLabel} победили`
     case 'draw':
       if (result.reason === 'mutual_elimination') return 'Обе армии уничтожены — ничья'
-      if (result.reason === 'no_moves') return 'Нет ходов, материал равен — ничья'
-      if (result.reason === 'move_limit') return 'Лимит ходов, материал равен — ничья'
+      if (result.reason === 'no_moves') return 'Нет ходов, капитал равен — ничья'
+      if (result.reason === 'move_limit') return 'Лимит ходов, капитал равен — ничья'
       return 'Ничья'
     default: return ''
   }

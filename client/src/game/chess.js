@@ -212,21 +212,26 @@ function isInsufficientMaterial(gameState) {
   return false
 }
 
-function materialValue(gameState, color) {
-  return Object.values(gameState.pieces)
+// "Капитал" — board material plus unspent coins. Coins are real value too
+// (they'd have bought more army given one more draft), so leaving them out
+// would let a side that cashed in captures for a war chest instead of
+// spending it look poorer than it actually is.
+function capitalValue(gameState, color) {
+  const pieces = Object.values(gameState.pieces)
     .filter(p => p.color === color)
     .reduce((sum, p) => sum + (PIECE_VALUE[p.type] || 0), 0)
+  return pieces + (gameState.coins?.[color] ?? 0)
 }
 
-// Whenever the game can't resolve itself by wiping out an army, material
+// Whenever the game can't resolve itself by wiping out an army, capital
 // decides instead of defaulting to a draw — being stuck with no legal move
 // (no king/check here, so it's not a defensive stalemate — it's just a
 // jammed position) or running out the move clock are both "the game can't
 // continue naturally" situations, not neutral ones, so whoever has more
-// material on the board wins. Only an exact material tie is a real draw.
-function materialDecision(gameState, type) {
-  const whiteValue = materialValue(gameState, 'white')
-  const blackValue = materialValue(gameState, 'black')
+// capital wins. Only an exact capital tie is a real draw.
+function capitalDecision(gameState, type) {
+  const whiteValue = capitalValue(gameState, 'white')
+  const blackValue = capitalValue(gameState, 'black')
   if (whiteValue === blackValue) return { type: 'draw', reason: type }
   return { type, winner: whiteValue > blackValue ? 'white' : 'black' }
 }
@@ -248,10 +253,10 @@ function getEliminationResult(gameState) {
   if (white === 0 && black === 0) return { type: 'draw', reason: 'mutual_elimination' }
   if (white === 0) return { type: 'elimination', winner: 'black' }
   if (black === 0) return { type: 'elimination', winner: 'white' }
-  if (!hasAnyLegalMove(gameState, gameState.turn)) return materialDecision(gameState, 'no_moves')
+  if (!hasAnyLegalMove(gameState, gameState.turn)) return capitalDecision(gameState, 'no_moves')
 
   if (gameState.moveLimit && (gameState.moveHistory?.length ?? 0) >= gameState.moveLimit) {
-    return materialDecision(gameState, 'move_limit')
+    return capitalDecision(gameState, 'move_limit')
   }
 
   if ((gameState.halfMoveClock ?? 0) >= 100) return { type: 'draw', reason: '50_move_rule' }

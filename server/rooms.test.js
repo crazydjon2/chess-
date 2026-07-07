@@ -209,6 +209,7 @@ describe('side-swap between rounds', () => {
         pieces: { a1: { type: 'rook', color: 'white', hp: 1 } },
         cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
         coins: { white: 0, black: 0 },
+        turn: 'white',
       },
     }
 
@@ -242,6 +243,7 @@ describe('side-swap between rounds', () => {
         pieces: {},
         cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
         coins: { white: 0, black: 0 },
+        turn: 'white',
       },
     }
 
@@ -250,6 +252,27 @@ describe('side-swap between rounds', () => {
     expect(room.match.phase).toBe('match_over')
     expect(socketWhite.data.color).toBe('white')
     expect(socketBlack.data.color).toBe('black')
+  })
+
+  it('rejects a surrender attempted outside the surrendering player\'s own turn', () => {
+    const { io, socketWhite, room } = makeRoom()
+    room.match = {
+      phase: 'battle',
+      round: 1,
+      scores: { white: 0, black: 0 },
+      draft: { firstColor: 'white' },
+      gameState: {
+        pieces: { a1: { type: 'rook', color: 'white', hp: 1 } },
+        cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+        coins: { white: 0, black: 0 },
+        turn: 'black', // not white's turn
+      },
+    }
+
+    handleSurrender(io, socketWhite)
+
+    // Nothing happened — still battle, no round transition.
+    expect(room.match.phase).toBe('battle')
   })
 })
 

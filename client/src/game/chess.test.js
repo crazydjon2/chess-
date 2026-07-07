@@ -55,8 +55,8 @@ describe('pawn promotion', () => {
   })
 })
 
-describe('draws and material-decided results', () => {
-  it('no legal moves + unequal material -> the richer side wins, not a draw', () => {
+describe('draws and capital-decided results', () => {
+  it('no legal moves + unequal capital -> the richer side wins, not a draw', () => {
     const gs = createDraftRoundState(
       boardPattern,
       {
@@ -93,6 +93,27 @@ describe('draws and material-decided results', () => {
     gs.turn = 'white'
     const result = getGameResult(gs)
     expect(result).toEqual({ type: 'draw', reason: 'no_moves' })
+  })
+
+  it('no legal moves + equal material but unequal coins -> the richer wallet wins, not a draw', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      {
+        a1: { type: 'pawn', color: 'white', hp: 1 },
+        c1: { type: 'pawn', color: 'white', hp: 1 },
+      },
+      {
+        f6: { type: 'pawn', color: 'black', hp: 1 },
+        e6: { type: 'pawn', color: 'black', hp: 1 },
+        a2: { type: 'barricade', color: 'neutral', hp: 2 },
+        c2: { type: 'barricade', color: 'neutral', hp: 2 },
+      },
+      [], [], null, null,
+    )
+    gs.turn = 'white'
+    gs.coins = { white: 5, black: 0 } // pieces alone are tied, coins break it
+    const result = getGameResult(gs)
+    expect(result).toEqual({ type: 'no_moves', winner: 'white' })
   })
 
   it('move limit hit + unequal material -> the richer side wins', () => {

@@ -22,14 +22,14 @@ describe('tryPlayCard: cards no longer end the turn', () => {
     expect(res.error).toBeUndefined()
     expect(res.gameState.turn).toBe('white')
     expect(res.gameState.cardPlayedThisTurn).toBe(true)
-    expect(res.gameState.fogZones[0].turnsLeft).toBe(3) // not pre-ticked by the cast itself
+    expect(res.gameState.fogZones[0].turnsLeft).toBe(4) // not pre-ticked by the cast itself
 
     // The turn only actually ends once white makes their move.
     const moveRes = tryMove(res.gameState, 'white', 'b1', 'b2')
     expect(moveRes.error).toBeUndefined()
     expect(moveRes.gameState.turn).toBe('black')
     expect(moveRes.gameState.cardPlayedThisTurn).toBe(false) // reset for the new turn
-    expect(moveRes.gameState.fogZones[0].turnsLeft).toBe(2) // ticked by the move that ended the turn
+    expect(moveRes.gameState.fogZones[0].turnsLeft).toBe(3) // ticked by the move that ended the turn
   })
 
   it('rejects a second card in the same turn (one spell per turn)', () => {

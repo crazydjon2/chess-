@@ -10,6 +10,11 @@ import { MOVE_LIMIT_BY_ROUND } from '../client/src/game/draftPools.js'
 const ROUNDS_TO_WIN  = 2
 const MAX_POOL_ROUND = 3   // round 4+ (draw-extended matches) reuse round 3's tier
 const HARD_ROUND_CAP = 5   // safety valve so an all-draws match still terminates
+// Coin reward for winning a round decisively (not on draws) — no bonus for
+// round 1, since it can't decide the match on its own; escalates for rounds
+// 2-3, which matter more (round 2 can already close out the match, round 3
+// is always the decider). Round 4+ (draw-extended matches) reuse round 3's.
+const ROUND_WIN_BONUS_BY_ROUND = { 1: 5, 2: 8, 3: 10 }
 
 function emptyCarryOver() {
   return {
@@ -119,7 +124,8 @@ function buildCarryOver(gameState) {
 // and coins) or ends the match.
 export function applyRoundResult(match, result) {
   const scores = { ...match.scores }
-  if (['checkmate', 'elimination', 'move_limit', 'no_moves', 'surrender'].includes(result.type)) scores[result.winner] += 1
+  const decisive = ['checkmate', 'elimination', 'move_limit', 'no_moves', 'surrender'].includes(result.type)
+  if (decisive) scores[result.winner] += 1
   // stalemate / draw: no score change, round is replayed via the next round
 
   const matchDecided = scores.white >= ROUNDS_TO_WIN || scores.black >= ROUNDS_TO_WIN
@@ -128,6 +134,7 @@ export function applyRoundResult(match, result) {
   }
 
   const carryOverRaw = buildCarryOver(match.gameState)
+  if (decisive) carryOverRaw[result.winner].coins += ROUND_WIN_BONUS_BY_ROUND[Math.min(match.round, MAX_POOL_ROUND)]
   // Sides swap every round — whoever was black is white next round and vice
   // versa (see rooms.js, which swaps the matching sockets in lockstep) — so
   // both the running score AND the carried-over army must swap color keys
