@@ -49,7 +49,7 @@ describe('tryPlayCard: cards no longer end the turn', () => {
     const moveRes = tryMove(cardRes.gameState, 'white', 'b1', 'b2') // ends white's turn
     expect(moveRes.gameState.cardPlayedThisTurn).toBe(false)
 
-    const blackCard = tryPlayCard(moveRes.gameState, 'black', 'freeze', 'b2')
+    const blackCard = tryPlayCard(moveRes.gameState, 'black', 'freeze', 'd4') // any empty square — freeze is now a mine
     expect(blackCard.error).toBeUndefined()
     expect(blackCard.gameState.turn).toBe('black') // still black's turn, they can now move too
   })

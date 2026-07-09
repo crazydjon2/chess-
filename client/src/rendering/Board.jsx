@@ -14,7 +14,7 @@ function findKingSquare(pieces, color) {
   ) ?? null
 }
 
-export default function Board({ gameState, skin = 'default', playerColor = 'white', onMove, onPlayCard, boardMode, dispatch, lastMoveAnim, meteorStrikeAnim, flipped = false }) {
+export default function Board({ gameState, skin = 'default', playerColor = 'white', onMove, onPlayCard, boardMode, dispatch, lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false }) {
   const { rows, cols } = gameState.board.size
   const width  = cols * CELL
   const height = rows * CELL
@@ -119,6 +119,7 @@ export default function Board({ gameState, skin = 'default', playerColor = 'whit
                 cellSize={CELL}
                 lastMoveAnim={lastMoveAnim}
                 meteorStrikeAnim={meteorStrikeAnim}
+                mineStrikeAnim={mineStrikeAnim}
                 flipped={flipped}
               />
               <HitLayer

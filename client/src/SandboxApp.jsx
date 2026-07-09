@@ -1,6 +1,7 @@
 import { useState, useReducer, useCallback } from 'react'
 import GameView from './rendering/GameView'
 import PromotionPicker from './rendering/PromotionPicker'
+import NecromancyPicker from './rendering/NecromancyPicker'
 import { createDraftRoundState } from './game/initialState'
 import { CARD_DEFS, getValidTargets } from './game/cards'
 import { isKingInCheck, needsPromotion } from './game/chess'
@@ -40,7 +41,7 @@ function freshSandboxState() {
     },
     ALL_CARD_IDS, ALL_CARD_IDS,
     { white: 40, black: 40 },
-    null, // no move limit — testing shouldn't get cut off mid-poke
+    null, // untimed — testing shouldn't get cut off mid-poke
   )
 }
 
@@ -58,7 +59,9 @@ export default function SandboxApp({ onExit }) {
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
   const [actionToast, setActionToast] = useState(null)
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null)
+  const [mineStrikeAnim, setMineStrikeAnim] = useState(null)
   const [pendingPromotion, setPendingPromotion] = useState(null)
+  const [pendingNecromancy, setPendingNecromancy] = useState(null)
 
   const flashError = useCallback((msg) => {
     setErrorMsg(msg)
@@ -84,6 +87,10 @@ export default function SandboxApp({ onExit }) {
       setMeteorStrikeAnim({ strikes: res.meteorStrikes, ts: Date.now() })
       setTimeout(() => setMeteorStrikeAnim(null), 900)
     }
+    if (res.mineStrike) {
+      setMineStrikeAnim({ strike: res.mineStrike, ts: Date.now() })
+      setTimeout(() => setMineStrikeAnim(null), 900)
+    }
     if (res.result) setGameResult(res.result)
   }
 
@@ -93,7 +100,9 @@ export default function SandboxApp({ onExit }) {
     setLastMoveAnim(null)
     setActionToast(null)
     setMeteorStrikeAnim(null)
+    setMineStrikeAnim(null)
     setPendingPromotion(null)
+    setPendingNecromancy(null)
     dispatch({ type: 'CANCEL' })
   }
 
@@ -127,6 +136,11 @@ export default function SandboxApp({ onExit }) {
 
   function handleCardSelect(card) {
     if (gameOver || cardsLocked) return
+    if (card.id === 'necromancy') {
+      const options = getValidTargets('necromancy', gameState, myColor)
+      setPendingNecromancy({ card, options })
+      return
+    }
     if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
       dispatch({ type: 'CANCEL' })
       return
@@ -138,6 +152,16 @@ export default function SandboxApp({ onExit }) {
   function handlePlayCard({ card, target }) {
     if (gameOver || cardsLocked) return
     applyResult(tryPlayCard(gameState, myColor, card.id, target))
+  }
+
+  function handleNecromancyPick(pieceType) {
+    if (!pendingNecromancy) return
+    handlePlayCard({ card: pendingNecromancy.card, target: pieceType })
+    setPendingNecromancy(null)
+  }
+
+  function handleNecromancyCancel() {
+    setPendingNecromancy(null)
   }
 
   function handleBackgroundClick(e) {
@@ -159,6 +183,14 @@ export default function SandboxApp({ onExit }) {
           onCancel={handlePromotionCancel}
         />
       )}
+      {pendingNecromancy && (
+        <NecromancyPicker
+          color={myColor}
+          options={pendingNecromancy.options}
+          onPick={handleNecromancyPick}
+          onCancel={handleNecromancyCancel}
+        />
+      )}
 
       <GameView
         gameState={gameState}
@@ -167,6 +199,7 @@ export default function SandboxApp({ onExit }) {
         lastMoveAnim={lastMoveAnim}
         actionToast={actionToast}
         meteorStrikeAnim={meteorStrikeAnim}
+        mineStrikeAnim={mineStrikeAnim}
         boardFlipped={false}
         boardPlayerColor={gameOver ? 'none' : myColor}
         onMove={handleMove}

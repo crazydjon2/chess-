@@ -27,40 +27,72 @@ describe('add_cell on a blocked map hole', () => {
   })
 })
 
-describe('rollback targeting', () => {
-  it('is offered for a piece\'s very first move this round (moved at least once is enough)', () => {
+describe('freeze (mine) targeting', () => {
+  it('offers only empty squares — not occupied ones', () => {
     const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
-    const gs0 = createDraftRoundState(
+    const gs = createDraftRoundState(
       boardPattern,
-      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], ['rollback'], null, null,
+      [], [], null, null,
     )
-    const gs = {
-      ...gs0,
-      pieces: { a2: { type: 'pawn', color: 'white', hp: 1 }, f6: gs0.pieces.f6 },
-      moveHistory: [{ from: 'a1', to: 'a2', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null }],
-    }
-    expect(getValidTargets('rollback', gs, 'black')).toEqual(['a2'])
+    const targets = getValidTargets('freeze', gs, 'white')
+    expect(targets).toContain('a1') // empty
+    expect(targets).not.toContain('b2') // own piece
+    expect(targets).not.toContain('f6') // enemy piece
   })
 
-  it('is offered for a later move too (undoes just the latest step)', () => {
+  it('excludes a square that already has a mine on it', () => {
+    const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
+    let gs = createDraftRoundState(
+      boardPattern,
+      { b2: { type: 'pawn', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    gs = applyCardEffect('freeze', gs, 'c3', 'white')
+    expect(getValidTargets('freeze', gs, 'black')).not.toContain('c3')
+  })
+})
+
+describe('necromancy targeting', () => {
+  // Each entry: a WHITE piece's move captured a BLACK piece of `type` — a
+  // trophy white can revive, not a piece white lost.
+  function stateWithCaptures(types) {
     const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
     const gs0 = createDraftRoundState(
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], ['rollback'], null, null,
+      [], [], null, null,
     )
-    const gs = {
-      ...gs0,
-      pieces: { a3: { type: 'pawn', color: 'white', hp: 1 }, f6: gs0.pieces.f6 },
-      moveHistory: [
-        { from: 'a1', to: 'a2', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null },
-        { from: 'a2', to: 'a3', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null },
-      ],
+    const moveHistory = types.map((type, i) => ({
+      from: `b${i + 1}`, to: `c${i + 1}`,
+      piece: { type: 'pawn', color: 'white', hp: 1 },
+      captured: { type, color: 'black', hp: 1 },
+    }))
+    return { ...gs0, moveHistory }
+  }
+
+  it('offers each distinct captured piece type once', () => {
+    const gs = stateWithCaptures(['knight', 'knight', 'rook'])
+    expect(getValidTargets('necromancy', gs, 'white').sort()).toEqual(['knight', 'rook'])
+  })
+
+  it('offers nothing when nothing of yours has been captured', () => {
+    const gs = stateWithCaptures([])
+    expect(getValidTargets('necromancy', gs, 'white')).toEqual([])
+  })
+
+  it('offers nothing once there\'s no empty home-rank square left', () => {
+    const gs0 = stateWithCaptures(['knight'])
+    const pieces = { ...gs0.pieces }
+    for (const col of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      pieces[`${col}1`] = { type: 'pawn', color: 'white', hp: 1 }
+      pieces[`${col}2`] = { type: 'pawn', color: 'white', hp: 1 }
     }
-    expect(getValidTargets('rollback', gs, 'black')).toEqual(['a3'])
+    const gs = { ...gs0, pieces }
+    expect(getValidTargets('necromancy', gs, 'white')).toEqual([])
   })
 })
 
@@ -96,5 +128,37 @@ describe('meteor targeting', () => {
     expect(targets).toContain('f6') // enemy piece
     expect(targets).toContain('a1') // empty square
     expect(targets).toContain('c3') // blocked hole (a legal but wasted cast)
+  })
+})
+
+describe('unstable targeting', () => {
+  it('offers own and enemy pieces, but not empty squares, kings, or barricades', () => {
+    const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
+    const gs = createDraftRoundState(
+      boardPattern,
+      { b2: { type: 'pawn', color: 'white', hp: 1 }, a1: { type: 'king', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      ['unstable'], [], null, null,
+    )
+    const s = { ...gs, pieces: { ...gs.pieces, c3: { type: 'barricade', color: 'neutral', hp: 2 } } }
+
+    const targets = getValidTargets('unstable', s, 'white')
+    expect(targets).toContain('b2') // own piece
+    expect(targets).toContain('f6') // enemy piece
+    expect(targets).not.toContain('a1') // king
+    expect(targets).not.toContain('c3') // barricade
+    expect(targets).not.toContain('d4') // empty square
+  })
+
+  it('excludes a piece that is already unstable', () => {
+    const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
+    let gs = createDraftRoundState(
+      boardPattern,
+      { b2: { type: 'pawn', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      ['unstable'], [], null, null,
+    )
+    gs = applyCardEffect('unstable', gs, 'f6', 'white')
+    expect(getValidTargets('unstable', gs, 'white')).not.toContain('f6')
   })
 })

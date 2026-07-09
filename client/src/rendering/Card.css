@@ -1,7 +1,7 @@
 .card {
   position: relative;
   width: 78px;
-  height: 112px;
+  height: 82px;
   border-radius: 10px;
   background: linear-gradient(170deg, #2e1f0f 0%, #160e04 100%);
   border: 1.5px solid color-mix(in srgb, var(--accent) 38%, transparent);
@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   padding: 10px 6px 8px;
   gap: 4px;
   user-select: none;
@@ -102,11 +102,73 @@
   padding: 0 2px;
 }
 
-.card-desc {
-  font-size: 7px;
-  color: rgba(180, 135, 80, 0.68);
-  text-align: center;
-  line-height: 1.4;
-  white-space: pre-line;
-  padding: 0 2px;
+/* ── "?" info button + its tooltip ───────────────────────────────── */
+.card-help-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(230, 210, 180, 0.85);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  z-index: 2;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.card-help-btn:hover,
+.card-help-btn:focus-visible {
+  background: color-mix(in srgb, var(--accent) 35%, rgba(0, 0, 0, 0.35));
+  border-color: var(--accent);
+  outline: none;
+}
+
+.card-tooltip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 190px;
+  background: #1a1410;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  padding: 9px 11px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(225, 210, 190, 0.95);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+
+.card-help-btn:hover .card-tooltip,
+.card-help-btn:focus-visible .card-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.card-tooltip-name {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 4px;
 }

@@ -1,10 +1,12 @@
 import OpponentHand from './OpponentHand'
+import Clock from './Clock'
 import { PIECE_GLYPHS, CAPTURE_ORDER } from '../game/economy'
 
 export default function PlayerPanel({
   color, capturedByMe, active, inCheck, isYou,
   opponentCards, selectedCardId, onCardClick,
   coins,
+  timeSeconds, turnStartedAt, ticking,
   characterName,
   onSurrender,
   // `active` is purely visual (turn highlight/dot). `controllable` gates
@@ -40,10 +42,11 @@ export default function PlayerPanel({
         </div>
       </div>
       {coins != null && (
-        <span className="coin-badge" title="Перейдёт в бюджет следующего драфта">
+        <span className="coin-badge" title="Стоимость срубленных фигур в этом раунде">
           🪙 {coins}
         </span>
       )}
+      <Clock baseSeconds={timeSeconds} turnStartedAt={turnStartedAt} ticking={ticking} />
       {opponentCards && (
         <OpponentHand
           cards={opponentCards}

@@ -182,7 +182,14 @@
 }
 
 /* ── Ready / waiting ──────────────────────────────────────────────── */
+/* Sticky (page-level scroll here, no card to dock a bar against — see
+   DraftPhase.css's .draft-pass-btn.confirm for the same treatment) so the
+   ready button is always reachable, even with a big board pushing content
+   below the fold on smaller screens. */
 .placement-ready-btn {
+  position: sticky;
+  bottom: 14px;
+  z-index: 40;
   margin-top: 8px;
   background: linear-gradient(135deg, #8a6228, #5c3e14);
   color: #f0d9b5;
@@ -192,6 +199,7 @@
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.65);
 }
 
 .placement-ready-btn:disabled {

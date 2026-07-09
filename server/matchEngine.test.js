@@ -1,53 +1,53 @@
 import { describe, it, expect } from 'vitest'
-import { startRound, applyRoundResult, tryDraftPick } from './matchEngine.js'
-import { getCurrentPicker } from '../client/src/game/draftEngine.js'
-import { shopPieceCost } from '../client/src/game/economy.js'
-import { CARD_DEFS } from '../client/src/game/cards.js'
+import { startRound, applyRoundResult, tryDraftBan, tryDraftBuy } from './matchEngine.js'
+import { BUDGET_BY_ROUND } from '../client/src/game/draftPools.js'
 
 function matchWithGameState(gameState) {
   const match = startRound({ white: 0, black: 0 }, 1, 'white', null)
   return { ...match, phase: 'battle', gameState }
 }
 
-describe('tryDraftPick — leftover draft budget becomes starting battle coins', () => {
+function passBans(match) {
+  const round1 = tryDraftBan(match, 'white', [{ kind: 'piece', pieceType: 'knight' }])
+  const round2 = tryDraftBan(round1.match, 'black', [{ kind: 'piece', pieceType: 'knight' }])
+  return round2.match
+}
+
+describe('draft ban/buy — leftover budget becomes starting battle coins', () => {
+  it('rejects a buy submission before both sides have banned', () => {
+    const match = startRound({ white: 0, black: 0 }, 1, 'white', null)
+    const res = tryDraftBuy(match, 'white', [])
+    expect(res.error).toBeTruthy()
+  })
+
   it('adds each color\'s unspent budget to carryOver.coins once the draft completes', () => {
-    let match = startRound({ white: 0, black: 0 }, 1, 'white', null)
+    let match = passBans(startRound({ white: 0, black: 0 }, 1, 'white', null))
     const budget = match.draft.budgets.white
     expect(match.draft.budgets.black).toBe(budget) // identical starting budgets
 
-    // Pass every one of the 10 turns — nothing spent, so the whole budget
-    // should carry over as coins for both sides.
-    for (let i = 0; i < 10; i++) {
-      const picker = getCurrentPicker(match.draft)
-      const res = tryDraftPick(match, picker, { kind: 'pass' })
-      expect(res.error).toBeUndefined()
-      match = res.match
-    }
+    // Buy nothing — the whole budget should carry over as coins for both sides.
+    match = tryDraftBuy(match, 'white', []).match
+    const res = tryDraftBuy(match, 'black', [])
+    expect(res.error).toBeUndefined()
+    match = res.match
 
     expect(match.phase).toBe('placement')
     expect(match.carryOver.white.coins).toBe(budget)
     expect(match.carryOver.black.coins).toBe(budget)
   })
 
-  // There's only ever one running pot of money across the whole match — the
-  // draft doesn't get a separate currency, it folds in whatever's carried
-  // over from last round's battle from the very start (see
-  // draftEngine.js's createDraftState), spendable during the draft itself.
-  it('folds existing carryOver coins into the draft budget itself, not as a later addition', () => {
+  // Coins never persist between rounds — every round's budget is always
+  // the same flat BUDGET_BY_ROUND, regardless of how much either side had
+  // banked (or even spent) in a previous round. Only the surviving army
+  // (pieces/cards) carries forward — see buildCarryOver in matchEngine.js.
+  it('ignores any leftover carryOver.coins from a previous round — every round\'s budget is the flat constant', () => {
     const carryOver = {
       white: { pieces: [], cards: [], coins: 15 },
       black: { pieces: [], cards: [], coins: 7 },
     }
     const match = startRound({ white: 0, black: 0 }, 1, 'white', carryOver)
-    const { pool, budgets } = match.draft
-
-    const pieceTypes = Object.keys(pool.pieces).filter(t => pool.pieces[t] > 0)
-    const pieceMax = pieceTypes.length > 0 ? Math.max(...pieceTypes.map(shopPieceCost)) : 0
-    const cardMax   = pool.cards.length > 0 ? Math.max(...pool.cards.map(id => CARD_DEFS[id].cost)) : 0
-    const allotment = Math.round(Math.max(pieceMax, cardMax) * 2.2) // round 1 multiplier
-
-    expect(budgets.white).toBe(allotment + 15)
-    expect(budgets.black).toBe(allotment + 7)
+    expect(match.draft.budgets.white).toBe(BUDGET_BY_ROUND[1])
+    expect(match.draft.budgets.black).toBe(BUDGET_BY_ROUND[1])
   })
 })
 
@@ -71,11 +71,11 @@ describe('applyRoundResult', () => {
 
     expect(next.phase).toBe('draft')
     expect(next.previousRound).toBe(1)
-    // White's army/win follow the same player, who is now black. Coins
-    // include round 1's ROUND_WIN_BONUS_BY_ROUND (5) on top of what was on
-    // the board (4 + 5 = 9) — the loser gets no bonus.
-    expect(next.carryOver.black).toEqual({ pieces: ['rook', 'pawn'], cards: ['freeze'], coins: 9 })
-    expect(next.carryOver.white).toEqual({ pieces: [], cards: [], coins: 1 })
+    // White's army/win follow the same player, who is now black. Coins are
+    // always reset to 0 in carry-over — they don't persist between rounds
+    // at all any more (see buildCarryOver).
+    expect(next.carryOver.black).toEqual({ pieces: ['rook', 'pawn'], cards: ['freeze'], coins: 0 })
+    expect(next.carryOver.white).toEqual({ pieces: [], cards: [], coins: 0 })
     expect(next.scores).toEqual({ white: 0, black: 1 })
     // The finished round's own board is otherwise lost the moment the next
     // round's (null) gameState replaces it — keep it around so the round
@@ -91,36 +91,17 @@ describe('applyRoundResult', () => {
       },
       cards: {
         white: { hand: [{ id: 'freeze' }], used: [] },
-        black: { hand: [{ id: 'rollback' }], used: [] },
+        black: { hand: [{ id: 'meteor' }], used: [] },
       },
       coins: { white: 4, black: 7 },
     })
     const next = applyRoundResult(match, { type: 'surrender', winner: 'black', loser: 'white' })
 
     expect(next.scores).toEqual({ white: 1, black: 0 })
-    // black won this round, so black's 7 coins get round 1's +5
-    // ROUND_WIN_BONUS_BY_ROUND before reattaching under white's key next
-    // round.
-    expect(next.carryOver.white).toEqual({ pieces: ['queen'], cards: ['rollback'], coins: 12 })
-    expect(next.carryOver.black).toEqual({ pieces: ['rook'], cards: ['freeze'], coins: 4 })
-  })
-
-  it('escalates the round-win coin bonus for later rounds', () => {
-    const match2 = { ...matchWithGameState({
-      pieces: {},
-      cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
-    }), round: 2 }
-    const next2 = applyRoundResult(match2, { type: 'elimination', winner: 'white' })
-    expect(next2.carryOver.black.coins).toBe(8) // reattached to black post-swap
-
-    const match3 = { ...matchWithGameState({
-      pieces: {},
-      cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
-    }), round: 3 } // scores stay 0-0 -> 1-0, undecided, so applyRoundResult still starts a next round
-    const next3 = applyRoundResult(match3, { type: 'elimination', winner: 'white' })
-    expect(next3.carryOver.black.coins).toBe(10)
+    // Coins are always reset to 0 in carry-over, regardless of how much
+    // either side had banked mid-battle or who won the round.
+    expect(next.carryOver.white).toEqual({ pieces: ['queen'], cards: ['meteor'], coins: 0 })
+    expect(next.carryOver.black).toEqual({ pieces: ['rook'], cards: ['freeze'], coins: 0 })
   })
 
   it('excludes barricades from carry-over (neutral battlefield objects, not owned army)', () => {

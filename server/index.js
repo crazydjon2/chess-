@@ -6,7 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import {
   createRoom, joinRoom, getRoomByCode, bothConnected, startMatch,
-  handleDraftPick, handlePlacement,
+  handleDraftBan, handleDraftBuy, handlePlacement,
   handleMove, handlePlayCard, handleSurrender,
   leaveRoom, handleDisconnect,
 } from './rooms.js'
@@ -56,7 +56,8 @@ io.on('connection', (socket) => {
     if (room && bothConnected(room)) startMatch(io, room)
   })
 
-  socket.on('draft_pick', (payload) => handleDraftPick(io, socket, payload))
+  socket.on('draft_ban', (payload) => handleDraftBan(io, socket, payload))
+  socket.on('draft_buy', (payload) => handleDraftBuy(io, socket, payload))
   socket.on('submit_placement', ({ map } = {}) => handlePlacement(io, socket, map))
 
   socket.on('move', (payload) => handleMove(io, socket, payload))

@@ -57,6 +57,58 @@
   100% { transform: scale(1); opacity: 0; }
 }
 
+/* ── Freeze mine (caster's own — a slow ambient pulse, since it's a
+   passive trap sitting in wait, not an urgent incoming threat) ──────── */
+.mine-marker {
+  animation: mine-pulse 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes mine-pulse {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+
+/* ── Mine impact (the moment it's triggered — both players see this) ── */
+.mine-impact-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mine-ring 0.7s ease-out forwards;
+}
+
+@keyframes mine-ring {
+  0%   { transform: scale(0.3); opacity: 1; stroke-width: 6; }
+  100% { transform: scale(3.2); opacity: 0; stroke-width: 0.5; }
+}
+
+.mine-impact-glyph {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mine-glyph 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mine-glyph {
+  0%   { transform: scale(0.2); opacity: 0; }
+  35%  { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* ── Unstable piece (shapeshifting card) — a shimmering hue-cycle so the
+   piece reads as "not really itself" without obscuring which type it
+   currently is ──────────────────────────────────────────────────────── */
+.piece-unstable {
+  animation: unstable-shimmer 1.6s linear infinite;
+}
+
+@keyframes unstable-shimmer {
+  0%   { filter: hue-rotate(0deg)   drop-shadow(0 0 4px rgba(200,120,255,0.65)); }
+  50%  { filter: hue-rotate(180deg) drop-shadow(0 0 8px rgba(200,120,255,0.95)); }
+  100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(200,120,255,0.65)); }
+}
+
+.unstable-badge {
+  animation: mine-pulse 1.4s ease-in-out infinite alternate;
+}
+
 /* ── Piece base ───────────────────────────────────────────────────── */
 .piece-g {
   transform-box: fill-box;

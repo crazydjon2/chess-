@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { createRoom, joinRoom, getRoomByCode, handlePlayCard, handlePlacement, handleDraftPick, handleMove, handleSurrender } from './rooms.js'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createRoom, joinRoom, getRoomByCode, handlePlayCard, handlePlacement, handleDraftBan, handleDraftBuy, handleMove, handleSurrender } from './rooms.js'
 import { getCaptured } from '../client/src/game/economy.js'
 
 function makeSocket(id) {
@@ -163,11 +163,131 @@ describe('meteor redaction (viewFor + lastAction)', () => {
   })
 })
 
-describe('handleDraftPick with a missing/malformed payload', () => {
-  it('does not throw when the payload is entirely missing (e.g. socket.emit(\'draft_pick\') with no args)', () => {
+describe('freeze mine redaction (viewFor + lastAction)', () => {
+  function setup() {
+    const ctx = makeRoom()
+    ctx.room.match = {
+      phase: 'battle',
+      gameState: {
+        board: { size: { rows: 6, cols: 6 }, blockedCells: [], extraCells: [] },
+        pieces: {
+          b2: { type: 'pawn', color: 'white', hp: 1 },
+          f6: { type: 'pawn', color: 'black', hp: 1 },
+        },
+        cards: {
+          white: { hand: [{ id: 'freeze' }], used: [] },
+          black: { hand: [], used: [] },
+        },
+        coins: { white: 0, black: 0 },
+        turn: 'white',
+        cardPlayedThisTurn: false,
+        halfMoveClock: 0,
+        moveHistory: [],
+        fogZones: [],
+        meteors: [],
+        mines: [],
+        eliminationMode: true,
+      },
+    }
+    return ctx
+  }
+
+  it('hides the mine square from the opponent, but not from the caster', () => {
+    const { io, emits, socketWhite } = setup()
+    handlePlayCard(io, socketWhite, { cardId: 'freeze', target: 'c3' })
+
+    const whiteView = lastView(emits, 'sock-white').gameState
+    const blackView = lastView(emits, 'sock-black').gameState
+
+    expect(whiteView.mines).toEqual([{ owner: 'white', square: 'c3' }])
+    expect(blackView.mines).toEqual([{ owner: 'white', hidden: true }])
+  })
+
+  it('redacts the target from the action broadcast too', () => {
+    const { io, emits, socketWhite } = setup()
+    handlePlayCard(io, socketWhite, { cardId: 'freeze', target: 'c3' })
+
+    const whiteLastAction = emits['sock-white'].at(-1).payload.lastAction
+    const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
+
+    expect(whiteLastAction).toEqual({ type: 'card', cardId: 'freeze', target: 'c3', color: 'white' })
+    expect(blackLastAction).toEqual({ type: 'card', color: 'white', hidden: true })
+  })
+
+  it('broadcasts a trigger unredacted to BOTH players once the opponent steps on it', () => {
+    const { io, emits, socketBlack, room } = setup()
+    room.match.gameState.turn = 'black'
+    room.match.gameState.mines = [{ owner: 'white', square: 'f5' }]
+
+    handleMove(io, socketBlack, { from: 'f6', to: 'f5' })
+
+    const expectedStrike = { square: 'f5', owner: 'white' }
+    expect(emits['sock-white'].at(-1).payload.mineStrike).toEqual(expectedStrike)
+    expect(emits['sock-black'].at(-1).payload.mineStrike).toEqual(expectedStrike)
+
+    const blackView = lastView(emits, 'sock-black').gameState
+    expect(blackView.pieces.f5).toEqual({ type: 'pawn', color: 'black', hp: 1, frozen: 1 })
+    expect(blackView.mines).toEqual([])
+  })
+})
+
+describe('handleDraftBan/handleDraftBuy with a missing/malformed payload', () => {
+  it('does not throw when the ban payload is entirely missing (e.g. socket.emit(\'draft_ban\') with no args)', () => {
     const { io, socketWhite, room } = makeRoom()
-    room.match = { phase: 'draft', draft: { round: 1, firstColor: 'white', secondColor: 'black', pool: { pieces: {}, cards: [] }, turnIndex: 0, budgets: { white: 0, black: 0 }, picks: { white: { pieces: [], cards: [] }, black: { pieces: [], cards: [] } } } }
-    expect(() => handleDraftPick(io, socketWhite, undefined)).not.toThrow()
+    room.match = { phase: 'draft', draft: { round: 1, firstColor: 'white', secondColor: 'black', phase: 'ban', banCount: 1, bans: { white: null, black: null }, budgets: { white: 0, black: 0 }, picks: { white: null, black: null } } }
+    expect(() => handleDraftBan(io, socketWhite, undefined)).not.toThrow()
+  })
+
+  it('does not throw when the buy payload is entirely missing (e.g. socket.emit(\'draft_buy\') with no args)', () => {
+    const { io, socketWhite, room } = makeRoom()
+    room.match = { phase: 'draft', draft: { round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', banCount: 1, bans: { white: [], black: [] }, budgets: { white: 0, black: 0 }, picks: { white: null, black: null } } }
+    expect(() => handleDraftBuy(io, socketWhite, undefined)).not.toThrow()
+  })
+})
+
+describe('draft-phase redaction (viewFor)', () => {
+  it('hides the opponent\'s ban targets until both sides have submitted', () => {
+    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
+    room.match = {
+      phase: 'draft',
+      round: 1,
+      draft: {
+        round: 1, firstColor: 'white', secondColor: 'black', phase: 'ban', banCount: 1,
+        bans: { white: null, black: null },
+        budgets: { white: 20, black: 20 },
+        picks: { white: null, black: null },
+      },
+    }
+    handleDraftBan(io, socketWhite, [{ kind: 'piece', pieceType: 'queen' }])
+    const blackSees = lastView(emits, 'sock-black').draft
+    expect(blackSees.bans.white).toBeNull() // white's ban is hidden from black until black also submits
+    const whiteSees = lastView(emits, 'sock-white').draft
+    expect(whiteSees.bans.white).toEqual([{ kind: 'piece', pieceType: 'queen' }]) // you always see your own ban
+
+    handleDraftBan(io, socketBlack, [{ kind: 'piece', pieceType: 'rook' }])
+    const blackSeesNow = lastView(emits, 'sock-black').draft
+    expect(blackSeesNow.bans.white).toEqual([{ kind: 'piece', pieceType: 'queen' }]) // revealed once both submitted
+  })
+
+  it('hides the opponent\'s cart for the whole draft phase, even after both have bought', () => {
+    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
+    room.match = {
+      phase: 'draft',
+      round: 1,
+      draft: {
+        round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', banCount: 1,
+        bans: { white: [{ kind: 'piece', pieceType: 'knight' }], black: [{ kind: 'piece', pieceType: 'rook' }] },
+        budgets: { white: 20, black: 20 },
+        picks: { white: null, black: null },
+      },
+    }
+    handleDraftBuy(io, socketWhite, [{ kind: 'piece', pieceType: 'pawn' }])
+    // Check the broadcast right after white's own buy, while the match was
+    // still mid-draft (black hasn't bought yet) — black's cart must be
+    // hidden from white even though it's white's own view.
+    const whiteFirstView = emits['sock-white'][0].payload.match
+    expect(whiteFirstView.draft.picks.black).toBeNull()
+    expect(whiteFirstView.draft.picks.white).toEqual({ pieces: ['pawn'], cards: [] })
   })
 })
 
@@ -287,7 +407,7 @@ describe('lastAction redaction for fog-hidden actions', () => {
           b1: { type: 'pawn', color: 'white', hp: 1 },
           f6: { type: 'pawn', color: 'black', hp: 1 },
         },
-        cards: { white: { hand: [{ id: 'hp_boost' }], used: [] }, black: { hand: [], used: [] } },
+        cards: { white: { hand: [{ id: 'barricade' }], used: [] }, black: { hand: [], used: [] } },
         coins: { white: 20, black: 20 },
         turn: 'white',
         cardPlayedThisTurn: false,
@@ -298,12 +418,12 @@ describe('lastAction redaction for fog-hidden actions', () => {
       },
     }
 
-    handlePlayCard(io, socketWhite, { cardId: 'hp_boost', target: 'b1' })
+    handlePlayCard(io, socketWhite, { cardId: 'barricade', target: 'c1' })
 
     const whiteLastAction = emits['sock-white'].at(-1).payload.lastAction
     const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
 
-    expect(whiteLastAction).toEqual({ type: 'card', cardId: 'hp_boost', target: 'b1', color: 'white' })
+    expect(whiteLastAction).toEqual({ type: 'card', cardId: 'barricade', target: 'c1', color: 'white' })
     expect(blackLastAction).toEqual({ type: 'card', color: 'white', hidden: true })
   })
 
@@ -317,7 +437,7 @@ describe('lastAction redaction for fog-hidden actions', () => {
           b1: { type: 'pawn', color: 'white', hp: 1 },
           f6: { type: 'pawn', color: 'black', hp: 1 },
         },
-        cards: { white: { hand: [{ id: 'hp_boost' }], used: [] }, black: { hand: [], used: [] } },
+        cards: { white: { hand: [{ id: 'barricade' }], used: [] }, black: { hand: [], used: [] } },
         coins: { white: 20, black: 20 },
         turn: 'white',
         cardPlayedThisTurn: false,
@@ -328,9 +448,9 @@ describe('lastAction redaction for fog-hidden actions', () => {
       },
     }
 
-    handlePlayCard(io, socketWhite, { cardId: 'hp_boost', target: 'b1' })
+    handlePlayCard(io, socketWhite, { cardId: 'barricade', target: 'c1' })
     const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
-    expect(blackLastAction).toEqual({ type: 'card', cardId: 'hp_boost', target: 'b1', color: 'white' })
+    expect(blackLastAction).toEqual({ type: 'card', cardId: 'barricade', target: 'c1', color: 'white' })
   })
 })
 
@@ -353,5 +473,102 @@ describe('placement-phase redaction', () => {
     expect(blackSees.white).toEqual({ ready: true, map: null }) // ready flag visible, map hidden
     const whiteSees = lastView(emits, 'sock-white').placement
     expect(whiteSees.white.map).toEqual({ b1: 'pawn' }) // you always see your own placement
+  })
+})
+
+describe('AFK turn timeout', () => {
+  it('ends the round in the opponent\'s favor if the mover never acts before their clock runs out', () => {
+    vi.useFakeTimers()
+    try {
+      const now = Date.now()
+      const { io, emits, socketWhite, room } = makeRoom()
+      room.match = {
+        phase: 'battle',
+        round: 1,
+        scores: { white: 0, black: 0 },
+        draft: { firstColor: 'white' },
+        gameState: {
+          board: { size: { rows: 6, cols: 6 }, blockedCells: [], extraCells: [] },
+          pieces: {
+            a1: { type: 'pawn', color: 'white', hp: 1 },
+            a6: { type: 'pawn', color: 'black', hp: 1 },
+          },
+          cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+          coins: { white: 0, black: 0 },
+          turn: 'white',
+          cardPlayedThisTurn: false,
+          halfMoveClock: 0,
+          moveHistory: [],
+          fogZones: [], meteors: [], mines: [],
+          eliminationMode: true,
+          timers: { white: 5, black: 5 }, // 5-second clocks for a fast test
+          turnStartedAt: now,
+        },
+      }
+
+      // White's real move both charges white's clock and (via broadcastMatch
+      // -> syncTurnTimer) arms an AFK timer for black's now-current turn.
+      handleMove(io, socketWhite, { from: 'a1', to: 'a2' })
+      expect(room.match.gameState.turn).toBe('black')
+
+      // Black never moves — advance past their 5-second clock.
+      vi.advanceTimersByTime(5001)
+
+      expect(room.match.phase).toBe('draft') // round ended, next round's draft started
+      // White won the round — but sides swap for the next round (see
+      // matchEngine.js's applyRoundResult), so the win follows the same
+      // PHYSICAL player under their new label: the socket that was white
+      // is now black, carrying the win with it.
+      expect(room.match.scores).toEqual({ white: 0, black: 1 })
+      expect(emits['sock-white'].at(-1).payload.lastAction).toEqual({ type: 'timeout', color: 'black' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not fire if the mover acts before their clock runs out', () => {
+    vi.useFakeTimers()
+    try {
+      const now = Date.now()
+      const { io, emits, socketWhite, socketBlack, room } = makeRoom()
+      room.match = {
+        phase: 'battle',
+        round: 1,
+        scores: { white: 0, black: 0 },
+        draft: { firstColor: 'white' },
+        gameState: {
+          board: { size: { rows: 6, cols: 6 }, blockedCells: [], extraCells: [] },
+          pieces: {
+            a1: { type: 'pawn', color: 'white', hp: 1 },
+            a6: { type: 'pawn', color: 'black', hp: 1 },
+          },
+          cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+          coins: { white: 0, black: 0 },
+          turn: 'white',
+          cardPlayedThisTurn: false,
+          halfMoveClock: 0,
+          moveHistory: [],
+          fogZones: [], meteors: [], mines: [],
+          eliminationMode: true,
+          timers: { white: 5, black: 5 },
+          turnStartedAt: now,
+        },
+      }
+
+      handleMove(io, socketWhite, { from: 'a1', to: 'a2' }) // black's 5s timer arms
+      vi.advanceTimersByTime(2000)
+      handleMove(io, socketBlack, { from: 'a6', to: 'a5' })  // black acts well within time, re-arming for white
+
+      // Advance past what would have been BLACK's original deadline (5s
+      // from their turn start, i.e. now+5000) but still short of WHITE's
+      // fresh one (armed 2s in, so now+7000) — proves the stale timer was
+      // actually cleared, not just coincidentally not-yet-due.
+      vi.advanceTimersByTime(3900)
+
+      expect(room.match.phase).toBe('battle') // still the same round — no timeout fired
+      expect(emits['sock-white'].at(-1).payload.lastAction).toEqual({ type: 'move', from: 'a6', to: 'a5' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

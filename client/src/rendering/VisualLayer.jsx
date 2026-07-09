@@ -34,7 +34,7 @@ function frame(key, x, y, S, color, w = 3) {
   )
 }
 
-export default function VisualLayer({ gameState, highlights, skin, width, height, cellSize, lastMoveAnim, meteorStrikeAnim, flipped = false }) {
+export default function VisualLayer({ gameState, highlights, skin, width, height, cellSize, lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false }) {
   const { rows, cols } = gameState.board.size
   const { Component: PieceComponent, Defs } = getRenderer(skin)
 
@@ -192,6 +192,29 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
     )
   })
 
+  // ── Unstable pieces (see chess.js's tickUnstablePieces) — the shimmer
+  // itself is a CSS class on the piece <g> (piece-unstable, above); this is
+  // just the turns-remaining badge, same bottom-right-corner-circle
+  // treatment as the fog zone's badge so it reads consistently as "a timer".
+  const unstableOverlays = []
+  Object.entries(gameState.pieces).forEach(([square, piece]) => {
+    if (!piece.unstable) return
+    const col  = square.charCodeAt(0) - 97
+    const rank = parseInt(square.slice(1), 10)
+    const { x, y } = at(col, rank)
+    const bx = x + cellSize * 0.82
+    const by = y + cellSize * 0.82
+    unstableOverlays.push(
+      <g key={`un-${square}`} className="unstable-badge">
+        <circle cx={bx} cy={by} r={cellSize * 0.20}
+          fill="rgba(35,10,50,0.88)" stroke="rgba(210,150,255,0.9)" strokeWidth={1.5} />
+        <text x={bx} y={by + 1} textAnchor="middle" dominantBaseline="central"
+          fontSize={cellSize * 0.22} fontWeight="bold" fill="#eccfff"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}>{piece.unstable.turnsLeft}</text>
+      </g>
+    )
+  })
+
   // ── Smoke-screen fog zones ───────────────────────────────────────
   // The cloud itself is visible to both players — only the pieces inside
   // it are actually hidden, and that's already done server-side before this
@@ -292,6 +315,54 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
     )
   })
 
+  // ── Freeze mines (caster's own) ──────────────────────────────────
+  // Only ever the caster's own — the opponent's mines are redacted
+  // server-side to {owner, hidden:true} with no square at all (see
+  // rooms.js's redactMines), so there's nothing to draw for those here;
+  // they surface as a location-less warning elsewhere in the UI instead.
+  // A subtler ring than meteor's hard blink — this is a passive trap
+  // sitting in wait, not an incoming, actively-timed threat.
+  const mineOverlays = []
+  ;(gameState.mines ?? []).forEach((m, mi) => {
+    if (!m.square) return
+    const col  = m.square.charCodeAt(0) - 97
+    const rank = parseInt(m.square.slice(1), 10)
+    const { x, y } = at(col, rank)
+    const cx = x + cellSize / 2
+    const cy = y + cellSize / 2
+    mineOverlays.push(
+      <g key={`mine-${mi}`} className="mine-marker">
+        <circle cx={cx} cy={cy} r={cellSize * 0.14}
+          fill="rgba(90,170,230,0.18)" stroke="rgba(120,190,255,0.9)" strokeWidth={2} />
+        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="central"
+          fontSize={cellSize * 0.18} fill="rgba(160,215,255,0.95)"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}>❄</text>
+      </g>
+    )
+  })
+
+  // ── Mine trigger (the moment it's stepped on — both players see this) ──
+  // Driven by mineStrikeAnim, a transient un-redacted event both players
+  // get identically the instant a mine detonates (see rooms.js's
+  // broadcastMatch) — same "reveal on impact" treatment as meteorImpacts.
+  const mineImpacts = []
+  if (mineStrikeAnim?.strike) {
+    const s = mineStrikeAnim.strike
+    const col  = s.square.charCodeAt(0) - 97
+    const rank = parseInt(s.square.slice(1), 10)
+    const { x, y } = at(col, rank)
+    const cx = x + cellSize / 2
+    const cy = y + cellSize / 2
+    mineImpacts.push(
+      <g key={`mine-impact-${mineStrikeAnim.ts}`} className="mine-impact">
+        <circle className="mine-impact-ring" cx={cx} cy={cy} r={cellSize * 0.1}
+          fill="none" stroke="rgba(120,190,255,0.9)" strokeWidth={4} />
+        <text className="mine-impact-glyph" x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
+          fontSize={cellSize * 0.55} style={{ pointerEvents: 'none', userSelect: 'none' }}>❄</text>
+      </g>
+    )
+  }
+
   // ── Footprints + pieces ─────────────────────────────────────────
   const footprints = []
   const pieces     = []
@@ -347,9 +418,10 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
       <g key={animKey}
         className={
           'piece-g' +
-          (animClass     ? ` ${animClass}`  : '') +
-          (isSelected    ? ' piece-lifted'  : '') +
-          (isDragSource  ? ' piece-drag'    : '')
+          (animClass     ? ` ${animClass}`     : '') +
+          (isSelected    ? ' piece-lifted'     : '') +
+          (isDragSource  ? ' piece-drag'       : '') +
+          (piece.unstable ? ' piece-unstable'  : '')
         }
         style={animStyle}
       >
@@ -376,8 +448,11 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
       {footprints}
       {pieces}
       {frozenOverlays}
+      {unstableOverlays}
       {meteorOverlays}
       {meteorImpacts}
+      {mineOverlays}
+      {mineImpacts}
     </svg>
   )
 }

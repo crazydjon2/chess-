@@ -5,6 +5,7 @@ import DraftPhase from './rendering/DraftPhase'
 import PlacementPhase from './rendering/PlacementPhase'
 import RoundSummary from './rendering/RoundSummary'
 import PromotionPicker from './rendering/PromotionPicker'
+import NecromancyPicker from './rendering/NecromancyPicker'
 import ConfirmModal from './rendering/ConfirmModal'
 import { getSocket, connectSocket, disconnectSocket, request } from './net/socket'
 import { loadNickname, saveNickname } from './nickname'
@@ -19,7 +20,7 @@ const other = color => (color === 'white' ? 'black' : 'white')
 // hidden placement -> battle -> round result -> next round, best of 3.
 // The server is fully authoritative; this component just renders whatever
 // `match` phase the last `match_update` broadcast said we're in and sends
-// requests (draft_pick / submit_placement / move / play_card).
+// requests (draft_ban / draft_buy / submit_placement / move / play_card).
 export default function OnlineApp({ onExit }) {
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
@@ -32,8 +33,10 @@ export default function OnlineApp({ onExit }) {
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
   const [actionToast, setActionToast]   = useState(null)
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null) // { strikes: [{square, destroyed}], ts }
+  const [mineStrikeAnim, setMineStrikeAnim] = useState(null) // { strike: {square, owner}, ts }
   const [summarySeenFor, setSummarySeenFor] = useState(null) // last previousRound whose summary was dismissed
   const [pendingPromotion, setPendingPromotion] = useState(null) // { from, to } awaiting a piece choice
+  const [pendingNecromancy, setPendingNecromancy] = useState(null) // { card, options } awaiting which piece to revive
   const [surrenderConfirm, setSurrenderConfirm] = useState(false)
   const [nickname, setNickname] = useState(loadNickname)
 
@@ -52,7 +55,7 @@ export default function OnlineApp({ onExit }) {
 
     socket.on('room_update', (data) => setRoom(prev => (prev ? { ...prev, ...data } : prev)))
 
-    socket.on('match_update', ({ match: m, lastAction, meteorStrikes, ...roomInfo }) => {
+    socket.on('match_update', ({ match: m, lastAction, meteorStrikes, mineStrike, ...roomInfo }) => {
       setRoom(prev => (prev ? { ...prev, ...roomInfo } : prev))
       setMatch(m)
       dispatch({ type: 'CANCEL' })
@@ -74,6 +77,13 @@ export default function OnlineApp({ onExit }) {
       if (meteorStrikes && meteorStrikes.length > 0) {
         setMeteorStrikeAnim({ strikes: meteorStrikes, ts: Date.now() })
         setTimeout(() => setMeteorStrikeAnim(null), 900)
+      }
+      // Mine impacts are never secret either (unlike the square while still
+      // armed) — both players see the same reveal, at the same square, the
+      // instant it's stepped on.
+      if (mineStrike) {
+        setMineStrikeAnim({ strike: mineStrike, ts: Date.now() })
+        setTimeout(() => setMineStrikeAnim(null), 900)
       }
       setPhase('match')
     })
@@ -159,8 +169,6 @@ export default function OnlineApp({ onExit }) {
     return (
       <RoundSummary
         match={match}
-        myColor={myColor}
-        oppColor={oppColor}
         // Colors swap every round (see matchEngine.js) — during the round
         // that just ended, "my" pieces were whatever color I'm NOT playing
         // now, so the frozen board must be oriented/labeled accordingly.
@@ -170,7 +178,7 @@ export default function OnlineApp({ onExit }) {
     )
   }
 
-  // ── Draft phase (visible, alternating picks) ──────────────────────
+  // ── Draft phase (blind bans, then blind free-buy) ──────────────────
   if (match.phase === 'draft') {
     return (
       <DraftPhase
@@ -179,7 +187,8 @@ export default function OnlineApp({ onExit }) {
         draft={match.draft}
         carryOver={match.carryOver}
         myColor={myColor}
-        onPick={(choice) => getSocket().emit('draft_pick', choice)}
+        onBan={(targets) => getSocket().emit('draft_ban', targets)}
+        onBuy={(items) => getSocket().emit('draft_buy', items)}
       />
     )
   }
@@ -239,6 +248,14 @@ export default function OnlineApp({ onExit }) {
 
   function handleCardSelect(card) {
     if (match.phase !== 'battle' || !myTurn || cardsLocked) return
+    // Necromancy's real choice is WHICH captured piece to revive, not a
+    // board square (where it reappears is random) — so it skips the normal
+    // click-a-square flow entirely and opens its own picker instead.
+    if (card.id === 'necromancy') {
+      const options = getValidTargets('necromancy', gameState, myColor)
+      setPendingNecromancy({ card, options })
+      return
+    }
     if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
       dispatch({ type: 'CANCEL' })
       return
@@ -250,6 +267,16 @@ export default function OnlineApp({ onExit }) {
   function handlePlayCard({ card, target }) {
     if (match.phase !== 'battle' || !myTurn || cardsLocked) return
     getSocket().emit('play_card', { cardId: card.id, target })
+  }
+
+  function handleNecromancyPick(pieceType) {
+    if (!pendingNecromancy) return
+    handlePlayCard({ card: pendingNecromancy.card, target: pieceType })
+    setPendingNecromancy(null)
+  }
+
+  function handleNecromancyCancel() {
+    setPendingNecromancy(null)
   }
 
   function handleBackgroundClick(e) {
@@ -281,10 +308,18 @@ export default function OnlineApp({ onExit }) {
           onCancel={handlePromotionCancel}
         />
       )}
+      {pendingNecromancy && (
+        <NecromancyPicker
+          color={myColor}
+          options={pendingNecromancy.options}
+          onPick={handleNecromancyPick}
+          onCancel={handleNecromancyCancel}
+        />
+      )}
       {surrenderConfirm && (
         <ConfirmModal
           title="Сдаться?"
-          message="Вы проиграете этот раунд сопернику. Все ваши фигуры, карты и монеты сохранятся и перейдут в следующий раунд."
+          message="Вы проиграете этот раунд сопернику. Все ваши уцелевшие фигуры и неиспользованные карты сохранятся и перейдут в следующий раунд."
           confirmLabel="Сдаться"
           onConfirm={handleSurrenderConfirm}
           onCancel={() => setSurrenderConfirm(false)}
@@ -297,6 +332,7 @@ export default function OnlineApp({ onExit }) {
         lastMoveAnim={lastMoveAnim}
         actionToast={actionToast}
         meteorStrikeAnim={meteorStrikeAnim}
+        mineStrikeAnim={mineStrikeAnim}
         boardFlipped={myColor === 'black'}
         boardPlayerColor={myTurn ? myColor : 'none'}
         onMove={handleMove}

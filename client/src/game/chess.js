@@ -1,5 +1,5 @@
 // Chess logic: pseudo-legal generation → legal filtering (king safety) → game result
-import { PIECE_VALUE } from './economy.js'
+import { homeRanks } from './boardPatterns.js'
 
 function squareToPos(sq) {
   return { col: sq.charCodeAt(0) - 97, rank: parseInt(sq.slice(1)) }
@@ -33,6 +33,21 @@ export function getValidSquares(board) {
     }
   extraCells.forEach(sq => valid.add(sq))
   return valid
+}
+
+// Empty squares on `color`'s own two home ranks — same ranks hidden
+// placement uses at the start of a round. Used by necromancy (see
+// cardEffects.js) to pick a random square for a revived piece; obstacles
+// never touch home ranks by design (see boardPatterns.js), so this only
+// ever needs to check occupancy, not blocked cells.
+export function emptyHomeSquares(gameState, color) {
+  const { board, pieces } = gameState
+  const [lo, hi] = homeRanks(board.size.rows, color)
+  const validSquares = getValidSquares(board)
+  return [...validSquares].filter(sq => {
+    const rank = parseInt(sq.slice(1), 10)
+    return rank >= lo && rank <= hi && !pieces[sq]
+  })
 }
 
 const ROOK_DIRS    = [[0,1],[0,-1],[1,0],[-1,0]]
@@ -212,30 +227,6 @@ function isInsufficientMaterial(gameState) {
   return false
 }
 
-// "Капитал" — board material plus unspent coins. Coins are real value too
-// (they'd have bought more army given one more draft), so leaving them out
-// would let a side that cashed in captures for a war chest instead of
-// spending it look poorer than it actually is.
-function capitalValue(gameState, color) {
-  const pieces = Object.values(gameState.pieces)
-    .filter(p => p.color === color)
-    .reduce((sum, p) => sum + (PIECE_VALUE[p.type] || 0), 0)
-  return pieces + (gameState.coins?.[color] ?? 0)
-}
-
-// Whenever the game can't resolve itself by wiping out an army, capital
-// decides instead of defaulting to a draw — being stuck with no legal move
-// (no king/check here, so it's not a defensive stalemate — it's just a
-// jammed position) or running out the move clock are both "the game can't
-// continue naturally" situations, not neutral ones, so whoever has more
-// capital wins. Only an exact capital tie is a real draw.
-function capitalDecision(gameState, type) {
-  const whiteValue = capitalValue(gameState, 'white')
-  const blackValue = capitalValue(gameState, 'black')
-  if (whiteValue === blackValue) return { type: 'draw', reason: type }
-  return { type, winner: whiteValue > blackValue ? 'white' : 'black' }
-}
-
 // Elimination mode: the king has no special status, so the only way to win
 // is wiping out every one of the opponent's pieces. Avoids the "instant
 // checkmate straight out of hidden placement" problem checkmate-based rules
@@ -243,22 +234,26 @@ function capitalDecision(gameState, type) {
 // can easily end up placed into an already-losing line of fire with no
 // chance to react.
 //
-// `moveLimit` (draft mode only) forces a decision by material value once
-// hit, rather than letting a round drag on indefinitely — a full wipeout
-// isn't always achievable with the small armies these skirmishes start
-// with, so there needs to be a clock.
+// Both "the game can't continue naturally" cases — a jammed position with
+// no legal move, or a clock hitting zero — are flat, decisive losses for
+// whoever it happened to, never a material tiebreak and never a draw.
+// There's no king to be safely stalemated behind here, so being stuck is
+// exactly as fatal as running out of time.
 function getEliminationResult(gameState) {
   const white = Object.values(gameState.pieces).filter(p => p.color === 'white').length
   const black = Object.values(gameState.pieces).filter(p => p.color === 'black').length
   if (white === 0 && black === 0) return { type: 'draw', reason: 'mutual_elimination' }
   if (white === 0) return { type: 'elimination', winner: 'black' }
   if (black === 0) return { type: 'elimination', winner: 'white' }
-  if (!hasAnyLegalMove(gameState, gameState.turn)) return capitalDecision(gameState, 'no_moves')
 
-  if (gameState.moveLimit && (gameState.moveHistory?.length ?? 0) >= gameState.moveLimit) {
-    return capitalDecision(gameState, 'move_limit')
+  if (gameState.timers) {
+    if (gameState.timers.white <= 0) return { type: 'timeout', winner: 'black' }
+    if (gameState.timers.black <= 0) return { type: 'timeout', winner: 'white' }
   }
 
+  if (!hasAnyLegalMove(gameState, gameState.turn)) {
+    return { type: 'no_moves', winner: gameState.turn === 'white' ? 'black' : 'white' }
+  }
   if ((gameState.halfMoveClock ?? 0) >= 100) return { type: 'draw', reason: '50_move_rule' }
   return null
 }
@@ -305,30 +300,6 @@ export function unfreezeColor(pieces, color) {
   return changed ? next : pieces
 }
 
-// Counts down a temporary +1 HP buff (hp_boost card) by one of the boosted
-// piece owner's own turns, same cadence as unfreezeColor. If the timer runs
-// out while the bonus HP is still unspent (never absorbed a hit), it's
-// removed — but if the piece already survived a hit in the meantime, its HP
-// dropped back to base already, so there's nothing left to claw back.
-export function tickHpBoost(pieces, color) {
-  let changed = false
-  const next = { ...pieces }
-  Object.keys(next).forEach(sq => {
-    const p = next[sq]
-    if (p?.color === color && p?.hpBoostTurns) {
-      changed = true
-      const remaining = p.hpBoostTurns - 1
-      if (remaining > 0) {
-        next[sq] = { ...p, hpBoostTurns: remaining }
-        return
-      }
-      const { hpBoostTurns, ...rest } = p
-      next[sq] = p.hp > 1 ? { ...rest, hp: p.hp - 1 } : rest
-    }
-  })
-  return changed ? next : pieces
-}
-
 // Counts down every active fog zone (smoke_screen) by one turn, dropping
 // zones that have expired. Must run at the end of every turn, same as
 // unfreezeColor — see its comment for why (move, card play, and shop
@@ -337,6 +308,39 @@ export function tickFogZones(fogZones) {
   return (fogZones ?? [])
     .map(z => ({ ...z, turnsLeft: z.turnsLeft - 1 }))
     .filter(z => z.turnsLeft > 0)
+}
+
+// Every type a piece can shapeshift into while "unstable" (see
+// cardEffects.js). Kings can never be targeted (see cards.js) so this pool
+// never needs 'king' — swapping into/out of one would break findKing and the
+// check-safety logic that assumes exactly one king per side.
+const UNSTABLE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
+
+// Ticks every piece currently marked `.unstable` (see cardEffects.js) by one
+// turn: reassigns it to a new random type (never the type it's currently
+// wearing, so the shift is always visible) until the timer runs out, then
+// snaps it back to whatever it originally was and clears the flag. Must run
+// on every move, same as tickFogZones/unfreezeColor — see their comments for
+// why (move, card play, and shop purchase are all "a turn ending", and cards
+// themselves never tick anything).
+export function tickUnstablePieces(pieces) {
+  let changed = false
+  const next = { ...pieces }
+  Object.keys(next).forEach(sq => {
+    const p = next[sq]
+    if (!p?.unstable) return
+    changed = true
+    const remaining = p.unstable.turnsLeft - 1
+    if (remaining <= 0) {
+      const { unstable, ...reverted } = p
+      next[sq] = { ...reverted, type: p.unstable.originalType }
+    } else {
+      const pool = UNSTABLE_TYPES.filter(t => t !== p.type)
+      const type = pool[Math.floor(Math.random() * pool.length)]
+      next[sq] = { ...p, type, unstable: { ...p.unstable, turnsLeft: remaining } }
+    }
+  })
+  return changed ? next : pieces
 }
 
 // Meteor (see cardEffects.js) detonates after 2 FULL moves have passed
@@ -387,19 +391,43 @@ export function needsPromotion(gameState, from, to) {
   return parseInt(to.slice(1)) === promotionRank(gameState.board, piece.color)
 }
 
+// A hidden freeze mine (see cardEffects.js) detonates the instant an ENEMY
+// piece (relative to the mine's owner) actually lands on its square — not
+// on a bounce, where the attacker stays on `from` and never really arrives.
+// Runs AFTER unfreezeColor below rather than folded into movedPieces before
+// it: unfreezeColor clears out frozen counters for the
+// color whose turn this is, and the piece that just triggered the mine IS
+// that color, so setting frozen too early would have it wiped by the same
+// call that's meant to make it stick for the mover's own next turn.
+function triggerMine(pieces, mines, to, landed, moverColor) {
+  const current = mines ?? []
+  const mine = landed ? current.find(m => m.square === to && m.owner !== moverColor) : null
+  if (!mine) return { pieces, mines: current, strike: null }
+  return {
+    pieces: { ...pieces, [to]: { ...pieces[to], frozen: 1 } },
+    mines: current.filter(m => m !== mine),
+    strike: { square: to, owner: mine.owner },
+  }
+}
+
 // Apply a move to produce the next game state.
 // Pieces with hp > 1 survive their first capture (attacker stays put).
 // `promotion` (queen/rook/bishop/knight) applies when a pawn reaches the far
-// rank — defaults to queen if omitted or invalid.
-export function applyMove(gameState, from, to, promotion) {
+// rank — defaults to queen if omitted or invalid. `now` (ms, defaults to
+// the real clock) is when this move actually landed — used to charge the
+// mover's own clock (see `timers`) for however long they just took;
+// accepted explicitly so tests can drive it deterministically instead of
+// depending on wall-clock timing.
+export function applyMove(gameState, from, to, promotion, now = Date.now()) {
   const piece  = gameState.pieces[from]
   const target = gameState.pieces[to]
   const movedPieces = { ...gameState.pieces }
   delete movedPieces[from]
 
   const captured = target && target.hp <= 1
+  const bounced  = target && target.hp > 1
 
-  if (target && target.hp > 1) {
+  if (bounced) {
     movedPieces[from] = piece
     movedPieces[to]   = { ...target, hp: target.hp - 1 }
   } else if (piece.type === 'pawn' && parseInt(to.slice(1)) === promotionRank(gameState.board, piece.color)) {
@@ -409,8 +437,11 @@ export function applyMove(gameState, from, to, promotion) {
     movedPieces[to] = piece
   }
 
-  const boostedPieces = tickHpBoost(unfreezeColor(movedPieces, gameState.turn), gameState.turn)
-  const { pieces, meteors, strikes: meteorStrikes } = tickMeteors(boostedPieces, gameState.meteors, gameState.turn)
+  const unfrozenPieces = unfreezeColor(movedPieces, gameState.turn)
+  const { pieces: minedPieces, mines, strike: mineStrike } =
+    triggerMine(unfrozenPieces, gameState.mines, to, !bounced, gameState.turn)
+  const { pieces: meteredPieces, meteors, strikes: meteorStrikes } = tickMeteors(minedPieces, gameState.meteors, gameState.turn)
+  const pieces = tickUnstablePieces(meteredPieces)
   const fogZones = tickFogZones(gameState.fogZones)
 
   const halfMoveClock = (piece.type === 'pawn' || captured)
@@ -422,17 +453,31 @@ export function applyMove(gameState, from, to, promotion) {
     { from, to, piece, captured: captured ? target : null },
   ]
 
+  // Charge the MOVER (gameState.turn, before the flip below) for however
+  // long they actually took — clamped at 0 rather than going negative, so
+  // a late-arriving move can't leave them with a negative clock that then
+  // has to be special-cased everywhere else `timers` is read.
+  let timers = gameState.timers
+  if (timers) {
+    const elapsedSeconds = Math.max(0, (now - gameState.turnStartedAt) / 1000)
+    timers = { ...timers, [gameState.turn]: Math.max(0, timers[gameState.turn] - elapsedSeconds) }
+  }
+
   return {
     ...gameState,
     pieces,
+    mines,
     fogZones,
     meteors,
     turn: gameState.turn === 'white' ? 'black' : 'white',
     halfMoveClock,
     moveHistory,
+    timers,
+    turnStartedAt: timers ? now : gameState.turnStartedAt,
     // Transient — not real persisted game state, just this call's report of
-    // any meteor detonations it caused. gameEngine.js's tryMove reads this
-    // off the result and strips it before storing/returning the state.
+    // any meteor/mine detonations it caused. gameEngine.js's tryMove reads
+    // these off the result and strips them before storing/returning state.
     meteorStrikes,
+    mineStrike,
   }
 }

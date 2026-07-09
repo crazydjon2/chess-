@@ -43,69 +43,96 @@ describe('smoke_screen', () => {
   })
 })
 
-describe('rollback', () => {
-  it('undoes a piece\'s very first move this round, restoring both sides', () => {
-    const boardPattern6 = { rows: 6, cols: 6, blockedCells: [] }
-    const gs0 = createDraftRoundState(
-      boardPattern6,
+describe('freeze (mine placement)', () => {
+  it('lays a hidden mine without touching pieces yet', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
       [], [], null, null,
     )
-    const moveHistory = [{ from: 'a1', to: 'a2', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null }]
-    const gs = { ...gs0, pieces: { a2: { type: 'pawn', color: 'white', hp: 1 }, f6: gs0.pieces.f6 }, moveHistory, turn: 'black' }
-
-    const next = applyCardEffect('rollback', gs, 'a2', 'black')
-    expect(next.pieces.a1).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-    expect(next.pieces.a2).toBeUndefined()
-    expect(next.moveHistory).toHaveLength(0)
+    const next = applyCardEffect('freeze', gs, 'c3', 'white')
+    expect(next.mines).toEqual([{ owner: 'white', square: 'c3' }])
+    expect(next.pieces).toEqual(gs.pieces) // no immediate effect — see chess.js's triggerMine
   })
 
-  it('undoes a later move too (moved at least once is enough, not just the first move)', () => {
-    const boardPattern6 = { rows: 6, cols: 6, blockedCells: [] }
-    const gs0 = createDraftRoundState(
-      boardPattern6,
+  it('appends to any existing mines rather than replacing them', () => {
+    let gs = createDraftRoundState(
+      boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
       [], [], null, null,
     )
-    const moveHistory = [
-      { from: 'a1', to: 'a2', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null },
-      { from: 'a2', to: 'a3', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null },
-    ]
-    const gs = { ...gs0, pieces: { a3: { type: 'pawn', color: 'white', hp: 1 }, f6: gs0.pieces.f6 }, moveHistory, turn: 'black' }
-
-    const next = applyCardEffect('rollback', gs, 'a3', 'black')
-    expect(next.pieces.a2).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-    expect(next.pieces.a3).toBeUndefined()
-    expect(next.moveHistory).toHaveLength(1)
+    gs = applyCardEffect('freeze', gs, 'c3', 'white')
+    gs = applyCardEffect('freeze', gs, 'd4', 'black')
+    expect(gs.mines).toHaveLength(2)
   })
 
-  it('undoes a capturing move and claws back the coins the mover earned from it', () => {
-    const boardPattern6 = { rows: 6, cols: 6, blockedCells: [] }
-    const gs0 = createDraftRoundState(
-      boardPattern6,
+  it('refuses to lay a mine on an occupied square', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
-      { b3: { type: 'knight', color: 'black', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
       [], [], null, null,
     )
-    const capturedKnight = { type: 'knight', color: 'black', hp: 1 }
-    const moveHistory = [
-      { from: 'a1', to: 'a2', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: null },
-      { from: 'a2', to: 'b3', piece: { type: 'pawn', color: 'white', hp: 1 }, captured: capturedKnight },
-    ]
-    const gs = {
-      ...gs0,
-      pieces: { b3: { type: 'pawn', color: 'white', hp: 1 } },
-      coins: { white: gs0.coins.white + 3, black: gs0.coins.black }, // paid out for the knight (value 3)
-      moveHistory,
-      turn: 'black',
+    const next = applyCardEffect('freeze', gs, 'f6', 'white')
+    expect(next.mines ?? []).toHaveLength(0)
+    expect(next.pieces).toEqual(gs.pieces)
+  })
+})
+
+describe('necromancy', () => {
+  // Captured piece belongs to BLACK (the opponent) and was cut down by a
+  // WHITE piece's move — a trophy white can now revive to fight for them,
+  // not a piece white lost.
+  function stateWithCapture(capturedType = 'knight') {
+    const gs0 = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const captured = { type: capturedType, color: 'black', hp: 1 }
+    const moveHistory = [{ from: 'b5', to: 'a6', piece: { type: 'pawn', color: 'white', hp: 1 }, captured }]
+    return { ...gs0, moveHistory }
+  }
+
+  it('revives the captured piece onto an empty home-rank square', () => {
+    const gs = stateWithCapture('knight')
+    const next = applyCardEffect('necromancy', gs, 'knight', 'white')
+
+    const revivedSquares = Object.entries(next.pieces)
+      .filter(([sq, p]) => p.type === 'knight' && p.color === 'white' && sq !== 'a1')
+    expect(revivedSquares).toHaveLength(1)
+    const [square] = revivedSquares[0]
+    expect(['1', '2']).toContain(square.slice(1)) // white's home ranks
+    expect(next.moveHistory[0].captured.revived).toBe(true)
+  })
+
+  it('does nothing if that piece type was never captured', () => {
+    const gs = stateWithCapture('knight')
+    const next = applyCardEffect('necromancy', gs, 'queen', 'white')
+    expect(next).toBe(gs)
+  })
+
+  it('does not offer the same capture twice — a revived piece can\'t be revived again', () => {
+    const gs = stateWithCapture('knight')
+    const once = applyCardEffect('necromancy', gs, 'knight', 'white')
+    const twice = applyCardEffect('necromancy', once, 'knight', 'white')
+    expect(twice).toBe(once) // no second knight materializes
+  })
+
+  it('does nothing if there is no empty home-rank square left', () => {
+    const gs0 = stateWithCapture('knight')
+    // Fill every white home square (ranks 1-2 on a 6-wide board).
+    const pieces = { ...gs0.pieces }
+    for (const col of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      pieces[`${col}1`] = { type: 'pawn', color: 'white', hp: 1 }
+      pieces[`${col}2`] = { type: 'pawn', color: 'white', hp: 1 }
     }
-
-    const next = applyCardEffect('rollback', gs, 'b3', 'black')
-    expect(next.pieces.a2).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-    expect(next.pieces.b3).toEqual(capturedKnight)
-    expect(next.coins.white).toBe(gs0.coins.white) // the capture payout is reversed
+    const gs = { ...gs0, pieces }
+    const next = applyCardEffect('necromancy', gs, 'knight', 'white')
+    expect(next).toBe(gs)
   })
 })
 
@@ -132,5 +159,53 @@ describe('meteor', () => {
     gs = applyCardEffect('meteor', gs, 'f6', 'white')
     gs = applyCardEffect('meteor', gs, 'a1', 'black')
     expect(gs.meteors).toHaveLength(2)
+  })
+})
+
+describe('unstable', () => {
+  it('marks the target piece unstable with no immediate type change', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'rook', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const next = applyCardEffect('unstable', gs, 'f6', 'white')
+    expect(next.pieces.f6.type).toBe('pawn') // unchanged yet — see chess.js's tickUnstablePieces
+    expect(next.pieces.f6.unstable).toEqual({ originalType: 'pawn', turnsLeft: 6 })
+  })
+
+  it('can target the caster\'s own piece', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'rook', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const next = applyCardEffect('unstable', gs, 'a1', 'white')
+    expect(next.pieces.a1.unstable).toEqual({ originalType: 'rook', turnsLeft: 6 })
+  })
+
+  it('refuses to target a king', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'king', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const next = applyCardEffect('unstable', gs, 'a1', 'white')
+    expect(next).toBe(gs)
+  })
+
+  it('refuses to re-target an already-unstable piece', () => {
+    let gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'rook', color: 'white', hp: 1 } },
+      { f6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    gs = applyCardEffect('unstable', gs, 'a1', 'white')
+    const again = applyCardEffect('unstable', gs, 'a1', 'white')
+    expect(again).toBe(gs)
   })
 })

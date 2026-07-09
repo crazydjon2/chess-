@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyMove, needsPromotion, getGameResult, tickFogZones, tickHpBoost, getFogCaptureSquares, tickMeteors } from './chess.js'
+import { applyMove, needsPromotion, getGameResult, tickFogZones, getFogCaptureSquares, tickMeteors, tickUnstablePieces, emptyHomeSquares } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
 import { createDraftRoundState } from './initialState.js'
 
@@ -38,25 +38,10 @@ describe('pawn promotion', () => {
     )
     expect(needsPromotion(gs, 'a5', 'b6')).toBe(false)
   })
-
-  it('rollback restores the pre-promotion pawn, not the promoted piece', () => {
-    let gs = createDraftRoundState(
-      boardPattern,
-      { a5: { type: 'pawn', color: 'white', hp: 1 } },
-      { c1: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
-    )
-    gs = applyMove(gs, 'a5', 'a6', 'queen') // white promotes; turn -> black
-    expect(gs.pieces.a6.type).toBe('queen')
-
-    const rolledBack = applyCardEffect('rollback', gs, 'a6', 'black')
-    expect(rolledBack.pieces.a5).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-    expect(rolledBack.pieces.a6).toBeUndefined()
-  })
 })
 
-describe('draws and capital-decided results', () => {
-  it('no legal moves + unequal capital -> the richer side wins, not a draw', () => {
+describe('no legal moves — always a decisive loss (no material tiebreak, no draw)', () => {
+  it('the side with no legal move loses even holding MORE material and coins', () => {
     const gs = createDraftRoundState(
       boardPattern,
       {
@@ -71,11 +56,12 @@ describe('draws and capital-decided results', () => {
       [], [], null, null,
     )
     gs.turn = 'white' // both white pawns are jammed by the barricades, 0 legal moves
+    gs.coins = { white: 50, black: 0 } // white is richer in every way that used to matter...
     const result = getGameResult(gs)
-    expect(result).toEqual({ type: 'no_moves', winner: 'white' })
+    expect(result).toEqual({ type: 'no_moves', winner: 'black' }) // ...and still loses — stuck is stuck
   })
 
-  it('no legal moves + equal material -> a genuine draw', () => {
+  it('equal material is irrelevant too — it is never a draw', () => {
     const gs = createDraftRoundState(
       boardPattern,
       {
@@ -92,52 +78,64 @@ describe('draws and capital-decided results', () => {
     )
     gs.turn = 'white'
     const result = getGameResult(gs)
-    expect(result).toEqual({ type: 'draw', reason: 'no_moves' })
+    expect(result).toEqual({ type: 'no_moves', winner: 'black' })
   })
+})
 
-  it('no legal moves + equal material but unequal coins -> the richer wallet wins, not a draw', () => {
+describe('timeouts (per-player clock)', () => {
+  const start = 1_000_000
+
+  it('a clock hitting zero is an outright loss, even with LESS material — never a capital tiebreak', () => {
     const gs = createDraftRoundState(
       boardPattern,
-      {
-        a1: { type: 'pawn', color: 'white', hp: 1 },
-        c1: { type: 'pawn', color: 'white', hp: 1 },
-      },
-      {
-        f6: { type: 'pawn', color: 'black', hp: 1 },
-        e6: { type: 'pawn', color: 'black', hp: 1 },
-        a2: { type: 'barricade', color: 'neutral', hp: 2 },
-        c2: { type: 'barricade', color: 'neutral', hp: 2 },
-      },
-      [], [], null, null,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'rook', color: 'black', hp: 1 } }, // black has more material...
+      [], [], null, 10, start,
     )
-    gs.turn = 'white'
-    gs.coins = { white: 5, black: 0 } // pieces alone are tied, coins break it
-    const result = getGameResult(gs)
-    expect(result).toEqual({ type: 'no_moves', winner: 'white' })
+    // White takes the full 10 seconds to move — their clock hits exactly 0.
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 10_000)
+    expect(getGameResult(next)).toEqual({ type: 'timeout', winner: 'black' }) // ...and still wins
   })
 
-  it('move limit hit + unequal material -> the richer side wins', () => {
-    const gs = createDraftRoundState(
-      boardPattern,
-      { a1: { type: 'rook', color: 'white', hp: 1 } },
-      { a6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, 2,
-    )
-    let next = applyMove(gs, 'a1', 'b1')
-    next = applyMove(next, 'a6', 'b6')
-    expect(getGameResult(next)).toEqual({ type: 'move_limit', winner: 'white' })
-  })
-
-  it('move limit hit + equal material -> a draw', () => {
+  it('does not trigger early — plenty of time left is not a timeout', () => {
     const gs = createDraftRoundState(
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { a6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, 2,
+      [], [], null, 180, start,
     )
-    let next = applyMove(gs, 'a1', 'b1')
-    next = applyMove(next, 'a6', 'b6')
-    expect(getGameResult(next)).toEqual({ type: 'draw', reason: 'move_limit' })
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 5_000) // used only 5 of 180s
+    expect(getGameResult(next)).toBeNull()
+    expect(next.timers.white).toBe(175)
+    expect(next.timers.black).toBe(180) // untouched — it wasn't black's turn
+  })
+
+  it('only the mover\'s clock is charged, and it resets the turn-start baseline for the other side', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start,
+    )
+    let next = applyMove(gs, 'a1', 'a2', undefined, start + 5_000)
+    expect(next.turn).toBe('black')
+    expect(next.turnStartedAt).toBe(start + 5_000)
+    // Black now takes 20s of their own 180s.
+    next = applyMove(next, 'a6', 'a5', undefined, start + 25_000)
+    expect(next.timers).toEqual({ white: 175, black: 160 })
+  })
+
+  it('untimed rounds (timeLimit null — sandbox mode) never produce a timeout', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    // A wildly long "turn" — still no timers to run out.
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 999_999_999)
+    expect(next.timers).toBeNull()
+    expect(getGameResult(next)).toBeNull()
   })
 })
 
@@ -151,31 +149,6 @@ describe('tickFogZones', () => {
 
   it('handles undefined input as an empty list', () => {
     expect(tickFogZones(undefined)).toEqual([])
-  })
-})
-
-describe('tickHpBoost', () => {
-  it('removes the unspent bonus HP once the timer runs out', () => {
-    const pieces = { a1: { type: 'pawn', color: 'white', hp: 2, hpBoostTurns: 1 } }
-    const next = tickHpBoost(pieces, 'white')
-    expect(next.a1).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-  })
-
-  it('just clears the timer (no extra HP loss) if the buff was already spent by a hit', () => {
-    const pieces = { a1: { type: 'pawn', color: 'white', hp: 1, hpBoostTurns: 1 } }
-    const next = tickHpBoost(pieces, 'white')
-    expect(next.a1).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-  })
-
-  it('only decrements the timer (no HP change) while turns remain', () => {
-    const pieces = { a1: { type: 'pawn', color: 'white', hp: 2, hpBoostTurns: 2 } }
-    const next = tickHpBoost(pieces, 'white')
-    expect(next.a1).toEqual({ type: 'pawn', color: 'white', hp: 2, hpBoostTurns: 1 })
-  })
-
-  it('ignores pieces of the other color', () => {
-    const pieces = { a1: { type: 'pawn', color: 'black', hp: 2, hpBoostTurns: 1 } }
-    expect(tickHpBoost(pieces, 'white')).toBe(pieces)
   })
 })
 
@@ -227,6 +200,123 @@ describe('tickMeteors', () => {
     // Black moves again (2nd full move elapsed): detonates.
     r = tickMeteors({}, r.meteors, 'black')
     expect(r.meteors).toEqual([])
+  })
+})
+
+describe('tickUnstablePieces', () => {
+  it('leaves untouched pieces alone', () => {
+    const pieces = { a1: { type: 'rook', color: 'white', hp: 1 } }
+    expect(tickUnstablePieces(pieces)).toBe(pieces)
+  })
+
+  it('reassigns an unstable piece to a different type and decrements its timer', () => {
+    const pieces = { a1: { type: 'rook', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 6 } } }
+    const next = tickUnstablePieces(pieces)
+    expect(next.a1.unstable.turnsLeft).toBe(5)
+    expect(next.a1.type).not.toBe('rook')
+    expect(['pawn', 'knight', 'bishop', 'rook', 'queen']).toContain(next.a1.type)
+  })
+
+  it('reverts to the original type and clears the flag once the timer runs out', () => {
+    const pieces = { a1: { type: 'queen', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 1 } } }
+    const next = tickUnstablePieces(pieces)
+    expect(next.a1.type).toBe('rook')
+    expect(next.a1.unstable).toBeUndefined()
+  })
+
+  it('preserves other piece fields (color, hp) through a shapeshift', () => {
+    const pieces = { a1: { type: 'rook', color: 'black', hp: 2, unstable: { originalType: 'rook', turnsLeft: 3 } } }
+    const next = tickUnstablePieces(pieces)
+    expect(next.a1.color).toBe('black')
+    expect(next.a1.hp).toBe(2)
+  })
+})
+
+describe('applyMove: unstable piece ticking', () => {
+  it('ticks an unstable piece down on every move, same as fog/mines', () => {
+    const gs0 = createDraftRoundState(
+      boardPattern,
+      { a5: { type: 'pawn', color: 'white', hp: 1 }, e1: { type: 'rook', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 1 } } },
+      { f1: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const next = applyMove(gs0, 'a5', 'a6')
+    expect(next.pieces.e1.type).toBe('rook') // reverted, timer hit 0
+    expect(next.pieces.e1.unstable).toBeUndefined()
+  })
+})
+
+describe('applyMove: freeze mine trigger', () => {
+  it('freezes an enemy piece that lands on the mine and consumes it', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { b6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const mined = applyCardEffect('freeze', gs, 'a2', 'white')
+    const next  = applyMove(mined, 'a1', 'a2') // white steps onto its OWN mine — no trigger
+    expect(next.pieces.a2.frozen).toBeFalsy()
+    expect(next.mines).toEqual([{ owner: 'white', square: 'a2' }]) // untouched, still armed
+    expect(next.mineStrike).toBeNull()
+  })
+
+  it('triggers when the OPPONENT lands on it, freezing them for their own next turn', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { b3: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    let mined = applyCardEffect('freeze', gs, 'b2', 'white')
+    mined = { ...mined, turn: 'black' }
+    const next = applyMove(mined, 'b3', 'b2') // black steps onto white's mine
+    expect(next.pieces.b2).toEqual({ type: 'pawn', color: 'black', hp: 1, frozen: 1 })
+    expect(next.mines).toEqual([]) // consumed
+    expect(next.mineStrike).toEqual({ square: 'b2', owner: 'white' })
+  })
+
+  it('does not trigger on a bounce (attacker never actually lands on the mine square)', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { b2: { type: 'barricade', color: 'neutral', hp: 2 } },
+      [], [], null, null,
+    )
+    let mined = applyCardEffect('freeze', { ...gs, pieces: { a1: gs.pieces.a1 } }, 'b2', 'black')
+    // Barricade re-added after laying the mine (freeze refuses an occupied square).
+    mined = { ...mined, pieces: { ...mined.pieces, b2: { type: 'barricade', color: 'neutral', hp: 2 } } }
+    const next = applyMove(mined, 'a1', 'b2') // white's pawn bounces off the 2-hp barricade
+    expect(next.pieces.a1).toEqual({ type: 'pawn', color: 'white', hp: 1 }) // stayed on `from`
+    expect(next.mines).toEqual([{ owner: 'black', square: 'b2' }]) // untouched
+    expect(next.mineStrike).toBeNull()
+  })
+})
+
+describe('emptyHomeSquares', () => {
+  it('lists only empty squares on the color\'s own two home ranks', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 }, b2: { type: 'knight', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const squares = emptyHomeSquares(gs, 'white')
+    expect(squares).not.toContain('a1') // occupied
+    expect(squares).not.toContain('b2') // occupied
+    expect(squares).toContain('c1')
+    expect(squares.every(sq => ['1', '2'].includes(sq.slice(1)))).toBe(true) // only ranks 1-2
+  })
+
+  it('uses the OTHER color\'s home ranks for the opponent', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const squares = emptyHomeSquares(gs, 'black')
+    expect(squares.every(sq => ['5', '6'].includes(sq.slice(1)))).toBe(true)
   })
 })
 

@@ -1,5 +1,4 @@
-import { getValidSquares } from './chess.js'
-import { PIECE_VALUE } from './economy.js'
+import { getValidSquares, emptyHomeSquares } from './chess.js'
 
 function squareCol(sq)  { return sq.charCodeAt(0) - 97 }
 function squareRank(sq) { return parseInt(sq.slice(1), 10) }
@@ -48,76 +47,52 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
       }
     }
 
-    case 'hp_boost': {
-      const piece = gameState.pieces[targetSquare]
-      if (!piece || piece.type === 'king') return gameState
-      return {
-        ...gameState,
-        pieces: {
-          ...gameState.pieces,
-          [targetSquare]: { ...piece, hp: piece.hp + 1, hpBoostTurns: 2 },
-        },
-      }
-    }
-
-    // Counter-spell: undoes the opponent's last move entirely — their piece
-    // goes back to its origin, and if that move captured one of ours, our
-    // piece comes back too. targetSquare is just confirmation (the square
-    // their moved piece currently occupies) — see getValidTargets, which
-    // only ever offers that one square.
-    case 'rollback': {
+    // `targetSquare` is repurposed here as a captured PIECE TYPE (see
+    // cards.js's getValidTargets) — necromancy doesn't target a square at
+    // all, since where the piece reappears is random, not chosen. Finds the
+    // first not-yet-revived OPPONENT capture of that type in moveHistory (a
+    // trophy — a piece the caster cut down, not one they lost) and marks it
+    // revived (so it stops counting as "captured" — see economy.js's
+    // getCaptured — and can't be revived a second time), then drops a fresh
+    // copy of that piece, fighting for the caster now, on a random empty
+    // home-rank square.
+    case 'necromancy': {
+      const pieceType = targetSquare
       const oppColor = playerColor === 'white' ? 'black' : 'white'
       const hist = gameState.moveHistory ?? []
-      const revIdx = [...hist].reverse().findIndex(m => m.piece.color === oppColor)
-      if (revIdx === -1) return gameState
+      const idx = hist.findIndex(m =>
+        m.captured && m.captured.color === oppColor && m.captured.type === pieceType && !m.captured.revived
+      )
+      if (idx === -1) return gameState
 
-      const idx  = hist.length - 1 - revIdx
-      const move = hist[idx]
-      if (move.to !== targetSquare) return gameState
+      const squares = emptyHomeSquares(gameState, playerColor)
+      if (squares.length === 0) return gameState
+      const square = squares[Math.floor(Math.random() * squares.length)]
 
-      const current = gameState.pieces[move.to]
-      if (!current || current.color !== oppColor) return gameState  // moved/captured since
-      if (gameState.pieces[move.from]) return gameState             // origin must be free
-
-      const pieces = { ...gameState.pieces }
-      delete pieces[move.to]
-      // Restore the exact pre-move piece (move.piece) rather than whatever's
-      // currently on the square — if that move was a pawn promotion, the
-      // square now holds a queen/etc, but rolling it back should give the
-      // caster their pawn back, not undo the move while keeping the upgrade.
-      pieces[move.from] = move.piece
-      if (move.captured) {
-        pieces[move.to] = move.captured
-      }
-
-      // Undoing a capturing move must also claw back the coins the mover
-      // earned from it (see gameEngine.js's tryMove) — otherwise they keep
-      // getting paid for a kill that no longer happened once the victim is
-      // restored.
-      const coins = move.captured
-        ? {
-            ...gameState.coins,
-            [move.piece.color]: Math.max(0, gameState.coins[move.piece.color] - (PIECE_VALUE[move.captured.type] || 0)),
-          }
-        : gameState.coins
+      const moveHistory = [...hist]
+      moveHistory[idx] = { ...moveHistory[idx], captured: { ...moveHistory[idx].captured, revived: true } }
 
       return {
         ...gameState,
-        pieces,
-        coins,
-        moveHistory: hist.filter((_, i) => i !== idx),
+        pieces: { ...gameState.pieces, [square]: { type: pieceType, color: playerColor, hp: 1 } },
+        moveHistory,
       }
     }
 
+    // Lays a hidden mine on targetSquare — no immediate effect. It sits
+    // there (invisible to the opponent — see rooms.js's redaction) until
+    // whichever piece next MOVES ONTO that square lands on it; only an
+    // enemy piece (relative to the mine's owner) triggers it, so the
+    // caster's own pieces can walk over their own mine freely. Detonation
+    // (freezing the piece that landed there and consuming the mine) is
+    // handled by chess.js's applyMove, right where it already knows
+    // whether a piece actually ended up on the destination square (as
+    // opposed to bouncing off a tougher one) — not here.
     case 'freeze': {
-      const piece = gameState.pieces[targetSquare]
-      if (!piece) return gameState
+      if (gameState.pieces[targetSquare]) return gameState
       return {
         ...gameState,
-        pieces: {
-          ...gameState.pieces,
-          [targetSquare]: { ...piece, frozen: 1 },
-        },
+        mines: [...(gameState.mines ?? []), { owner: playerColor, square: targetSquare }],
       }
     }
 
@@ -147,6 +122,25 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
       return {
         ...gameState,
         meteors: [...(gameState.meteors ?? []), { owner: playerColor, square: targetSquare, turnsLeft: 2 }],
+      }
+    }
+
+    // Marks targetSquare's piece as "unstable" for 6 turns — no immediate
+    // type change (the first shapeshift happens on the next tick). Recorded
+    // on the PIECE itself, not the square, so the effect follows it like
+    // `frozen` does if it moves or gets captured onto. The actual per-turn
+    // reshuffling and eventual revert to `originalType` is chess.js's
+    // tickUnstablePieces, run every move exactly like tickFogZones — see its
+    // comment for why cards themselves never tick anything.
+    case 'unstable': {
+      const piece = gameState.pieces[targetSquare]
+      if (!piece || piece.type === 'king' || piece.color === 'neutral' || piece.unstable) return gameState
+      return {
+        ...gameState,
+        pieces: {
+          ...gameState.pieces,
+          [targetSquare]: { ...piece, unstable: { originalType: piece.type, turnsLeft: 6 } },
+        },
       }
     }
 

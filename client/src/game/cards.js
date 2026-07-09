@@ -1,5 +1,6 @@
-import { getValidSquares, isKingInCheck } from './chess.js'
+import { getValidSquares, isKingInCheck, emptyHomeSquares } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
+import { getCaptured } from './economy.js'
 
 // Cost is priced against piece capture values (pawn=1, knight/bishop=3,
 // rook=5, queen=9) — see PIECE_VALUE in App.jsx. Two captured pawns (2
@@ -9,7 +10,7 @@ export const CARD_DEFS = {
   barricade: {
     id:     'barricade',
     name:   'Баррикада',
-    desc:   'Преграда на 2 HP на\nсвободной клетке. Соперник\nможет её срубить.',
+    desc:   'Ставит преграду с 2 HP на свободную клетку. Соперник может разрушить её, как обычную фигуру.',
     accent: '#c0392b',
     glyph:  '✕',
     cost:   5,
@@ -17,39 +18,31 @@ export const CARD_DEFS = {
   add_cell: {
     id:     'add_cell',
     name:   'Добавить клетку',
-    desc:   'Добавляет одну клетку\nза краем доски.',
+    desc:   'Добавляет одну новую клетку за краем доски, расширяя игровое поле.',
     accent: '#27ae60',
     glyph:  '✦',
     cost:   3,
   },
-  hp_boost: {
-    id:     'hp_boost',
-    name:   '+1 жизнь',
-    desc:   'Даёт любой своей фигуре\n+1 HP на 2 хода. При атаке\nснимает HP.',
-    accent: '#e67e22',
-    glyph:  '♥',
-    cost:   6,
-  },
-  rollback: {
-    id:     'rollback',
-    name:   'Откат',
-    desc:   'Отменяет последний ход\nсоперника.',
-    accent: '#8e44ad',
-    glyph:  '↺',
-    cost:   7,
+  necromancy: {
+    id:     'necromancy',
+    name:   'Некромантия',
+    desc:   'Возрождает одну из срубленных вами фигур соперника — она переходит на вашу сторону. Появляется на случайной свободной клетке на вашей половине доски.',
+    accent: '#6c3fa8',
+    glyph:  '☠',
+    cost:   10,
   },
   freeze: {
     id:     'freeze',
-    name:   'Заморозка',
-    desc:   'Вражеская фигура не может\nходить следующий ход.',
+    name:   'Мина заморозки',
+    desc:   'Закладывает невидимую мину на свободную клетку. Вражеская фигура, которая наступит на неё, застревает и пропускает свой следующий ход. Соперник знает, что где-то заложена мина, но не видит, где именно.',
     accent: '#2980b9',
     glyph:  '❄',
-    cost:   10,
+    cost:   6,
   },
   smoke_screen: {
     id:     'smoke_screen',
     name:   'Дымовая завеса',
-    desc:   'Скрывает от соперника ваши\nфигуры в области 3×3 на\nследующие 4 хода.',
+    desc:   'Скрывает ваши фигуры в области 3×3 от соперника на следующие 4 хода.',
     accent: '#7f8c8d',
     glyph:  '☁',
     cost:   6,
@@ -57,17 +50,25 @@ export const CARD_DEFS = {
   meteor: {
     id:     'meteor',
     name:   'Метеор',
-    desc:   'Через 2 полных хода падает\nна выбранную клетку и\nуничтожает всё на ней.\nСоперник не видит куда.',
+    desc:   'Через 2 полных хода метеор падает на выбранную клетку и уничтожает всё, что на ней окажется. Соперник знает, что метеор летит, но не видит куда.',
     accent: '#d35400',
     glyph:  '☄',
+    cost:   6,
+  },
+  unstable: {
+    id:     'unstable',
+    name:   'Нестабильная фигура',
+    desc:   'Превращает любую фигуру (свою или соперника) в нестабильную на 6 ходов. Каждый ход она случайно меняет тип, а затем возвращается к исходному.',
+    accent: '#8e44ad',
+    glyph:  '☯',
     cost:   9,
   },
 }
 
 // Every card is just another kind of turn — like a normal move, it must
-// never leave the player's own king in check. rollback is the main offender
-// (it can pull a piece off a square that was blocking a check), but the
-// filter is applied uniformly so any future card gets this for free.
+// never leave the player's own king in check. Most cards can never actually
+// trigger this (placing a mine or a wall doesn't move anyone), but the
+// filter is applied uniformly so any future card gets it for free.
 export function getValidTargets(cardId, gameState, playerColor) {
   return rawTargets(cardId, gameState, playerColor).filter(target => {
     const next = applyCardEffect(cardId, gameState, target, playerColor)
@@ -110,34 +111,31 @@ function rawTargets(cardId, gameState, playerColor) {
       return [...candidates]
     }
 
-    case 'hp_boost':
-      return Object.keys(pieces).filter(sq => {
-        const p = pieces[sq]
-        return p.color === playerColor && p.type !== 'king'
-      })
-
-    case 'rollback': {
-      // Valid as long as the piece has moved at least once (the move being
-      // undone counts) — including a piece's very first move this round,
-      // which sends it back to its round-start placement square. That's a
-      // legitimate, sometimes crucial target (e.g. undoing an opening
-      // capture), not a degenerate case to exclude.
+    // "Target" here is a captured PIECE TYPE, not a square — see
+    // cardEffects.js. Offers the opponent's pieces YOU captured (trophies),
+    // not your own losses — reanimated, they fight on your side. The square
+    // it actually revives on is chosen at random among the caster's own
+    // empty home-rank squares, so it isn't part of the target at all;
+    // offered only when there's both something to revive AND somewhere to
+    // put it.
+    case 'necromancy': {
       const oppColor = playerColor === 'white' ? 'black' : 'white'
-      const hist = gameState.moveHistory ?? []
-      const idx = [...hist].reverse().findIndex(m => m.piece.color === oppColor)
-      if (idx === -1) return []
-      const move  = hist[hist.length - 1 - idx]
-      const piece = pieces[move.to]
-      if (!piece || piece.color !== oppColor) return []
-      if (pieces[move.from]) return []
-      return [move.to]
+      const captured = getCaptured(gameState, oppColor)
+      if (captured.length === 0) return []
+      if (emptyHomeSquares(gameState, playerColor).length === 0) return []
+      return [...new Set(captured)]
     }
 
-    case 'freeze':
-      return Object.keys(pieces).filter(sq => {
-        const p = pieces[sq]
-        return p.color !== playerColor && p.type !== 'barricade'
-      })
+    // A hidden mine, laid on any free square — see cardEffects.js. Same
+    // "must be empty" targeting as barricade, plus it can't stack on a
+    // square that already has a mine on it (from either side), since a
+    // square only ever needs to trap the first piece that lands on it.
+    case 'freeze': {
+      const validSqs = getValidSquares(board)
+      const mines = gameState.mines ?? []
+      const mined = new Set(mines.map(m => m.square))
+      return [...validSqs].filter(sq => !pieces[sq] && !mined.has(sq))
+    }
 
     // Cast anywhere on the board, including a blocked hole — the target is
     // just an anchor for the 3x3 fog zone around it (see cardEffects.js's
@@ -152,6 +150,18 @@ function rawTargets(cardId, gameState, playerColor) {
     // wasted cast (nothing can ever stand there).
     case 'meteor':
       return [...getValidSquares(board), ...(board.blockedCells ?? [])]
+
+    // Any piece on the board, either side's — except a king (shapeshifting
+    // it away from 'king' would break findKing/check logic mid-effect) or a
+    // barricade (not a real piece, has no "original type" to return to).
+    // A piece already unstable can't be re-targeted: recording a new
+    // originalType over an already-shifted type would lose the real one it's
+    // meant to revert to (see cardEffects.js).
+    case 'unstable':
+      return Object.keys(pieces).filter(sq => {
+        const p = pieces[sq]
+        return p.type !== 'king' && p.color !== 'neutral' && !p.unstable
+      })
 
     default:
       return []

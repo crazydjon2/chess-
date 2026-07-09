@@ -7,27 +7,25 @@ import MatchScoreBoard from './MatchScoreBoard'
 const RESULT_TEXT = {
   checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
   elimination: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — армия соперника уничтожена`,
-  move_limit:  r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по капиталу — лимит ходов исчерпан`,
-  no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили по капиталу — у соперника нет ходов`,
+  timeout:     r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника закончилось время`,
+  no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника нет ходов`,
   surrender:   r => `${r.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${r.winner === 'white' ? 'белые' : 'чёрные'} победили`,
   stalemate:   ()  => 'Пат — ничья',
   draw:        r   => {
     if (r.reason === '50_move_rule') return 'Ничья — правило 50 ходов'
-    if (r.reason === 'no_moves') return 'Ничья — нет ходов, капитал равен'
     if (r.reason === 'mutual_elimination') return 'Ничья — обе армии уничтожены'
-    if (r.reason === 'move_limit') return 'Ничья — лимит ходов, капитал равен'
     return 'Ничья — недостаточно материала'
   },
 }
 
-const RESULT_ICON = { checkmate: '♛', elimination: '♛', move_limit: '⏱', no_moves: '🔒', surrender: '🏳' }
+const RESULT_ICON = { checkmate: '♛', elimination: '♛', timeout: '⏱', no_moves: '🔒', surrender: '🏳' }
 
 // Shared board+panels layout. The bottom section always shows a full,
 // interactive CardHand (the local viewer's own hand); the top section is a
 // PlayerPanel with an embedded HUD hand (opponentCards). The viewer always
 // sits at bottom; opponent control is disabled.
 export default function GameView({
-  gameState, boardMode, dispatch, lastMoveAnim, actionToast, meteorStrikeAnim,
+  gameState, boardMode, dispatch, lastMoveAnim, actionToast, meteorStrikeAnim, mineStrikeAnim,
   boardFlipped = false, boardPlayerColor,
   turnBar, matchScore,
   topPanel, bottomPanel, bottomHand,
@@ -35,10 +33,6 @@ export default function GameView({
   gameResult, resultTitle, resultOutcome, restartLabel, onRestart,
   onBackgroundClick,
 }) {
-  const movesMade      = gameState.moveHistory?.length ?? 0
-  const movesRemaining = gameState.moveLimit ? Math.max(0, gameState.moveLimit - movesMade) : null
-  const movesUrgent    = movesRemaining !== null && movesRemaining <= 6
-
   // Opponent's meteors arrive here with the square stripped (see rooms.js's
   // redactMeteors) — we only ever know THAT one is coming and how long
   // until the soonest lands, never where, so this can only ever be a
@@ -47,30 +41,25 @@ export default function GameView({
   const incomingMeteors = (gameState.meteors ?? []).filter(m => m.hidden)
   const soonestMeteor   = incomingMeteors.length > 0 ? Math.min(...incomingMeteors.map(m => m.turnsLeft)) : null
 
+  // Opponent's mines arrive here with the square stripped too (see rooms.js's
+  // redactMines) — same location-less-warning treatment as meteors, just no
+  // countdown (a mine has no timer, it's armed until someone steps on it).
+  const incomingMines = (gameState.mines ?? []).filter(m => m.hidden)
+
   return (
     <div className="app" onClick={onBackgroundClick}>
       <div className="game-scene" onClick={onBackgroundClick}>
 
         <div className="player-section">
-          <PlayerPanel {...topPanel} />
+          <PlayerPanel
+            {...topPanel}
+            timeSeconds={gameState.timers?.[topPanel.color]}
+            turnStartedAt={gameState.turnStartedAt}
+            ticking={!gameResult && gameState.turn === topPanel.color}
+          />
         </div>
 
         {matchScore && <MatchScoreBoard {...matchScore} />}
-
-        {movesRemaining !== null && (
-          <div className={`moves-timeline${movesUrgent ? ' urgent' : ''}`}>
-            <span className="moves-timeline-icon">⏱</span>
-            <div className="moves-timeline-track">
-              {Array.from({ length: gameState.moveLimit }, (_, i) => (
-                <span
-                  key={i}
-                  className={`moves-tick${i < movesMade ? ' used' : ''}${i === movesMade ? ' current' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="moves-timeline-count">{movesRemaining}</span>
-          </div>
-        )}
 
         {turnBar && <TurnBar {...turnBar} />}
 
@@ -80,6 +69,15 @@ export default function GameView({
             {incomingMeteors.length === 1
               ? `Соперник бросил метеор — упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`
               : `Метеоры соперника (${incomingMeteors.length}) — ближайший упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`}
+          </div>
+        )}
+
+        {incomingMines.length > 0 && (
+          <div className="mine-warning">
+            <span className="mine-warning-icon">❄</span>
+            {incomingMines.length === 1
+              ? 'Соперник где-то заложил мину заморозки'
+              : `Соперник заложил мины заморозки (${incomingMines.length})`}
           </div>
         )}
 
@@ -102,6 +100,7 @@ export default function GameView({
             dispatch={dispatch}
             lastMoveAnim={lastMoveAnim}
             meteorStrikeAnim={meteorStrikeAnim}
+            mineStrikeAnim={mineStrikeAnim}
             flipped={boardFlipped}
           />
 
@@ -129,7 +128,12 @@ export default function GameView({
             selectedCardId={bottomHand.selectedCardId}
             onCardClick={bottomHand.onCardClick}
           />
-          <PlayerPanel {...bottomPanel} />
+          <PlayerPanel
+            {...bottomPanel}
+            timeSeconds={gameState.timers?.[bottomPanel.color]}
+            turnStartedAt={gameState.turnStartedAt}
+            ticking={!gameResult && gameState.turn === bottomPanel.color}
+          />
         </div>
 
       </div>

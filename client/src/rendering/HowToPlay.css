@@ -136,35 +136,11 @@
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.htp-draft-tile.taken { opacity: 0.3; }
-.htp-draft-tile.current {
-  border-color: #e8c96a;
-  box-shadow: 0 0 8px rgba(232,201,106,0.5);
+.htp-draft-tile.banned {
+  opacity: 0.5;
+  border-color: rgba(200,60,50,0.5);
+  background: rgba(200,60,50,0.1);
 }
-
-.htp-draft-turns {
-  display: flex;
-  gap: 4px;
-}
-
-.htp-turn-dot {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  font-size: 8px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid rgba(255,255,255,0.15);
-  color: rgba(200,180,140,0.5);
-}
-
-.htp-turn-dot.mine { border-color: rgba(232,201,106,0.5); }
-.htp-turn-dot.opp  { border-color: rgba(120,150,220,0.5); }
-.htp-turn-dot.done { opacity: 0.45; }
-.htp-turn-dot.current.mine { background: #e8c96a; color: #1a1410; }
-.htp-turn-dot.current.opp  { background: #7fa0e0; color: #1a1410; }
 
 /* ── Placement mockup ─────────────────────────────────────────────── */
 .htp-placement-badge {

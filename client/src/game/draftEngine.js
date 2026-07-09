@@ -1,147 +1,132 @@
-import { generatePiecePool, generateCardPool, DRAFT_TURN_ORDER } from './draftPools.js'
-import { shopPieceCost } from './economy.js'
+import { BAN_COUNT_BY_ROUND, BUDGET_BY_ROUND } from './draftPools.js'
+import { SHOP_PIECE_TYPES, shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
 
-// Budget draft — the pool is shared and freely composed (see draftPools.js),
-// but every item has a real price (shopPieceCost for pieces, CARD_DEFS.cost
-// for cards — the exact same scale the in-battle shop already uses, so
-// there's nothing new to learn). On your turn you either buy one affordable
-// item or pass; there's no separate "pick count" any more, just budget.
-//
-// The budget is anchored to the single MOST EXPENSIVE item actually in the
-// pool this round — whichever type that happens to be, piece or card. A
-// share-of-total-value budget (tried earlier) scales with how much STUFF is
-// in the pool, not with how good the best single thing is, so a rich pool
-// could still leave enough left over to buy the best item AND plenty else —
-// the real problem (whoever moves first just takes the best thing, cheaply)
-// was never actually about total pool size. Anchoring to the pool's own max
-// price instead means grabbing the single best item always costs close to
-// the WHOLE budget, regardless of whether that best item happens to be a
-// queen, a rook, or an expensive card like rollback — no per-type price
-// tuning needed, it generalizes to whatever the pool actually rolls.
-// MULTIPLIER leaves a little slack above the top price (room for one cheap
-// extra, like a pawn) without ever covering a second real purchase. Grows
-// round to round — later rounds carry over more army/cards from earlier
-// rounds, so a purely top-price-anchored budget would otherwise buy
-// proportionally LESS of a full army as the game escalates; escalating the
-// multiplier keeps pace with that.
-const BUDGET_MULTIPLIER_BY_ROUND = { 1: 2.2, 2: 2, 3: 2.5 }
+// The full catalog — every piece type and every card is buyable from round
+// 1 on. There's no rolled/scarce pool any more: the only things that limit
+// what you can get are your budget and what the opponent banned for you
+// (see below). Supply is unlimited — buying a knight doesn't make it
+// unavailable to the opponent or to you again.
+export const ALL_PIECE_TYPES = SHOP_PIECE_TYPES
+export const ALL_CARD_IDS = Object.keys(CARD_DEFS)
 
-function maxItemPrice(pool) {
-  const pieceTypes = Object.keys(pool.pieces).filter(type => pool.pieces[type] > 0)
-  const pieceMax = pieceTypes.length > 0 ? Math.max(...pieceTypes.map(shopPieceCost)) : 0
-  const cardMax  = pool.cards.length > 0 ? Math.max(...pool.cards.map(id => CARD_DEFS[id].cost)) : 0
-  return Math.max(pieceMax, cardMax)
+// Pawns can never be banned — a hard rule, not a balance knob. Bans target
+// a whole TYPE (not a single copy, since supply is unlimited), so without
+// this floor a well-aimed set of bans could strip every affordable piece
+// type from a side and leave them unable to place a single piece, which is
+// an instant loss under elimination rules (see chess.js). Keeping pawn
+// always buyable guarantees a side can always field SOME army.
+const UNBANNABLE_PIECE = 'pawn'
+
+function targetKey(target) {
+  return target.kind === 'piece' ? `piece:${target.pieceType}` : `card:${target.cardId}`
 }
 
-// `firstColor` is who picks first this round (white by default, per spec's
-// "б1"). `carryOverCoins` is whatever's left of the SAME running balance
-// from last round's battle (see matchEngine.js) — there's only ever one
-// pot of money across the whole match; the draft doesn't get its own
-// separate currency, it just adds this round's fresh allotment on top of
-// whatever you already had, and you can spend the combined total during
-// the draft itself (not just after it). The pool itself is rolled fresh
-// here — calling this twice for the same round number can yield a
-// different pool and a different budget, by design.
-export function createDraftState(round, firstColor = 'white', carryOverCoins = { white: 0, black: 0 }) {
+function isValidCatalogTarget(target) {
+  if (target?.kind === 'piece') return ALL_PIECE_TYPES.includes(target.pieceType)
+  if (target?.kind === 'card') return ALL_CARD_IDS.includes(target.cardId)
+  return false
+}
+
+function itemCost(item) {
+  return item.kind === 'piece' ? shopPieceCost(item.pieceType) : CARD_DEFS[item.cardId].cost
+}
+
+// `firstColor` no longer gates any turn order (both sides ban and buy
+// blind/simultaneously) — it's kept purely as a persistent label so
+// matchEngine.js can keep announcing the same physical player "first"
+// round to round (see applyRoundResult's comment on why that matters for
+// alternation once colors start swapping).
+//
+// The budget is always the round's flat BUDGET_BY_ROUND — coins don't
+// persist between rounds at all any more (see matchEngine.js). What DOES
+// carry over round to round is your surviving ARMY (pieces + unused
+// cards) — money is a strictly this-round resource: it funds this round's
+// buy phase, and whatever's left over becomes this round's starting
+// battle coins (see tryDraftBuy/tryPlacement). It's gone once the round
+// ends, same as captured coins earned mid-battle.
+export function createDraftState(round, firstColor = 'white') {
   const secondColor = firstColor === 'white' ? 'black' : 'white'
-  const pool = {
-    pieces: generatePiecePool(round),
-    cards: generateCardPool(round),
-  }
-  const allotment = Math.round(maxItemPrice(pool) * BUDGET_MULTIPLIER_BY_ROUND[round])
+  const budget = BUDGET_BY_ROUND[round]
   return {
     round,
     firstColor,
     secondColor,
-    pool,
-    turnIndex: 0,
-    budgets: {
-      white: allotment + (carryOverCoins.white ?? 0),
-      black: allotment + (carryOverCoins.black ?? 0),
-    },
-    picks: {
-      white: { pieces: [], cards: [] },
-      black: { pieces: [], cards: [] },
-    },
+    phase: 'ban', // 'ban' -> 'buy'
+    banCount: BAN_COUNT_BY_ROUND[round],
+    bans: { white: null, black: null }, // null until that color submits; array of targets once submitted
+    budgets: { white: budget, black: budget },
+    picks: { white: null, black: null }, // null until that color submits; { pieces: [...], cards: [...] } once submitted
   }
 }
 
-function colorAt(draftState, turnIndex) {
-  const slot = DRAFT_TURN_ORDER[turnIndex]
-  if (!slot) return null
-  return slot === 'first' ? draftState.firstColor : draftState.secondColor
+function opponentOf(color) {
+  return color === 'white' ? 'black' : 'white'
 }
 
-export function getCurrentPicker(draftState) {
-  return colorAt(draftState, draftState.turnIndex)
+// What's banned FOR `color` — i.e. what the OPPONENT chose to deny them.
+// Empty until the ban phase is fully resolved (both sides submitted).
+export function getBannedTargets(draftState, color) {
+  if (draftState.phase === 'ban') return []
+  return draftState.bans[opponentOf(color)] ?? []
 }
 
 export function isDraftComplete(draftState) {
-  return draftState.turnIndex >= DRAFT_TURN_ORDER.length
+  return draftState.picks.white !== null && draftState.picks.black !== null
 }
 
-// { pieces: ['pawn', 'pawn', 'knight', ...] (one entry per still-available
-//   copy, so the UI can show and let players pick each individual piece
-//   rather than a single grouped "pawn ×6" tile), cards: ['freeze', ...] }
-// Whether any given entry is actually affordable right now is for the UI
-// (or applyDraftPick) to check against the current picker's budget —
-// unaffordable items still show up here, same shared-pool visibility as
-// always, just not buyable this turn.
-export function getAvailableChoices(draftState) {
-  const pieces = Object.entries(draftState.pool.pieces)
-    .filter(([, count]) => count > 0)
-    .flatMap(([type, count]) => Array(count).fill(type))
-  const cards = [...draftState.pool.cards]
-  return { pieces, cards }
+// targets = [{ kind: 'piece', pieceType } | { kind: 'card', cardId }, ...],
+// exactly draftState.banCount of them, no duplicates, never a pawn. Both
+// sides submit blind — the ban phase only resolves (and each side's
+// bannedFor becomes visible) once BOTH have submitted, same "hidden until
+// both ready" pattern as placement.
+export function submitBans(draftState, color, targets) {
+  if (draftState.phase !== 'ban') return { error: 'Фаза банов уже завершена' }
+  if (draftState.bans[color] !== null) return { error: 'Вы уже отправили баны' }
+  if (!Array.isArray(targets) || targets.length !== draftState.banCount) {
+    return { error: `Нужно выбрать ровно ${draftState.banCount} бан(а/ов)` }
+  }
+  for (const t of targets) {
+    if (!isValidCatalogTarget(t)) return { error: 'Некорректная цель бана' }
+    if (t.kind === 'piece' && t.pieceType === UNBANNABLE_PIECE) return { error: 'Пешку нельзя банить' }
+  }
+  const keys = targets.map(targetKey)
+  if (new Set(keys).size !== keys.length) return { error: 'Нельзя банить одно и то же дважды' }
+
+  const bans = { ...draftState.bans, [color]: targets }
+  const phase = bans.white !== null && bans.black !== null ? 'buy' : draftState.phase
+  return { draftState: { ...draftState, bans, phase } }
 }
 
-// choice = { kind: 'piece', pieceType } | { kind: 'card', cardId } | { kind: 'pass' }
-export function applyDraftPick(draftState, color, choice) {
-  if (isDraftComplete(draftState)) return { error: 'Драфт уже завершён' }
-  const picker = getCurrentPicker(draftState)
-  if (picker !== color) return { error: 'Сейчас не ваш пик' }
+// items = [{ kind: 'piece', pieceType } | { kind: 'card', cardId }, ...] —
+// the buyer's whole cart at once (no turn order to interleave with, so
+// there's nothing gained by submitting one at a time). Duplicates are
+// fine and common (supply is unlimited) — buying three pawns is just
+// three entries. Validated atomically: every item must be affordable
+// together and none may be banned for this color.
+export function submitPurchases(draftState, color, items) {
+  if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза покупок' }
+  if (draftState.picks[color] !== null) return { error: 'Вы уже отправили закупку' }
+  if (!Array.isArray(items)) return { error: 'Некорректная закупка' }
 
-  if (choice?.kind === 'pass') {
-    return { draftState: { ...draftState, turnIndex: draftState.turnIndex + 1 } }
+  const banned = new Set(getBannedTargets(draftState, color).map(targetKey))
+  let total = 0
+  for (const item of items) {
+    if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
+    if (banned.has(targetKey(item))) return { error: 'Это забанено сопернику для вас' }
+    total += itemCost(item)
   }
+  if (total > draftState.budgets[color]) return { error: 'Недостаточно бюджета' }
 
-  const pool  = { pieces: { ...draftState.pool.pieces }, cards: [...draftState.pool.cards] }
-  const picks = {
-    white: { pieces: [...draftState.picks.white.pieces], cards: [...draftState.picks.white.cards] },
-    black: { pieces: [...draftState.picks.black.pieces], cards: [...draftState.picks.black.cards] },
+  const picksEntry = {
+    pieces: items.filter(i => i.kind === 'piece').map(i => i.pieceType),
+    cards: items.filter(i => i.kind === 'card').map(i => i.cardId),
   }
-  const budget = draftState.budgets[color]
-  let cost
-
-  if (choice?.kind === 'piece') {
-    const { pieceType } = choice
-    if (!pool.pieces[pieceType] || pool.pieces[pieceType] <= 0) {
-      return { error: 'Эта фигура уже разобрана' }
-    }
-    cost = shopPieceCost(pieceType)
-    if (cost > budget) return { error: 'Недостаточно бюджета' }
-    pool.pieces[pieceType] -= 1
-    picks[color].pieces.push(pieceType)
-  } else if (choice?.kind === 'card') {
-    const { cardId } = choice
-    const idx = pool.cards.indexOf(cardId)
-    if (idx === -1) return { error: 'Эта карта уже разобрана' }
-    cost = CARD_DEFS[cardId].cost
-    if (cost > budget) return { error: 'Недостаточно бюджета' }
-    pool.cards.splice(idx, 1)
-    picks[color].cards.push(cardId)
-  } else {
-    return { error: 'Некорректный выбор' }
-  }
-
   return {
     draftState: {
       ...draftState,
-      pool,
-      picks,
-      budgets: { ...draftState.budgets, [color]: budget - cost },
-      turnIndex: draftState.turnIndex + 1,
+      budgets: { ...draftState.budgets, [color]: draftState.budgets[color] - total },
+      picks: { ...draftState.picks, [color]: picksEntry },
     },
   }
 }

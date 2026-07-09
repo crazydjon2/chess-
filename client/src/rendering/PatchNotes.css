@@ -1,0 +1,140 @@
+.pn-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: 20px;
+}
+
+.pn-card {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 84vh;
+  overflow-y: auto;
+  background: #1a1410;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 28px 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.pn-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(220,200,170,0.7);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pn-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.pn-title {
+  font-family: 'Georgia', serif;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e8d5a3;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.pn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Each entry reads as its own card: a left accent stripe + glyph badge in
+   the entry's own color, same "--accent"-driven treatment card chips use
+   elsewhere (see HowToPlay.css) — so every patch feels like a distinct,
+   named event rather than another paragraph in a long scroll. */
+.pn-entry {
+  display: flex;
+  gap: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.pn-entry-glyph {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}
+
+.pn-entry-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.pn-entry-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pn-entry-latest {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1a1410;
+  background: var(--accent);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.pn-entry-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(240,225,195,0.95);
+}
+
+.pn-entry-date {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(200,180,140,0.5);
+  flex-shrink: 0;
+}
+
+.pn-changes {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pn-changes li {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(220,205,180,0.82);
+}
+
+.pn-changes li::marker {
+  color: var(--accent);
+}

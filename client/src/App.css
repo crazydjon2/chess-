@@ -47,6 +47,70 @@
   margin-top: 2px;
 }
 
+/* ── "What's new" — deliberately louder than a quiet footer link, so a
+   fresh patch is something you notice, not something you have to go
+   looking for. Purple rather than the gold/green of the two mode buttons —
+   reads as "info", not as a third way to start playing. ─────────────── */
+.mode-select-patchnotes {
+  position: relative;
+  margin-top: 10px;
+  width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(168,85,247,0.10);
+  border: 1px solid rgba(168,85,247,0.35);
+  color: rgba(220,205,245,0.85);
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.mode-select-patchnotes:hover {
+  background: rgba(168,85,247,0.18);
+  border-color: rgba(168,85,247,0.55);
+}
+
+.mode-select-patchnotes:active {
+  transform: scale(0.98);
+}
+
+.mode-select-patchnotes.unseen {
+  border-color: rgba(168,85,247,0.7);
+  box-shadow: 0 0 0 rgba(168,85,247,0.35);
+  animation: patchnotes-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes patchnotes-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(168,85,247,0.25); }
+  50%      { box-shadow: 0 0 18px rgba(168,85,247,0.55); }
+}
+
+.mode-select-patchnotes-glyph {
+  font-size: 14px;
+}
+
+.mode-select-patchnotes-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #f04545;
+  border: 2px solid #1a1410;
+  animation: patchnotes-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes patchnotes-dot-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.25); }
+}
+
 /* ── Sandbox chrome ───────────────────────────────────────────────────── */
 .sandbox-exit-btn {
   position: fixed;
@@ -392,70 +456,6 @@
   margin-top: 1px;
 }
 
-/* ── Moves-remaining timeline ─────────────────────────────────────── */
-.moves-timeline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 5px 12px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.moves-timeline-icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.moves-timeline-track {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.moves-tick {
-  width: 3px;
-  height: 12px;
-  border-radius: 1px;
-  background: rgba(255,255,255,0.12);
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.moves-tick.used {
-  background: rgba(200,180,140,0.25);
-}
-
-.moves-tick.current {
-  background: #e8c96a;
-  height: 16px;
-  box-shadow: 0 0 5px rgba(232,201,106,0.7);
-}
-
-.moves-timeline-count {
-  font-size: 11px;
-  font-weight: 800;
-  color: rgba(210,225,255,0.85);
-  min-width: 14px;
-  text-align: center;
-}
-
-.moves-timeline.urgent {
-  background: rgba(200,60,30,0.22);
-  border-color: rgba(255,140,90,0.45);
-  animation: moves-limit-pulse 1s ease-in-out infinite;
-}
-
-.moves-timeline.urgent .moves-tick.used { background: rgba(255,180,150,0.35); }
-.moves-timeline.urgent .moves-tick.current { background: #ff9a6a; box-shadow: 0 0 6px rgba(255,140,90,0.8); }
-.moves-timeline.urgent .moves-timeline-count { color: #ffd9c2; }
-
-@keyframes moves-limit-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.6; }
-}
 
 /* ── Turn bar (persistent, unmissable) ───────────────────────────── */
 .turn-bar {
@@ -704,5 +704,31 @@
 }
 
 .meteor-warning-icon {
+  font-size: 16px;
+}
+
+/* ── Incoming freeze mine warning (location unknown — see GameView.jsx) ── */
+.mine-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 440px);
+  background: linear-gradient(160deg, rgba(20,60,110,0.55), rgba(10,30,60,0.55));
+  border: 1.5px solid rgba(120,190,255,0.5);
+  border-radius: 10px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(195,225,255,0.95);
+  text-align: center;
+  animation: mine-warning-pulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes mine-warning-pulse {
+  from { box-shadow: 0 0 0 rgba(120,190,255,0); }
+  to   { box-shadow: 0 0 16px rgba(120,190,255,0.45); }
+}
+
+.mine-warning-icon {
   font-size: 16px;
 }

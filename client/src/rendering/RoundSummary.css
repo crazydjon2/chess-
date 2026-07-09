@@ -107,70 +107,28 @@
   pointer-events: none;
 }
 
-.rs-rosters {
-  display: flex;
-  gap: 14px;
-  width: 100%;
-  margin-bottom: 8px;
-}
-
-.rs-roster {
-  flex: 1;
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rs-roster-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(200,180,140,0.5);
-}
-
-.rs-roster-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-height: 22px;
-}
-
-.rs-chip {
-  font-size: 18px;
-  line-height: 1;
-  color: rgba(240,220,180,0.9);
-}
-
-.rs-chip.card {
-  color: var(--accent);
-}
-
-.rs-empty {
-  font-size: 11px;
-  color: rgba(200,180,140,0.35);
-}
-
-.rs-roster-coins {
-  font-size: 12px;
-  font-weight: 800;
-  color: #e8c96a;
-}
-
+/* .rs-card scrolls internally (max-height: 92vh above) rather than the
+   page — a tall board + two full rosters can easily push this below the
+   fold, so it's docked as a sticky footer bar rather than just sitting at
+   the end of the scrollable content. Bleeds to the card's own edges
+   (negative margins cancel its padding) so the bar reads as a distinct
+   dock, not just a button that happens to not scroll away. */
 .rs-continue-btn {
-  background: linear-gradient(135deg, #8a6228, #5c3e14);
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  width: calc(100% + 52px);
+  margin: 8px -26px -24px;
+  background: linear-gradient(180deg, #2e1f0f 0%, #1f150a 100%);
   color: #f0d9b5;
-  border: 1px solid rgba(180,130,60,0.35);
-  padding: 10px 24px;
-  border-radius: 9px;
-  font-size: 13px;
+  border: none;
+  border-top: 1px solid rgba(180,130,60,0.35);
+  border-radius: 0 0 16px 16px;
+  padding: 16px 24px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  margin-top: 4px;
+  box-shadow: 0 -8px 20px rgba(0,0,0,0.35);
 }
 
 .rs-continue-btn:hover {

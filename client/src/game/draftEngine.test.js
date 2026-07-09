@@ -1,119 +1,187 @@
 import { describe, it, expect } from 'vitest'
-import { createDraftState, getCurrentPicker, getAvailableChoices, applyDraftPick, isDraftComplete } from './draftEngine.js'
-import { DRAFT_TURN_ORDER } from './draftPools.js'
+import {
+  createDraftState, submitBans, submitPurchases, getBannedTargets, isDraftComplete,
+  ALL_PIECE_TYPES, ALL_CARD_IDS,
+} from './draftEngine.js'
+import { BAN_COUNT_BY_ROUND, BUDGET_BY_ROUND } from './draftPools.js'
 import { shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
 
-describe('draft turn order', () => {
-  it('gives each side exactly 5 of the 10 total turns', () => {
-    const first = DRAFT_TURN_ORDER.filter(s => s === 'first').length
-    const second = DRAFT_TURN_ORDER.filter(s => s === 'second').length
-    expect(first).toBe(5)
-    expect(second).toBe(5)
+describe('createDraftState', () => {
+  it('starts in the ban phase with the round\'s ban count and an equal budget for both colors', () => {
+    const ds = createDraftState(2, 'white')
+    expect(ds.phase).toBe('ban')
+    expect(ds.banCount).toBe(BAN_COUNT_BY_ROUND[2])
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[2])
+    expect(ds.budgets.black).toBe(BUDGET_BY_ROUND[2])
+    expect(ds.bans).toEqual({ white: null, black: null })
+    expect(ds.picks).toEqual({ white: null, black: null })
   })
-})
 
-describe('createDraftState budgets', () => {
-  it('gives both colors an identical budget, derived from the pool\'s own value', () => {
+  it('is always the flat round budget, regardless of anything from a previous round', () => {
     const ds = createDraftState(1, 'white')
-    expect(ds.budgets.white).toBe(ds.budgets.black)
-    expect(ds.budgets.white).toBeGreaterThan(0)
-  })
-
-  // The budget is anchored to the pool's own single most expensive item
-  // (piece OR card, whichever it happens to be) — see draftEngine.js's
-  // comment for why this generalizes better than a share-of-total-value
-  // budget. Buying that one item should always leave little slack (room
-  // for a cheap extra, not a second real purchase), regardless of whether
-  // the priciest thing this round happens to be a queen, a rook, or an
-  // expensive card. The multiplier escalates round to round (see
-  // BUDGET_MULTIPLIER_BY_ROUND).
-  const MULTIPLIER_BY_ROUND = { 1: 2.2, 2: 2, 3: 2.5 }
-  it('always sets the budget to ~roundMultiplier x the pool\'s single most expensive item, whatever type that is', () => {
-    for (const round of [1, 2, 3]) {
-      for (let i = 0; i < 200; i++) {
-        const ds = createDraftState(round, 'white')
-        const pieceTypes = Object.keys(ds.pool.pieces).filter(t => ds.pool.pieces[t] > 0)
-        const pieceMax = pieceTypes.length > 0 ? Math.max(...pieceTypes.map(shopPieceCost)) : 0
-        const cardMax   = ds.pool.cards.length > 0 ? Math.max(...ds.pool.cards.map(id => CARD_DEFS[id].cost)) : 0
-        const maxPrice  = Math.max(pieceMax, cardMax)
-
-        expect(ds.budgets.white).toBe(Math.round(maxPrice * MULTIPLIER_BY_ROUND[round]))
-      }
-    }
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1])
+    expect(ds.budgets.black).toBe(BUDGET_BY_ROUND[1])
   })
 })
 
-describe('applyDraftPick', () => {
-  it('buying a piece deducts its shop price from the buyer\'s budget only', () => {
-    let ds = createDraftState(1, 'white')
-    ds = { ...ds, budgets: { white: 100, black: 100 }, pool: { pieces: { pawn: 3 }, cards: [] } }
-    const res = applyDraftPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' })
-    expect(res.error).toBeUndefined()
-    expect(res.draftState.budgets.white).toBe(100 - shopPieceCost('pawn'))
-    expect(res.draftState.budgets.black).toBe(100)
-    expect(res.draftState.pool.pieces.pawn).toBe(2)
-    expect(res.draftState.picks.white.pieces).toEqual(['pawn'])
-  })
-
-  it('buying a card deducts its CARD_DEFS cost', () => {
-    let ds = createDraftState(1, 'white')
-    ds = { ...ds, budgets: { white: 100, black: 100 }, pool: { pieces: {}, cards: ['freeze'] } }
-    const res = applyDraftPick(ds, 'white', { kind: 'card', cardId: 'freeze' })
-    expect(res.error).toBeUndefined()
-    expect(res.draftState.budgets.white).toBe(100 - CARD_DEFS.freeze.cost)
-    expect(res.draftState.pool.cards).toEqual([])
-  })
-
-  it('rejects a purchase that exceeds the buyer\'s remaining budget', () => {
-    let ds = createDraftState(1, 'white')
-    ds = { ...ds, budgets: { white: 1, black: 100 }, pool: { pieces: { queen: 1 }, cards: [] } }
-    const res = applyDraftPick(ds, 'white', { kind: 'piece', pieceType: 'queen' })
+describe('submitBans', () => {
+  it('rejects a submission that isn\'t exactly banCount targets', () => {
+    const ds = createDraftState(2, 'white') // banCount 2
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'knight' }])
     expect(res.error).toBeTruthy()
   })
 
-  it('a pass advances the turn without touching the budget or the pool', () => {
-    let ds = createDraftState(1, 'white')
-    ds = { ...ds, budgets: { white: 50, black: 50 } }
-    const picker = getCurrentPicker(ds)
-    const res = applyDraftPick(ds, picker, { kind: 'pass' })
-    expect(res.error).toBeUndefined()
-    expect(res.draftState.budgets).toEqual({ white: 50, black: 50 })
-    expect(res.draftState.turnIndex).toBe(ds.turnIndex + 1)
+  it('rejects banning a pawn — structurally unbannable', () => {
+    const ds = createDraftState(1, 'white') // banCount 1
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'pawn' }])
+    expect(res.error).toBeTruthy()
   })
 
-  it('rejects a pick when it is not that color\'s turn', () => {
+  it('rejects duplicate targets within the same submission', () => {
+    const ds = createDraftState(2, 'white') // banCount 2
+    const res = submitBans(ds, 'white', [
+      { kind: 'card', cardId: 'meteor' },
+      { kind: 'card', cardId: 'meteor' },
+    ])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('rejects an invalid catalog target', () => {
     const ds = createDraftState(1, 'white')
-    const picker = getCurrentPicker(ds)
-    const other = picker === 'white' ? 'black' : 'white'
-    const { pieces } = getAvailableChoices(ds)
-    const res = applyDraftPick(ds, other, { kind: 'piece', pieceType: pieces[0] })
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'archer' }])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('accepts a valid submission and stays in the ban phase until both sides submit', () => {
+    const ds = createDraftState(1, 'white')
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }])
+    expect(res.error).toBeUndefined()
+    expect(res.draftState.bans.white).toEqual([{ kind: 'piece', pieceType: 'queen' }])
+    expect(res.draftState.phase).toBe('ban') // black hasn't submitted yet
+  })
+
+  it('flips to the buy phase once both sides have submitted', () => {
+    let ds = createDraftState(1, 'white')
+    ds = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }]).draftState
+    ds = submitBans(ds, 'black', [{ kind: 'card', cardId: 'meteor' }]).draftState
+    expect(ds.phase).toBe('buy')
+  })
+
+  it('rejects a second submission from the same color', () => {
+    let ds = createDraftState(1, 'white')
+    ds = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }]).draftState
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'rook' }])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('rejects bans once the ban phase is over', () => {
+    let ds = createDraftState(1, 'white')
+    ds = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }]).draftState
+    ds = submitBans(ds, 'black', [{ kind: 'piece', pieceType: 'rook' }]).draftState
+    const res = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'knight' }])
     expect(res.error).toBeTruthy()
   })
 })
 
-describe('full draft playthrough', () => {
-  it('always reaches exactly 10 turns (passing whenever nothing is affordable), never overspending', () => {
+describe('getBannedTargets', () => {
+  it('is empty for everyone while the ban phase is still in progress', () => {
     let ds = createDraftState(1, 'white')
-    let turns = 0
-    while (!isDraftComplete(ds)) {
-      const picker = getCurrentPicker(ds)
-      const budget = ds.budgets[picker]
-      const { pieces, cards } = getAvailableChoices(ds)
-      const affordablePiece = pieces.find(t => shopPieceCost(t) <= budget)
-      const affordableCard  = cards.find(id => CARD_DEFS[id].cost <= budget)
-      const choice = affordableCard
-        ? { kind: 'card', cardId: affordableCard }
-        : affordablePiece
-          ? { kind: 'piece', pieceType: affordablePiece }
-          : { kind: 'pass' }
-      const res = applyDraftPick(ds, picker, choice)
-      expect(res.error).toBeUndefined()
-      ds = res.draftState
-      turns++
-    }
-    expect(turns).toBe(10)
-    expect(ds.budgets.white).toBeGreaterThanOrEqual(0)
-    expect(ds.budgets.black).toBeGreaterThanOrEqual(0)
+    ds = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }]).draftState
+    expect(getBannedTargets(ds, 'black')).toEqual([]) // black's restrictions aren't revealed yet
+  })
+
+  it('reveals what the OPPONENT banned for you once both sides have submitted', () => {
+    let ds = createDraftState(1, 'white')
+    ds = submitBans(ds, 'white', [{ kind: 'piece', pieceType: 'queen' }]).draftState
+    ds = submitBans(ds, 'black', [{ kind: 'card', cardId: 'meteor' }]).draftState
+    expect(getBannedTargets(ds, 'black')).toEqual([{ kind: 'piece', pieceType: 'queen' }])
+    expect(getBannedTargets(ds, 'white')).toEqual([{ kind: 'card', cardId: 'meteor' }])
+  })
+})
+
+// Fills in valid (non-pawn, non-duplicate) filler bans when a test doesn't
+// care what's banned — every round requires exactly `banCount` targets per
+// side, so an empty/short list would itself be rejected as malformed.
+function fillerBans(n) {
+  return ['knight', 'bishop', 'rook'].slice(0, n).map(pieceType => ({ kind: 'piece', pieceType }))
+}
+
+function resolvedBuyState(round = 1, whiteBans, blackBans) {
+  let ds = createDraftState(round, 'white')
+  ds = submitBans(ds, 'white', whiteBans ?? fillerBans(ds.banCount)).draftState
+  ds = submitBans(ds, 'black', blackBans ?? fillerBans(ds.banCount)).draftState
+  return ds
+}
+
+describe('submitPurchases', () => {
+  it('rejects purchases before the ban phase resolves', () => {
+    const ds = createDraftState(1, 'white')
+    const res = submitPurchases(ds, 'white', [{ kind: 'piece', pieceType: 'pawn' }])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('unlimited supply — buying multiple copies of the same type is fine as long as it\'s affordable', () => {
+    const ds = resolvedBuyState()
+    const res = submitPurchases(ds, 'white', [
+      { kind: 'piece', pieceType: 'pawn' },
+      { kind: 'piece', pieceType: 'pawn' },
+      { kind: 'piece', pieceType: 'pawn' },
+    ])
+    expect(res.error).toBeUndefined()
+    expect(res.draftState.picks.white.pieces).toEqual(['pawn', 'pawn', 'pawn'])
+    expect(res.draftState.budgets.white).toBe(ds.budgets.white - shopPieceCost('pawn') * 3)
+  })
+
+  it('rejects a cart that exceeds the buyer\'s budget', () => {
+    const ds = resolvedBuyState(1)
+    const tooMuch = Math.ceil(ds.budgets.white / shopPieceCost('queen')) + 1
+    const items = Array.from({ length: tooMuch }, () => ({ kind: 'piece', pieceType: 'queen' }))
+    const res = submitPurchases(ds, 'white', items)
+    expect(res.error).toBeTruthy()
+  })
+
+  it('rejects an item that was banned for this color', () => {
+    const ds = resolvedBuyState(1, undefined, [{ kind: 'piece', pieceType: 'knight' }]) // black banned knight FOR white
+    const res = submitPurchases(ds, 'white', [{ kind: 'piece', pieceType: 'knight' }])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('does not block the OTHER color from buying the same thing (bans are one-directional)', () => {
+    // white bans bishop (for black), black bans knight (for white) — knight
+    // is only off-limits to white, black should still be free to buy it.
+    const ds = resolvedBuyState(1, [{ kind: 'piece', pieceType: 'bishop' }], [{ kind: 'piece', pieceType: 'knight' }])
+    const res = submitPurchases(ds, 'black', [{ kind: 'piece', pieceType: 'knight' }])
+    expect(res.error).toBeUndefined()
+  })
+
+  it('deducts only from the buyer\'s own budget', () => {
+    const ds = resolvedBuyState()
+    const res = submitPurchases(ds, 'white', [{ kind: 'card', cardId: 'freeze' }])
+    expect(res.draftState.budgets.white).toBe(ds.budgets.white - CARD_DEFS.freeze.cost)
+    expect(res.draftState.budgets.black).toBe(ds.budgets.black)
+  })
+
+  it('rejects a second submission from the same color', () => {
+    let ds = resolvedBuyState()
+    ds = submitPurchases(ds, 'white', []).draftState
+    const res = submitPurchases(ds, 'white', [{ kind: 'piece', pieceType: 'pawn' }])
+    expect(res.error).toBeTruthy()
+  })
+
+  it('the draft is complete once both sides have submitted a cart (even an empty one)', () => {
+    let ds = resolvedBuyState()
+    expect(isDraftComplete(ds)).toBe(false)
+    ds = submitPurchases(ds, 'white', []).draftState
+    expect(isDraftComplete(ds)).toBe(false)
+    ds = submitPurchases(ds, 'black', []).draftState
+    expect(isDraftComplete(ds)).toBe(true)
+  })
+})
+
+describe('catalog', () => {
+  it('every piece type and every card is buyable from round 1', () => {
+    expect(ALL_PIECE_TYPES).toEqual(expect.arrayContaining(['pawn', 'knight', 'bishop', 'rook', 'queen']))
+    expect(ALL_CARD_IDS.length).toBe(Object.keys(CARD_DEFS).length)
   })
 })

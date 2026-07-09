@@ -27,8 +27,13 @@ export const CAPTURE_ORDER = ['queen', 'rook', 'bishop', 'knight', 'pawn', 'king
 // upgraded) and a smoke_screen-hidden piece being invisible in a redacted
 // view (it's not captured, just fogged). History only ever records a real
 // capture, so neither case can be mistaken for one.
+//
+// A capture marked `revived` (see cardEffects.js's necromancy) is excluded
+// — that piece is back on the board, not a casualty any more, so it
+// shouldn't linger in a "captured" tray or stay offered as something left
+// to revive.
 export function getCaptured(gameState, color) {
   return (gameState.moveHistory ?? [])
-    .filter(m => m.captured && m.captured.color === color)
+    .filter(m => m.captured && m.captured.color === color && !m.captured.revived)
     .map(m => m.captured.type)
 }

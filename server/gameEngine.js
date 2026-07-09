@@ -7,16 +7,18 @@ import { getValidTargets } from '../client/src/game/cards.js'
 import { applyCardEffect } from '../client/src/game/cardEffects.js'
 import { PIECE_VALUE } from '../client/src/game/economy.js'
 
-export function tryMove(gameState, color, from, to, promotion) {
+export function tryMove(gameState, color, from, to, promotion, now = Date.now()) {
   if (gameState.turn !== color) return { error: 'Не ваш ход' }
   const piece = gameState.pieces[from]
   if (!piece || piece.color !== color) return { error: 'Нет вашей фигуры на этой клетке' }
   if (!getLegalMoves(gameState, from).includes(to)) return { error: 'Недопустимый ход' }
 
   const target = gameState.pieces[to]
-  const next   = applyMove(gameState, from, to, promotion)
+  const next   = applyMove(gameState, from, to, promotion, now)
   const meteorStrikes = next.meteorStrikes ?? []
   delete next.meteorStrikes // transient — see applyMove's comment; never persisted
+  const mineStrike = next.mineStrike ?? null
+  delete next.mineStrike // transient — same as meteorStrikes, never persisted
   const captured = target && target.hp <= 1
   const coins = captured
     ? { ...gameState.coins, [color]: gameState.coins[color] + (PIECE_VALUE[target.type] || 0) }
@@ -29,7 +31,7 @@ export function tryMove(gameState, color, from, to, promotion) {
   if (target && target.hp > 1) actionType = 'bounce'
   else if (target) actionType = 'capture'
 
-  return { gameState: finalState, lastAction: { type: actionType, from, to }, result, meteorStrikes }
+  return { gameState: finalState, lastAction: { type: actionType, from, to }, result, meteorStrikes, mineStrike }
 }
 
 // Cards don't end the turn — the caster still gets their normal move this

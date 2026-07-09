@@ -1,20 +1,15 @@
 // Orchestrates a Bo3 draft match: draft -> hidden placement -> battle ->
 // round result -> next round (or match over). Reuses the exact same pure
 // client/src/game modules the client renders with, same as gameEngine.js.
-import { createDraftState, applyDraftPick, isDraftComplete } from '../client/src/game/draftEngine.js'
+import { createDraftState, submitBans, submitPurchases, isDraftComplete } from '../client/src/game/draftEngine.js'
 import { pickBoardPattern } from '../client/src/game/boardPatterns.js'
 import { validatePlacement, buildPlacementPieces } from '../client/src/game/placementEngine.js'
 import { createDraftRoundState } from '../client/src/game/initialState.js'
-import { MOVE_LIMIT_BY_ROUND } from '../client/src/game/draftPools.js'
+import { TIME_LIMIT_BY_ROUND } from '../client/src/game/draftPools.js'
 
 const ROUNDS_TO_WIN  = 2
 const MAX_POOL_ROUND = 3   // round 4+ (draw-extended matches) reuse round 3's tier
 const HARD_ROUND_CAP = 5   // safety valve so an all-draws match still terminates
-// Coin reward for winning a round decisively (not on draws) — no bonus for
-// round 1, since it can't decide the match on its own; escalates for rounds
-// 2-3, which matter more (round 2 can already close out the match, round 3
-// is always the decider). Round 4+ (draw-extended matches) reuse round 3's.
-const ROUND_WIN_BONUS_BY_ROUND = { 1: 5, 2: 8, 3: 10 }
 
 function emptyCarryOver() {
   return {
@@ -26,16 +21,14 @@ function emptyCarryOver() {
 export function startRound(scores, roundNumber, firstColor, carryOver) {
   const poolRound = Math.min(roundNumber, MAX_POOL_ROUND)
   const resolvedCarryOver = carryOver ?? emptyCarryOver()
-  // There's only one running pot of money across the whole match — the
-  // draft doesn't get its own separate currency, it just adds this round's
-  // fresh allotment on top of whatever's carried over from last round's
-  // battle (see draftEngine.js's createDraftState).
-  const carryOverCoins = { white: resolvedCarryOver.white.coins, black: resolvedCarryOver.black.coins }
   return {
     scores,
     round: roundNumber,
     boardPattern: pickBoardPattern(poolRound),
-    draft: createDraftState(poolRound, firstColor, carryOverCoins),
+    // Every round gets the same flat budget — coins never carry over
+    // between rounds (see draftEngine.js's createDraftState / buildCarryOver
+    // below), only the surviving army does.
+    draft: createDraftState(poolRound, firstColor),
     placement: {
       white: { ready: false, map: null },
       black: { ready: false, map: null },
@@ -51,17 +44,24 @@ export function createMatch() {
   return startRound({ white: 0, black: 0 }, 1, 'white', null)
 }
 
-export function tryDraftPick(match, color, choice) {
+export function tryDraftBan(match, color, targets) {
   if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
-  const res = applyDraftPick(match.draft, color, choice)
+  const res = submitBans(match.draft, color, targets)
+  if (res.error) return { error: res.error }
+  return { match: { ...match, draft: res.draftState } }
+}
+
+export function tryDraftBuy(match, color, items) {
+  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
+  const res = submitPurchases(match.draft, color, items)
   if (res.error) return { error: res.error }
 
   const draft = res.draftState
   if (isDraftComplete(draft)) {
-    // The draft budget already folded in whatever coins carried over from
-    // last round (see createDraftState) — so whatever's left unspent here
-    // simply BECOMES the new running balance, not an addition on top of the
-    // old one (that would double-count the same money).
+    // Whatever's left of this round's budget becomes this round's starting
+    // battle coins (see tryPlacement) — a one-round-only handoff, not a
+    // running balance; buildCarryOver resets it to 0 once the round ends,
+    // so it never reaches the NEXT round's budget.
     const carryOver = {
       white: { ...match.carryOver.white, coins: draft.budgets.white },
       black: { ...match.carryOver.black, coins: draft.budgets.black },
@@ -90,12 +90,12 @@ export function tryPlacement(match, color, placementMap) {
   const blackPieces = buildPlacementPieces('black', placement.black.map)
   const whiteCardIds = [...match.carryOver.white.cards, ...match.draft.picks.white.cards]
   const blackCardIds = [...match.carryOver.black.cards, ...match.draft.picks.black.cards]
-  const carryOverCoins = { white: match.carryOver.white.coins, black: match.carryOver.black.coins }
-  const moveLimit = MOVE_LIMIT_BY_ROUND[Math.min(match.round, MAX_POOL_ROUND)]
+  const startingCoins = { white: match.carryOver.white.coins, black: match.carryOver.black.coins }
+  const timeLimit = TIME_LIMIT_BY_ROUND[Math.min(match.round, MAX_POOL_ROUND)]
 
   const gameState = createDraftRoundState(
     match.boardPattern, whitePieces, blackPieces,
-    whiteCardIds, blackCardIds, carryOverCoins, moveLimit
+    whiteCardIds, blackCardIds, startingCoins, timeLimit
   )
 
   return { match: { ...match, placement, phase: 'battle', gameState } }
@@ -104,7 +104,10 @@ export function tryPlacement(match, color, placementMap) {
 // What a color keeps from a finished round's board: every surviving piece
 // (no king to exclude — draft mode doesn't have one), unused cards still
 // in hand, and coins. Barricades are a neutral battlefield object, not
-// owned army, so they never carry over either.
+// owned army, so they never carry over either. Coins are always reset to 0
+// here — they're a strictly this-round resource (see createDraftState),
+// so whatever's left in gameState.coins when the round ends simply evaporates
+// rather than seeding the next round's budget.
 function buildCarryOver(gameState) {
   const out = emptyCarryOver()
   Object.values(gameState.pieces).forEach(p => {
@@ -113,18 +116,17 @@ function buildCarryOver(gameState) {
   })
   ;['white', 'black'].forEach(color => {
     out[color].cards = gameState.cards[color].hand.map(c => c.id)
-    out[color].coins = gameState.coins[color]
   })
   return out
 }
 
 // Called after a move/card/buy inside the battle phase produces a
 // getGameResult() — decides the round winner, updates the score, and
-// either starts the next round's draft (carrying over survivors, hand,
-// and coins) or ends the match.
+// either starts the next round's draft (carrying over survivors and hand —
+// see buildCarryOver) or ends the match.
 export function applyRoundResult(match, result) {
   const scores = { ...match.scores }
-  const decisive = ['checkmate', 'elimination', 'move_limit', 'no_moves', 'surrender'].includes(result.type)
+  const decisive = ['checkmate', 'elimination', 'timeout', 'no_moves', 'surrender'].includes(result.type)
   if (decisive) scores[result.winner] += 1
   // stalemate / draw: no score change, round is replayed via the next round
 
@@ -134,7 +136,6 @@ export function applyRoundResult(match, result) {
   }
 
   const carryOverRaw = buildCarryOver(match.gameState)
-  if (decisive) carryOverRaw[result.winner].coins += ROUND_WIN_BONUS_BY_ROUND[Math.min(match.round, MAX_POOL_ROUND)]
   // Sides swap every round — whoever was black is white next round and vice
   // versa (see rooms.js, which swaps the matching sockets in lockstep) — so
   // both the running score AND the carried-over army must swap color keys
