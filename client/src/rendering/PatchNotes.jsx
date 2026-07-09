@@ -10,7 +10,7 @@ export default function PatchNotes({ onClose }) {
 
         <div className="pn-list">
           {PATCH_NOTES.map((entry, i) => (
-            <div className="pn-entry" key={entry.title} style={{ '--accent': entry.accent }}>
+            <div className="pn-entry" key={entry.id} style={{ '--accent': entry.accent }}>
               <div className="pn-entry-glyph">{entry.glyph}</div>
               <div className="pn-entry-body">
                 <div className="pn-entry-head">

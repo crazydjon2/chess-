@@ -12,12 +12,11 @@
 // more and there's more to deny.
 export const BAN_COUNT_BY_ROUND = { 1: 1, 2: 2, 3: 3 }
 
-// Flat coin budget for the round's buy phase — the same every game, no
-// matter how much money was left over from a previous round (coins never
-// carry between rounds, only the surviving army does — see
-// draftEngine.js's createDraftState). Starting values — tune from
-// playtesting, not derived from anything else, since there's no rolled
-// pool any more to anchor a formula to.
+// Flat coin budget for the round's buy phase — the same every game,
+// regardless of anything left over from a previous round (nothing carries
+// between rounds at all — see matchEngine.js's startRound). Starting
+// values — tune from playtesting, not derived from anything else, since
+// there's no rolled pool any more to anchor a formula to.
 export const BUDGET_BY_ROUND = { 1: 30, 2: 45, 3: 60 }
 
 // Per-player clock for the round, in seconds — a real chess clock, not a

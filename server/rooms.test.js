@@ -347,10 +347,6 @@ describe('side-swap between rounds', () => {
     // Each socket is told its NEW color in the broadcast.
     expect(emits['sock-white'].at(-1).payload.color).toBe('black')
     expect(emits['sock-black'].at(-1).payload.color).toBe('white')
-
-    // White's surviving rook (the surrenderer keeps everything) now shows
-    // up under carryOver.black, since that same player is black next round.
-    expect(room.match.carryOver.black.pieces).toEqual(['rook'])
   })
 
   it('does not swap colors once the surrender ends the whole match', () => {
@@ -461,7 +457,6 @@ describe('placement-phase redaction', () => {
       phase: 'placement',
       boardPattern: { rows: 6, cols: 6, blockedCells: [] },
       draft: { picks: { white: { pieces: ['pawn'], cards: [] }, black: { pieces: ['pawn'], cards: [] } } },
-      carryOver: { white: { pieces: [], cards: [], coins: 0 }, black: { pieces: [], cards: [], coins: 0 } },
       placement: {
         white: { ready: false, map: null },
         black: { ready: false, map: null },

@@ -161,10 +161,8 @@ export default function OnlineApp({ onExit }) {
   const myColor  = room.color
   const oppColor = other(myColor)
 
-  // ── Round-over summary (own + opponent's carry-over) ───────────────
-  // Shown once per round transition, right before the next round's draft —
-  // the server already computed carryOver for both sides when it ended the
-  // previous round, so this is just surfacing data that already exists.
+  // ── Round-over summary ───────────────────────────────────────────────
+  // Shown once per round transition, right before the next round's draft.
   if (match.phase === 'draft' && match.previousRound != null && summarySeenFor !== match.previousRound) {
     return (
       <RoundSummary
@@ -185,7 +183,6 @@ export default function OnlineApp({ onExit }) {
         round={match.round}
         boardPattern={match.boardPattern}
         draft={match.draft}
-        carryOver={match.carryOver}
         myColor={myColor}
         onBan={(targets) => getSocket().emit('draft_ban', targets)}
         onBuy={(items) => getSocket().emit('draft_buy', items)}
@@ -199,12 +196,12 @@ export default function OnlineApp({ onExit }) {
       <PlacementPhase
         boardPattern={match.boardPattern}
         draftedPieces={match.draft.picks[myColor].pieces}
-        carryOverPieces={match.carryOver?.[myColor]?.pieces ?? []}
+        myCards={match.draft.picks[myColor].cards}
         myColor={myColor}
         opponentReady={match.placement[oppColor].ready}
         oppColor={oppColor}
-        oppPieces={[...(match.carryOver?.[oppColor]?.pieces ?? []), ...match.draft.picks[oppColor].pieces]}
-        oppCards={[...(match.carryOver?.[oppColor]?.cards ?? []), ...match.draft.picks[oppColor].cards]}
+        oppPieces={match.draft.picks[oppColor].pieces}
+        oppCards={match.draft.picks[oppColor].cards}
         onSubmit={(map) => getSocket().emit('submit_placement', { map })}
       />
     )
@@ -319,7 +316,7 @@ export default function OnlineApp({ onExit }) {
       {surrenderConfirm && (
         <ConfirmModal
           title="Сдаться?"
-          message="Вы проиграете этот раунд сопернику. Все ваши уцелевшие фигуры и неиспользованные карты сохранятся и перейдут в следующий раунд."
+          message="Вы проиграете этот раунд сопернику. Следующий раунд начнётся с нуля — новый драфт для обеих сторон."
           confirmLabel="Сдаться"
           onConfirm={handleSurrenderConfirm}
           onCancel={() => setSurrenderConfirm(false)}

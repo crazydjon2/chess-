@@ -29,7 +29,14 @@ describe('tryPlayCard: cards no longer end the turn', () => {
     expect(moveRes.error).toBeUndefined()
     expect(moveRes.gameState.turn).toBe('black')
     expect(moveRes.gameState.cardPlayedThisTurn).toBe(false) // reset for the new turn
-    expect(moveRes.gameState.fogZones[0].turnsLeft).toBe(3) // ticked by the move that ended the turn
+    // White's own move never ticks white's own zone (see chess.js's
+    // tickFogZones) — only the opponent's moves wear it down, same pattern
+    // as meteor, so the caster's own actions inside their cover are never
+    // self-defeating.
+    expect(moveRes.gameState.fogZones[0].turnsLeft).toBe(4)
+
+    const oppMoveRes = tryMove(moveRes.gameState, 'black', 'b6', 'b5')
+    expect(oppMoveRes.gameState.fogZones[0].turnsLeft).toBe(3) // ticked by the opponent's move
   })
 
   it('rejects a second card in the same turn (one spell per turn)', () => {

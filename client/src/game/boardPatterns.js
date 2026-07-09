@@ -109,6 +109,17 @@ export function pickBoardPattern(round) {
   return patterns[Math.floor(Math.random() * patterns.length)]
 }
 
+// Every pattern within a round shares the same board size (see comment up
+// top), so home-rank capacity — 2 full open ranks × the board's width — is
+// constant per round too, regardless of which of that round's variants
+// actually gets picked. This is exactly the hard cap on how many pieces
+// either side may draft that round (see draftEngine.js's submitPurchases):
+// buying more than fit on the home ranks would leave hidden placement
+// impossible to complete.
+export const HOME_CAPACITY_BY_ROUND = Object.fromEntries(
+  Object.entries(BOARD_PATTERNS).map(([round, patterns]) => [round, patterns[0].cols * 2])
+)
+
 // Home ranks (placement-eligible rows) for a color on a given board size.
 export function homeRanks(rows, color) {
   return color === 'white' ? [1, 2] : [rows - 1, rows]

@@ -301,12 +301,19 @@ export function unfreezeColor(pieces, color) {
 }
 
 // Counts down every active fog zone (smoke_screen) by one turn, dropping
-// zones that have expired. Must run at the end of every turn, same as
-// unfreezeColor — see its comment for why (move, card play, and shop
-// purchase are all "a turn ending" and none of them should be missed).
-export function tickFogZones(fogZones) {
+// zones that have expired — but, like tickMeteors, only on the ZONE OWNER'S
+// OPPONENT's move. Ticking on every ply regardless of color (the old
+// behavior) meant the caster's own moves ate into their own cover, so a
+// 4-turn zone only ever survived 2 of the caster's own moves — and since
+// moving is exactly what combat requires, any fight that broke out inside
+// the zone reliably burned through the timer right around then, reading as
+// "the fog vanishes as soon as a piece engages." Skipping the owner's own
+// move (same "your own residual move this turn never counts" rule
+// tickMeteors already uses) means only the OPPONENT's moves can wear the
+// zone down, so the caster's own actions inside it are never self-defeating.
+export function tickFogZones(fogZones, movedColor) {
   return (fogZones ?? [])
-    .map(z => ({ ...z, turnsLeft: z.turnsLeft - 1 }))
+    .map(z => (z.owner === movedColor ? z : { ...z, turnsLeft: z.turnsLeft - 1 }))
     .filter(z => z.turnsLeft > 0)
 }
 
@@ -442,7 +449,7 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     triggerMine(unfrozenPieces, gameState.mines, to, !bounced, gameState.turn)
   const { pieces: meteredPieces, meteors, strikes: meteorStrikes } = tickMeteors(minedPieces, gameState.meteors, gameState.turn)
   const pieces = tickUnstablePieces(meteredPieces)
-  const fogZones = tickFogZones(gameState.fogZones)
+  const fogZones = tickFogZones(gameState.fogZones, gameState.turn)
 
   const halfMoveClock = (piece.type === 'pawn' || captured)
     ? 0

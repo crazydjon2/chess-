@@ -4,6 +4,7 @@ import {
   ALL_PIECE_TYPES, ALL_CARD_IDS,
 } from './draftEngine.js'
 import { BAN_COUNT_BY_ROUND, BUDGET_BY_ROUND } from './draftPools.js'
+import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
 import { shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
 
@@ -22,6 +23,11 @@ describe('createDraftState', () => {
     const ds = createDraftState(1, 'white')
     expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1])
     expect(ds.budgets.black).toBe(BUDGET_BY_ROUND[1])
+  })
+
+  it('caps maxPieces at the round\'s home-rank capacity', () => {
+    const ds = createDraftState(2, 'white')
+    expect(ds.maxPieces).toBe(HOME_CAPACITY_BY_ROUND[2])
   })
 })
 
@@ -152,6 +158,32 @@ describe('submitPurchases', () => {
     // is only off-limits to white, black should still be free to buy it.
     const ds = resolvedBuyState(1, [{ kind: 'piece', pieceType: 'bishop' }], [{ kind: 'piece', pieceType: 'knight' }])
     const res = submitPurchases(ds, 'black', [{ kind: 'piece', pieceType: 'knight' }])
+    expect(res.error).toBeUndefined()
+  })
+
+  it('rejects a cart with more pieces than the board has home-rank squares for, even if affordable', () => {
+    const ds = resolvedBuyState(1) // round 1: maxPieces = HOME_CAPACITY_BY_ROUND[1]
+    const tooMany = ds.maxPieces + 1
+    const items = Array.from({ length: tooMany }, () => ({ kind: 'piece', pieceType: 'pawn' }))
+    expect(tooMany * shopPieceCost('pawn')).toBeLessThanOrEqual(ds.budgets.white) // budget isn't what's blocking this
+    const res = submitPurchases(ds, 'white', items)
+    expect(res.error).toBeTruthy()
+  })
+
+  it('accepts exactly maxPieces pieces (the boundary is inclusive)', () => {
+    const ds = resolvedBuyState(1)
+    const items = Array.from({ length: ds.maxPieces }, () => ({ kind: 'piece', pieceType: 'pawn' }))
+    const res = submitPurchases(ds, 'white', items)
+    expect(res.error).toBeUndefined()
+  })
+
+  it('cards never count against the piece cap', () => {
+    const ds = resolvedBuyState(1)
+    const items = [
+      ...Array.from({ length: ds.maxPieces }, () => ({ kind: 'piece', pieceType: 'pawn' })),
+      { kind: 'card', cardId: 'add_cell' },
+    ]
+    const res = submitPurchases(ds, 'white', items)
     expect(res.error).toBeUndefined()
   })
 

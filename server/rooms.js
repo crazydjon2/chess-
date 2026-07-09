@@ -164,8 +164,8 @@ function viewFor(room, color) {
 }
 
 // Sides swap every round (see matchEngine.js's applyRoundResult, which swaps
-// scores/carryOver keys in lockstep) — this keeps each socket's own color
-// identity in sync with what the match now expects from it.
+// score keys in lockstep) — this keeps each socket's own color identity in
+// sync with what the match now expects from it.
 function swapPlayerColors(io, room) {
   const oldWhite = room.players.white
   const oldBlack = room.players.black
@@ -313,8 +313,8 @@ export function handlePlayCard(io, socket, { cardId, target } = {}) {
 }
 
 // Surrendering doesn't touch the board/hand/coins at all — it just ends the
-// round in the opponent's favor, so whatever the surrendering side still has
-// carries over untouched via the normal buildCarryOver(match.gameState) path.
+// round in the opponent's favor via the normal applyRoundResult path (see
+// matchEngine.js), which starts the next round completely fresh either way.
 // Restricted to your own turn — same as every other battle action — so it
 // can't be used to interrupt the opponent mid-decision (e.g. right as they
 // commit to a card target or a risky move) on a turn that isn't yours.

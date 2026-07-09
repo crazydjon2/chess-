@@ -11,20 +11,19 @@ import './PlacementPhase.css'
 // public during the draft phase (see DraftPhase.jsx, picks are visible to
 // both as they happen), so there's no reason to hide it here too — only
 // WHERE they'll place it stays secret. No king — draft mode has none, see
-// chess.js eliminationMode. `carryOverPieces` are survivors from a previous
-// round — they need placing again too, since each round's board is a
-// different size/pattern.
+// chess.js eliminationMode. Every round is a fresh draft (nothing survives
+// from a previous round — see matchEngine.js), so `draftedPieces` is
+// everything there is to place.
 export default function PlacementPhase({
-  boardPattern, draftedPieces, carryOverPieces = [], myColor, opponentReady, onSubmit,
+  boardPattern, draftedPieces, myCards = [], myColor, opponentReady, onSubmit,
   oppColor, oppPieces = [], oppCards = [],
 }) {
-  const allTypes = [...carryOverPieces, ...draftedPieces]
   const [placement, setPlacement]     = useState({})
   const [selectedType, setSelectedType] = useState(null)
   const [submitted, setSubmitted]     = useState(false)
 
   const placedTypes = Object.values(placement)
-  const remaining = [...allTypes]
+  const remaining = [...draftedPieces]
   placedTypes.forEach(t => {
     const idx = remaining.indexOf(t)
     if (idx !== -1) remaining.splice(idx, 1)
@@ -67,7 +66,6 @@ export default function PlacementPhase({
       <div className="placement-title">Расставь свою армию</div>
       <div className="placement-sub">
         Соперник не видит эту доску, пока оба не будут готовы
-        {carryOverPieces.length > 0 && ` · ${carryOverPieces.length} фигур(ы) перенесено с прошлого раунда`}
       </div>
 
       <div className="placement-layout">
@@ -87,6 +85,29 @@ export default function PlacementPhase({
               </button>
             ))}
           </div>
+
+          {/* Cards don't get placed on the board — they just start the fight
+              already in hand — so this is read-only reference info, not
+              another tray to interact with. Shown here (rather than nowhere)
+              so a player can plan their placement around what they'll
+              actually have available to cast once the battle starts. */}
+          {myCards.length > 0 && (
+            <>
+              <div className="placement-tray-title placement-tray-title-cards">Ваши карты</div>
+              <div className="placement-tray-items">
+                {myCards.map((cardId, i) => (
+                  <span
+                    key={`mc-${cardId}-${i}`}
+                    className="placement-tray-piece card"
+                    style={{ '--accent': CARD_DEFS[cardId].accent }}
+                    title={CARD_DEFS[cardId].name}
+                  >
+                    {CARD_DEFS[cardId].glyph}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div

@@ -1,6 +1,7 @@
 import { BAN_COUNT_BY_ROUND, BUDGET_BY_ROUND } from './draftPools.js'
 import { SHOP_PIECE_TYPES, shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
+import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
 
 // The full catalog — every piece type and every card is buyable from round
 // 1 on. There's no rolled/scarce pool any more: the only things that limit
@@ -38,13 +39,13 @@ function itemCost(item) {
 // round to round (see applyRoundResult's comment on why that matters for
 // alternation once colors start swapping).
 //
-// The budget is always the round's flat BUDGET_BY_ROUND — coins don't
-// persist between rounds at all any more (see matchEngine.js). What DOES
-// carry over round to round is your surviving ARMY (pieces + unused
-// cards) — money is a strictly this-round resource: it funds this round's
-// buy phase, and whatever's left over becomes this round's starting
-// battle coins (see tryDraftBuy/tryPlacement). It's gone once the round
-// ends, same as captured coins earned mid-battle.
+// The budget is always the round's flat BUDGET_BY_ROUND — nothing persists
+// between rounds (see matchEngine.js): every round is a fresh draft, and
+// whatever pieces/cards survived the previous round's battle simply don't
+// come back. Money is a strictly this-round resource: it funds this
+// round's buy phase, and whatever's left over becomes this round's
+// starting battle coins (see tryDraftBuy/tryPlacement) — gone once the
+// round ends, same as captured coins earned mid-battle.
 export function createDraftState(round, firstColor = 'white') {
   const secondColor = firstColor === 'white' ? 'black' : 'white'
   const budget = BUDGET_BY_ROUND[round]
@@ -56,6 +57,11 @@ export function createDraftState(round, firstColor = 'white') {
     banCount: BAN_COUNT_BY_ROUND[round],
     bans: { white: null, black: null }, // null until that color submits; array of targets once submitted
     budgets: { white: budget, black: budget },
+    // Hard cap on how many PIECES (not cards) either side may draft this
+    // round — see boardPatterns.js's HOME_CAPACITY_BY_ROUND. Buying more
+    // than fit on the home ranks would leave hidden placement impossible
+    // to ever finish (see submitPurchases below and placementEngine.js).
+    maxPieces: HOME_CAPACITY_BY_ROUND[round],
     picks: { white: null, black: null }, // null until that color submits; { pieces: [...], cards: [...] } once submitted
   }
 }
@@ -111,12 +117,17 @@ export function submitPurchases(draftState, color, items) {
 
   const banned = new Set(getBannedTargets(draftState, color).map(targetKey))
   let total = 0
+  let pieceCount = 0
   for (const item of items) {
     if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
     if (banned.has(targetKey(item))) return { error: 'Это забанено сопернику для вас' }
+    if (item.kind === 'piece') pieceCount++
     total += itemCost(item)
   }
   if (total > draftState.budgets[color]) return { error: 'Недостаточно бюджета' }
+  if (pieceCount > draftState.maxPieces) {
+    return { error: `На доске только ${draftState.maxPieces} клеток на вашей половине — столько фигур и можно купить` }
+  }
 
   const picksEntry = {
     pieces: items.filter(i => i.kind === 'piece').map(i => i.pieceType),

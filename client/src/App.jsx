@@ -6,14 +6,14 @@ import { PATCH_NOTES } from './game/patchNotes'
 import './App.css'
 
 const PATCH_SEEN_KEY = 'chessplus_patchnotes_seen'
-const latestPatchDate = PATCH_NOTES[0].date
+const latestPatchId = PATCH_NOTES[0].id
 
 // Same try/catch-and-fall-through pattern as nickname.js — localStorage can
 // be unavailable (privacy mode, etc.); worst case the "new patch" badge just
 // reappears next visit instead of crashing the menu.
 function hasUnseenPatch() {
   try {
-    return localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchDate
+    return localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchId
   } catch {
     return false
   }
@@ -21,7 +21,7 @@ function hasUnseenPatch() {
 
 function markPatchSeen() {
   try {
-    localStorage.setItem(PATCH_SEEN_KEY, latestPatchDate)
+    localStorage.setItem(PATCH_SEEN_KEY, latestPatchId)
   } catch {
     // Ignore — badge just won't stay dismissed across reloads here.
   }

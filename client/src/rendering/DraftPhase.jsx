@@ -21,7 +21,7 @@ function itemCost(t) {
 // supply is unlimited. Both sub-phases follow the exact same "build your
 // choice locally, submit once, wait for the other side" shape as hidden
 // placement.
-export default function DraftPhase({ round, boardPattern, draft, carryOver, myColor, onBan, onBuy }) {
+export default function DraftPhase({ round, boardPattern, draft, myColor, onBan, onBuy }) {
   const oppColor = myColor === 'white' ? 'black' : 'white'
 
   return (
@@ -38,7 +38,7 @@ export default function DraftPhase({ round, boardPattern, draft, carryOver, myCo
 
       {draft.phase === 'ban'
         ? <BanStep draft={draft} myColor={myColor} oppColor={oppColor} onBan={onBan} />
-        : <BuyStep draft={draft} myColor={myColor} oppColor={oppColor} carryOver={carryOver} onBuy={onBuy} />}
+        : <BuyStep draft={draft} myColor={myColor} oppColor={oppColor} onBuy={onBuy} />}
     </div>
   )
 }
@@ -184,7 +184,7 @@ function BanStep({ draft, myColor, oppColor, onBan }) {
 }
 
 // ── Buy step ─────────────────────────────────────────────────────────
-function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
+function BuyStep({ draft, myColor, oppColor, onBuy }) {
   const [cart, setCart] = useState([])
   const submitted    = draft.picks[myColor] !== null
   const oppSubmitted = draft.picks[oppColor] !== null
@@ -199,12 +199,18 @@ function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
       ]
     : cart
 
-  const spent     = finalCart.reduce((sum, t) => sum + itemCost(t), 0)
-  const remaining = budget - spent
+  const spent      = finalCart.reduce((sum, t) => sum + itemCost(t), 0)
+  const remaining  = budget - spent
+  // Hard cap on PIECES only (cards don't count) — see draftEngine.js's
+  // createDraftState: buying more pieces than fit on your home ranks would
+  // leave hidden placement impossible to ever finish.
+  const pieceCount     = finalCart.filter(t => t.kind === 'piece').length
+  const piecesRemaining = draft.maxPieces - pieceCount
 
   const addItem = (target) => {
     if (submitted) return
     if (itemCost(target) > remaining) return
+    if (target.kind === 'piece' && piecesRemaining <= 0) return
     setCart(c => [...c, target])
   }
   const removeItem = (idx) => {
@@ -229,6 +235,10 @@ function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
           <span className="draft-budget-label">Осталось</span>
           <span className="draft-budget-value">🪙 {remaining}</span>
         </div>
+        <div className="draft-budget mine">
+          <span className="draft-budget-label">Фигуры</span>
+          <span className="draft-budget-value">{pieceCount} / {draft.maxPieces}</span>
+        </div>
       </div>
 
       {myBans.length > 0 && (
@@ -247,6 +257,7 @@ function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
               const target = { kind: 'piece', pieceType: type }
               const banned = bannedForMe.has(targetKey(target))
               const affordable = itemCost(target) <= remaining
+              const capReached = piecesRemaining <= 0
               const price = shopPieceCost(type)
               return (
                 <CatalogTile
@@ -255,8 +266,8 @@ function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
                   glyph={PIECE_GLYPHS.white[type]}
                   label={PIECE_LABEL[type]}
                   price={price}
-                  state={banned ? 'banned' : !affordable ? 'unaffordable' : undefined}
-                  onClick={submitted || banned || !affordable ? undefined : () => addItem(target)}
+                  state={banned ? 'banned' : !affordable || capReached ? 'unaffordable' : undefined}
+                  onClick={submitted || banned || !affordable || capReached ? undefined : () => addItem(target)}
                 />
               )
             })}
@@ -295,18 +306,7 @@ function BuyStep({ draft, myColor, oppColor, carryOver, onBuy }) {
             <span className="draft-roster-label">Ваша корзина</span>
           </div>
           <div className="draft-roster-items">
-            {finalCart.length === 0 && (carryOver?.[myColor]?.pieces?.length ?? 0) === 0 && (carryOver?.[myColor]?.cards?.length ?? 0) === 0
-              && <span className="draft-roster-empty">пока пусто</span>}
-            {(carryOver?.[myColor]?.pieces ?? []).map((type, i) => (
-              <span key={`cp${i}`} className="draft-roster-chip carried" title={`${PIECE_LABEL[type]} · с прошлого раунда`}>
-                {PIECE_GLYPHS[myColor][type]}
-              </span>
-            ))}
-            {(carryOver?.[myColor]?.cards ?? []).map((cardId, i) => (
-              <span key={`cc${i}`} className="draft-roster-chip card carried" style={{ '--accent': CARD_DEFS[cardId].accent }} title={`${CARD_DEFS[cardId].name} · с прошлого раунда`}>
-                {CARD_DEFS[cardId].glyph}
-              </span>
-            ))}
+            {finalCart.length === 0 && <span className="draft-roster-empty">пока пусто</span>}
             {finalCart.map((t, i) => (
               <span
                 key={`b${i}`}

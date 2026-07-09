@@ -53,6 +53,7 @@
 /* ── Budgets ──────────────────────────────────────────────────────── */
 .draft-budgets {
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   width: min(680px, 92vw);
   justify-content: center;
@@ -370,14 +371,6 @@
 
 .draft-roster-chip.card {
   color: var(--accent);
-}
-
-/* Carried over from a previous round — dimmed + underlined so it visually
-   reads as "already had this" rather than a fresh pick. */
-.draft-roster-chip.carried {
-  opacity: 0.6;
-  text-decoration: underline dotted rgba(200,180,140,0.5);
-  text-underline-offset: 3px;
 }
 
 /* Freshly added to the cart this buy step, before submitting — clickable

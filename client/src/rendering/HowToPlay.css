@@ -206,16 +206,15 @@
   color: rgba(220,200,170,0.8);
 }
 
-.htp-round-carry {
+.htp-round-reset {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11px;
 }
 
-.htp-carry-piece { color: #e8c96a; }
-.htp-carry-arrow { font-size: 10px; color: rgba(200,180,140,0.5); margin: 0 2px; }
-.htp-carry-label { font-size: 9px; color: rgba(200,180,140,0.5); }
+.htp-round-reset-icon  { font-size: 12px; }
+.htp-round-reset-label { font-size: 10px; color: rgba(200,180,140,0.6); }
 
 .htp-step-title {
   font-size: 12px;

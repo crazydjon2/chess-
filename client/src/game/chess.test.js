@@ -140,15 +140,41 @@ describe('timeouts (per-player clock)', () => {
 })
 
 describe('tickFogZones', () => {
-  it('decrements turnsLeft and drops zones that hit zero', () => {
+  it('does NOT tick a zone on its own owner\'s move (own actions never burn their own cover)', () => {
+    const zones = [{ owner: 'white', cells: ['a1'], turnsLeft: 2 }]
+    const result = tickFogZones(zones, 'white')
+    expect(result).toEqual([{ owner: 'white', cells: ['a1'], turnsLeft: 2 }])
+  })
+
+  it('ticks down when the OTHER color moves', () => {
     const zones = [{ owner: 'white', cells: ['a1'], turnsLeft: 2 }, { owner: 'black', cells: ['b2'], turnsLeft: 1 }]
-    const once = tickFogZones(zones)
-    expect(once).toEqual([{ owner: 'white', cells: ['a1'], turnsLeft: 1 }])
-    expect(tickFogZones(once)).toEqual([])
+    // Black moving ticks white's zone down but leaves black's own untouched.
+    const once = tickFogZones(zones, 'black')
+    expect(once).toEqual([{ owner: 'white', cells: ['a1'], turnsLeft: 1 }, { owner: 'black', cells: ['b2'], turnsLeft: 1 }])
+  })
+
+  it('drops a zone once its timer hits zero', () => {
+    const zones = [{ owner: 'white', cells: ['a1'], turnsLeft: 1 }]
+    expect(tickFogZones(zones, 'black')).toEqual([])
+  })
+
+  it('a fight breaking out inside the zone across several of the caster\'s own moves does not burn the timer', () => {
+    let zones = [{ owner: 'white', cells: ['a1'], turnsLeft: 2 }]
+    // White casts, then moves repeatedly (e.g. capturing inside their own
+    // fog) — none of white's own moves should cost the zone anything.
+    zones = tickFogZones(zones, 'white')
+    zones = tickFogZones(zones, 'white')
+    zones = tickFogZones(zones, 'white')
+    expect(zones).toEqual([{ owner: 'white', cells: ['a1'], turnsLeft: 2 }])
+    // Only black's moves actually wear it down.
+    zones = tickFogZones(zones, 'black')
+    expect(zones[0].turnsLeft).toBe(1)
+    zones = tickFogZones(zones, 'black')
+    expect(zones).toEqual([])
   })
 
   it('handles undefined input as an empty list', () => {
-    expect(tickFogZones(undefined)).toEqual([])
+    expect(tickFogZones(undefined, 'white')).toEqual([])
   })
 })
 

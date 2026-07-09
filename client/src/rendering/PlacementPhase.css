@@ -88,6 +88,27 @@
   cursor: default;
 }
 
+.placement-tray-title-cards {
+  margin-top: 14px;
+}
+
+/* Read-only, like the opponent tray's pieces — cards aren't placed, just
+   listed for reference, so no hover-lift/selected affordance. Colored by
+   the card's own accent (same var pattern as DraftPhase's roster chips)
+   instead of the plain gold pieces get, so it reads as "a spell" at a
+   glance rather than another army piece. */
+.placement-tray-piece.card {
+  cursor: default;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.placement-tray-piece.card:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 /* Deliberately NOT styled like the interactive "yours" tray (that one
    reads gold/actionable throughout the app — see .placement-tray-piece
    .selected, .draft-roster.mine, .rs-continue-btn) — this is read-only

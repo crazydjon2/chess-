@@ -1,9 +1,39 @@
 // Patch notes shown on the main menu (see rendering/PatchNotes.jsx). Add a
 // new entry to the TOP of this array whenever a player-visible change ships
 // — never edit an old entry after the fact, so the log stays an honest
-// history rather than a living description of the current build.
+// history rather than a living description of the current build. `id` must
+// be unique and, once shipped, never reused — App.jsx keys the "unseen
+// patch" badge off PATCH_NOTES[0].id, and two same-date entries (a normal
+// occurrence — nothing stops shipping twice in one day) would collide if
+// that key were the date instead.
 export const PATCH_NOTES = [
   {
+    id: 'draft-caps-and-fog-fix',
+    date: '2026-07-09',
+    title: 'Лимит на фигуры и починка дымовой завесы',
+    glyph: '🛡',
+    accent: '#7dd3fc',
+    changes: [
+      'Дымовая завеса больше не тает от собственных действий: раньше её таймер тикал на КАЖДЫЙ ход, включая ваш собственный, из-за чего завеса рассеивалась почти сразу, стоило внутри неё случиться бою. Теперь, как и у метеора, считаются только ходы соперника.',
+      'Количество покупаемых в драфте фигур теперь ограничено числом клеток на вашей половине доски — раньше можно было набрать больше фигур, чем реально можно расставить, и застрять на расстановке с висящим счётчиком «Осталось».',
+      'На экране закупки добавлен счётчик «Фигуры: X / Y», показывающий лимит.',
+      'На экране расстановки теперь показываются и ваши карты, а не только фигуры.',
+    ],
+  },
+  {
+    id: 'fresh-rounds',
+    date: '2026-07-09',
+    title: 'Раунды больше не переносят прогресс',
+    glyph: '🔄',
+    accent: '#3af3a0',
+    changes: [
+      'Фигуры и карты больше не переносятся между раундами — каждый раунд начинается с абсолютно чистого драфта, что бы ни осталось на доске.',
+      'Деньги по-прежнему не переходят между раундами — это правило не менялось, только теперь оно верно и для армии.',
+      'Экраны драфта, расстановки и предупреждение о сдаче обновлены — больше не упоминают «перенесённые» фигуры или карты.',
+    ],
+  },
+  {
+    id: 'necromancy-unstable',
     date: '2026-07-09',
     title: 'Некромантия и нестабильная фигура',
     glyph: '✨',
@@ -16,6 +46,7 @@ export const PATCH_NOTES = [
     ],
   },
   {
+    id: 'draft-battle-rework',
     date: 'Ранее',
     title: 'Переработка драфта и боя',
     glyph: '⚔',

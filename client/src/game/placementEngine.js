@@ -3,11 +3,11 @@ import { homeRanks } from './boardPatterns.js'
 function squareCol(sq) { return sq.charCodeAt(0) - 97 }
 function squareRank(sq) { return parseInt(sq.slice(1), 10) }
 
-// placementMap: { square: pieceType } — one entry per drafted/carried-over
-// piece (no king — draft mode has no king, see chess.js eliminationMode).
-// Validates: every square is on the player's own home ranks, in bounds,
-// not on a blocked map square, and the placed types exactly match what was
-// drafted/carried over (multiset).
+// placementMap: { square: pieceType } — one entry per drafted piece (no
+// king — draft mode has no king, see chess.js eliminationMode). Validates:
+// every square is on the player's own home ranks, in bounds, not on a
+// blocked map square, and the placed types exactly match what was drafted
+// (multiset).
 export function validatePlacement(boardPattern, color, placementMap, draftedPieceTypes) {
   const { rows, cols, blockedCells = [] } = boardPattern
   const blocked = new Set(blockedCells)
