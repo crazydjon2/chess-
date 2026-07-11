@@ -1,4 +1,4 @@
-import { getValidSquares, isKingInCheck, emptyHomeSquares } from './chess.js'
+import { getValidSquares, isKingInCheck, emptyHomeSquares, hasAnyLegalMove } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
 import { getCaptured } from './economy.js'
 
@@ -21,7 +21,7 @@ export const CARD_DEFS = {
     desc:   'Добавляет одну новую клетку за краем доски, расширяя игровое поле.',
     accent: '#27ae60',
     glyph:  '✦',
-    cost:   3,
+    cost:   5,
   },
   necromancy: {
     id:     'necromancy',
@@ -29,7 +29,7 @@ export const CARD_DEFS = {
     desc:   'Возрождает одну из срубленных вами фигур соперника — она переходит на вашу сторону. Появляется на случайной свободной клетке на вашей половине доски.',
     accent: '#6c3fa8',
     glyph:  '☠',
-    cost:   10,
+    cost:   13,
   },
   freeze: {
     id:     'freeze',
@@ -37,7 +37,7 @@ export const CARD_DEFS = {
     desc:   'Закладывает невидимую мину на свободную клетку. Вражеская фигура, которая наступит на неё, застревает и пропускает свой следующий ход. Соперник знает, что где-то заложена мина, но не видит, где именно.',
     accent: '#2980b9',
     glyph:  '❄',
-    cost:   6,
+    cost:   4,
   },
   smoke_screen: {
     id:     'smoke_screen',
@@ -45,7 +45,7 @@ export const CARD_DEFS = {
     desc:   'Скрывает ваши фигуры в области 3×3 от соперника на следующие 4 хода.',
     accent: '#7f8c8d',
     glyph:  '☁',
-    cost:   6,
+    cost:   7,
   },
   meteor: {
     id:     'meteor',
@@ -58,7 +58,7 @@ export const CARD_DEFS = {
   unstable: {
     id:     'unstable',
     name:   'Нестабильная фигура',
-    desc:   'Превращает любую фигуру (свою или соперника) в нестабильную на 6 ходов. Каждый ход она случайно меняет тип, а затем возвращается к исходному.',
+    desc:   'Превращает фигуру, кроме пешки (свою или соперника), в нестабильную на 6 ходов. Раз в два хода она меняет тип на заранее известный, а затем возвращается к исходному.',
     accent: '#8e44ad',
     glyph:  '☯',
     cost:   12,
@@ -73,6 +73,31 @@ export function getValidTargets(cardId, gameState, playerColor) {
   return rawTargets(cardId, gameState, playerColor).filter(target => {
     const next = applyCardEffect(cardId, gameState, target, playerColor)
     return !isKingInCheck(next, playerColor)
+  })
+}
+
+// True if `playerColor` has some card+target in hand that would leave them
+// with a legal move afterward — used by gameEngine.js/sandboxEngine.js to
+// keep a "no legal move" loss (see chess.js's getGameResult) from firing
+// the instant it becomes your turn, before you've had any chance to act.
+// Cards don't end the turn, so trying one is always on the table first —
+// most cards can't rescue a jammed position (a mine or a wall doesn't move
+// anyone), but a couple genuinely can: add_cell can open a brand-new square
+// for a piece boxed in at the board's edge, necromancy can drop a fresh
+// piece straight onto the board. Checked generically over every card in
+// hand rather than special-casing which ones "count", so a future card
+// that can also rescue a stuck position gets this for free. False once
+// cardPlayedThisTurn is already set — only one card per turn, so having
+// already spent it means there's genuinely nothing left to try.
+export function hasRescueCard(gameState, playerColor) {
+  if (gameState.cardPlayedThisTurn) return false
+  const hand = gameState.cards?.[playerColor]?.hand ?? []
+  return hand.some(card => {
+    const targets = getValidTargets(card.id, gameState, playerColor)
+    return targets.some(target => {
+      const next = applyCardEffect(card.id, gameState, target, playerColor)
+      return hasAnyLegalMove(next, playerColor)
+    })
   })
 }
 
@@ -152,15 +177,19 @@ function rawTargets(cardId, gameState, playerColor) {
       return [...getValidSquares(board), ...(board.blockedCells ?? [])]
 
     // Any piece on the board, either side's — except a king (shapeshifting
-    // it away from 'king' would break findKing/check logic mid-effect) or a
-    // barricade (not a real piece, has no "original type" to return to).
-    // A piece already unstable can't be re-targeted: recording a new
-    // originalType over an already-shifted type would lose the real one it's
-    // meant to revert to (see cardEffects.js).
+    // it away from 'king' would break findKing/check logic mid-effect), a
+    // barricade (not a real piece, has no "original type" to return to), or
+    // a pawn (a disguised pawn could walk to the far rank in a strong
+    // shifted form, safe from the promotion-rank risk a real pawn run would
+    // carry, then shift/revert back to 'pawn' while already parked there —
+    // an unearned, untelegraphed promotion). A piece already unstable can't
+    // be re-targeted: recording a new originalType over an already-shifted
+    // type would lose the real one it's meant to revert to (see
+    // cardEffects.js).
     case 'unstable':
       return Object.keys(pieces).filter(sq => {
         const p = pieces[sq]
-        return p.type !== 'king' && p.color !== 'neutral' && !p.unstable
+        return p.type !== 'king' && p.type !== 'pawn' && p.color !== 'neutral' && !p.unstable
       })
 
     default:

@@ -1,4 +1,4 @@
-import { createMatch, tryDraftBan, tryDraftBuy, tryPlacement, applyRoundResult } from './matchEngine.js'
+import { createMatch, tryDraftPick, tryDraftDone, tryPlacement, applyRoundResult } from './matchEngine.js'
 import { tryMove, tryPlayCard } from './gameEngine.js'
 
 // In-memory room registry. No persistence, no reconnection-by-identity —
@@ -108,32 +108,6 @@ function redactMines(gameState, viewerColor) {
   )
 }
 
-// Bans and purchases are both blind, simultaneous submissions (see
-// draftEngine.js) — the opponent's bans must stay hidden until BOTH sides
-// have submitted (that's the whole point of a blind ban), and the
-// opponent's cart must stay hidden for the ENTIRE draft phase, all the way
-// through their buy submission, so a live "here's what they bought" feed
-// can't leak army composition before placement (mirrors why the
-// placement map itself stays hidden). Once match.phase leaves 'draft'
-// entirely, nothing here applies any more — draft.picks becomes plain,
-// unredacted info the placement screen already relies on.
-function redactDraft(draft, viewerColor) {
-  if (!draft) return draft
-  const other = viewerColor === 'white' ? 'black' : 'white'
-  const banPhaseResolved = draft.phase !== 'ban'
-  return {
-    ...draft,
-    bans: {
-      ...draft.bans,
-      [other]: banPhaseResolved ? draft.bans[other] : null,
-    },
-    picks: {
-      ...draft.picks,
-      [other]: null,
-    },
-  }
-}
-
 // Per-recipient view: never leak the opponent's hidden placement map, their
 // smoke_screen-covered pieces, or their meteors' target squares. Also tells
 // the recipient which color they currently are — this can change between
@@ -148,7 +122,9 @@ function viewFor(room, color) {
     [color]: match.placement[color],
     [other]: { ready: match.placement[other].ready, map: null },
   }
-  const draft = match.phase === 'draft' ? redactDraft(match.draft, color) : match.draft
+  // Draft picks are live/open information by design now — both sides watch
+  // each other's army form in real time (see draftEngine.js's turn-based
+  // submitPick), so nothing about match.draft needs redacting here.
   const gameState = match.gameState && {
     ...match.gameState,
     pieces: redactFog(match.gameState, color),
@@ -159,7 +135,7 @@ function viewFor(room, color) {
     code: room.code,
     color,
     players: publicPlayers(room),
-    match: { ...match, placement, draft, gameState },
+    match: { ...match, placement, gameState },
   }
 }
 
@@ -258,19 +234,19 @@ export function startMatch(io, room) {
   broadcastMatch(io, room)
 }
 
-export function handleDraftBan(io, socket, targets) {
+export function handleDraftPick(io, socket, item) {
   const room = getRoom(socket)
   if (!room?.match) return
-  const res = tryDraftBan(room.match, socket.data.color, targets ?? [])
+  const res = tryDraftPick(room.match, socket.data.color, item ?? {})
   if (res.error) { socket.emit('game_error', { message: res.error }); return }
   room.match = res.match
   broadcastMatch(io, room)
 }
 
-export function handleDraftBuy(io, socket, items) {
+export function handleDraftDone(io, socket) {
   const room = getRoom(socket)
   if (!room?.match) return
-  const res = tryDraftBuy(room.match, socket.data.color, items ?? [])
+  const res = tryDraftDone(room.match, socket.data.color)
   if (res.error) { socket.emit('game_error', { message: res.error }); return }
   room.match = res.match
   broadcastMatch(io, room)

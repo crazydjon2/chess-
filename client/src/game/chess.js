@@ -196,7 +196,9 @@ export function getLegalMoves(gameState, square) {
   })
 }
 
-function hasAnyLegalMove(gameState, color) {
+// Exported so cards.js can use it to check whether playing a card would
+// rescue a player who otherwise has no legal move — see its hasRescueCard.
+export function hasAnyLegalMove(gameState, color) {
   return Object.keys(gameState.pieces).some(sq => {
     if (gameState.pieces[sq].color !== color) return false
     return getLegalMoves(gameState, sq).length > 0
@@ -321,14 +323,27 @@ export function tickFogZones(fogZones, movedColor) {
 // cardEffects.js). Kings can never be targeted (see cards.js) so this pool
 // never needs 'king' — swapping into/out of one would break findKing and the
 // check-safety logic that assumes exactly one king per side.
-const UNSTABLE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
+export const UNSTABLE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
+
+// What `unstable.nextType` should preview after a shift lands: if the
+// FOLLOWING event (2 ticks away) is the final revert rather than another
+// shift, the honest preview is the real original type, not another random
+// guess — see tickUnstablePieces below.
+function rollNextType(currentType, remainingAfterThisShift, originalType) {
+  if (remainingAfterThisShift - 2 <= 0) return originalType
+  const pool = UNSTABLE_TYPES.filter(t => t !== currentType)
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 // Ticks every piece currently marked `.unstable` (see cardEffects.js) by one
-// turn: reassigns it to a new random type (never the type it's currently
-// wearing, so the shift is always visible) until the timer runs out, then
-// snaps it back to whatever it originally was and clears the flag. Must run
-// on every move, same as tickFogZones/unfreezeColor — see their comments for
-// why (move, card play, and shop purchase are all "a turn ending", and cards
+// turn. Shifts only happen every OTHER tick (odd `remaining`) — a "hold"
+// tick in between just counts down — so a 6-turn effect is 3 actual
+// shapeshifts, not 6; the type it's about to become is always known ahead
+// of time via `unstable.nextType` (set at cast, refreshed after each shift)
+// so neither side is ever blindsided. Once the timer runs out, snaps back
+// to whatever it originally was and clears the flag. Must run on every
+// move, same as tickFogZones/unfreezeColor — see their comments for why
+// (move, card play, and shop purchase are all "a turn ending", and cards
 // themselves never tick anything).
 export function tickUnstablePieces(pieces) {
   let changed = false
@@ -341,10 +356,18 @@ export function tickUnstablePieces(pieces) {
     if (remaining <= 0) {
       const { unstable, ...reverted } = p
       next[sq] = { ...reverted, type: p.unstable.originalType }
+    } else if (remaining % 2 === 1) {
+      const type = p.unstable.nextType
+      next[sq] = {
+        ...p, type,
+        unstable: {
+          ...p.unstable,
+          turnsLeft: remaining,
+          nextType: rollNextType(type, remaining, p.unstable.originalType),
+        },
+      }
     } else {
-      const pool = UNSTABLE_TYPES.filter(t => t !== p.type)
-      const type = pool[Math.floor(Math.random() * pool.length)]
-      next[sq] = { ...p, type, unstable: { ...p.unstable, turnsLeft: remaining } }
+      next[sq] = { ...p, unstable: { ...p.unstable, turnsLeft: remaining } }
     }
   })
   return changed ? next : pieces
@@ -356,11 +379,15 @@ export function tickUnstablePieces(pieces) {
 // this same turn (cards don't end the turn) must never count as progress,
 // only the opponent's moves bring it closer to landing. One consequence:
 // your own move ticks down the OPPONENT's pending meteors, never your own.
-// `strikes` reports every detonation this call caused (square + whatever
-// was destroyed there, or null on a miss) — the location was secret up to
-// this point, but the impact itself is never hidden from either player
-// (see gameEngine.js/rooms.js, which broadcast it unredacted for the
-// explosion animation both sides are meant to see).
+// `strikes` reports every detonation this call caused (square, whatever was
+// destroyed there or null on a miss, and the meteor's owner) — the location
+// was secret up to this point, but the impact itself is never hidden from
+// either player (see gameEngine.js/rooms.js, which broadcast it unredacted
+// for the explosion animation both sides are meant to see). `owner` lets
+// applyMove (below) credit the kill as a genuine capture and tryMove award
+// coins for it — a piece is just as dead whether a meteor or a direct move
+// ended it, and killed-by-meteor pieces should count for BOTH the same as
+// any other capture (coin reward, the captured tray, necromancy trophies).
 export function tickMeteors(pieces, meteors, movedColor) {
   let nextPieces = pieces
   const nextMeteors = []
@@ -376,14 +403,14 @@ export function tickMeteors(pieces, meteors, movedColor) {
       if (nextPieces === pieces) nextPieces = { ...pieces }
       delete nextPieces[m.square]
     }
-    strikes.push({ square: m.square, destroyed })
+    strikes.push({ square: m.square, destroyed, owner: m.owner })
   })
   return { pieces: nextPieces, meteors: nextMeteors, strikes }
 }
 
 export const PROMOTION_TYPES = ['queen', 'rook', 'bishop', 'knight']
 
-function promotionRank(board, color) {
+export function promotionRank(board, color) {
   return color === 'white' ? board.size.rows : 1
 }
 
@@ -439,7 +466,12 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     movedPieces[to]   = { ...target, hp: target.hp - 1 }
   } else if (piece.type === 'pawn' && parseInt(to.slice(1)) === promotionRank(gameState.board, piece.color)) {
     const type = PROMOTION_TYPES.includes(promotion) ? promotion : 'queen'
-    movedPieces[to] = { ...piece, type }
+    // A promoting pawn might really be an unstable piece mid-disguise (see
+    // cardEffects.js) — promotion is a deliberate, permanent choice, so it
+    // settles the shapeshifting for good rather than leaving it to keep
+    // ticking (and eventually reverting the promotion away).
+    const { unstable, ...rest } = piece
+    movedPieces[to] = { ...rest, type }
   } else {
     movedPieces[to] = piece
   }
@@ -455,19 +487,49 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     ? 0
     : (gameState.halfMoveClock ?? 0) + 1
 
+  // A meteor strike is just as much a capture as landing on the square
+  // yourself — see tickMeteors' comment — so every detonation this move
+  // caused gets its own moveHistory entry alongside the move's own, keyed
+  // the same way (`captured` holds the destroyed piece) so getCaptured and
+  // necromancy pick it up without needing to know meteors exist at all.
+  // Friendly fire (meteor destroys its own owner's piece) still gets an
+  // entry — getCaptured/necromancy key off the VICTIM's color, not the
+  // meteor's owner, so it correctly attributes to whoever actually lost it.
+  const meteorCaptures = meteorStrikes
+    .filter(s => s.destroyed)
+    .map(s => ({ from: null, to: s.square, piece: null, captured: s.destroyed, cause: 'meteor' }))
+
   const moveHistory = [
     ...(gameState.moveHistory ?? []),
     { from, to, piece, captured: captured ? target : null },
+    ...meteorCaptures,
   ]
 
   // Charge the MOVER (gameState.turn, before the flip below) for however
-  // long they actually took — clamped at 0 rather than going negative, so
-  // a late-arriving move can't leave them with a negative clock that then
-  // has to be special-cased everywhere else `timers` is read.
+  // long they actually took, then — same as a real Fischer clock — add
+  // back the round's increment (see draftPools.js's TIME_INCREMENT_BY_ROUND)
+  // as a flat per-move bonus. The increment only applies if they genuinely
+  // still had time left the instant this move landed: if elapsed already
+  // consumed (or exceeded) their remaining clock, `remaining` is <= 0, the
+  // final clamp bottoms it out at exactly 0 with NO bonus added, and
+  // getGameResult's timeout check (timers.color <= 0) still fires — the
+  // increment must never be able to paper over an actual flag fall.
+  //
+  // EACH color gets its own analysis discount on its own first move of the
+  // round (see draftPools.js's ANALYSIS_TIME_SECONDS / analysisUsed below)
+  // — not just whoever happens to move first chronologically. Otherwise,
+  // since turn always starts with white, only white would ever get a free
+  // look at the board and black never would.
   let timers = gameState.timers
+  let analysisUsed = gameState.analysisUsed
   if (timers) {
     const elapsedSeconds = Math.max(0, (now - gameState.turnStartedAt) / 1000)
-    timers = { ...timers, [gameState.turn]: Math.max(0, timers[gameState.turn] - elapsedSeconds) }
+    const hasAnalysisLeft = analysisUsed && !analysisUsed[gameState.turn]
+    const discount = hasAnalysisLeft ? Math.min(elapsedSeconds, gameState.analysisSeconds ?? 0) : 0
+    const remaining = timers[gameState.turn] - (elapsedSeconds - discount)
+    const increment = remaining > 0 ? (gameState.timerIncrement ?? 0) : 0
+    timers = { ...timers, [gameState.turn]: Math.max(0, remaining) + increment }
+    if (hasAnalysisLeft) analysisUsed = { ...analysisUsed, [gameState.turn]: true }
   }
 
   return {
@@ -480,6 +542,7 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     halfMoveClock,
     moveHistory,
     timers,
+    analysisUsed,
     turnStartedAt: timers ? now : gameState.turnStartedAt,
     // Transient — not real persisted game state, just this call's report of
     // any meteor/mine detonations it caused. gameEngine.js's tryMove reads

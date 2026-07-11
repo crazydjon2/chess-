@@ -3,6 +3,7 @@ import CardHand from './CardHand'
 import PlayerPanel from './PlayerPanel'
 import TurnBar from './TurnBar'
 import MatchScoreBoard from './MatchScoreBoard'
+import AnalysisBanner from './AnalysisBanner'
 
 const RESULT_TEXT = {
   checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
@@ -27,6 +28,7 @@ const RESULT_ICON = { checkmate: '♛', elimination: '♛', timeout: '⏱', no_m
 export default function GameView({
   gameState, boardMode, dispatch, lastMoveAnim, actionToast, meteorStrikeAnim, mineStrikeAnim,
   boardFlipped = false, boardPlayerColor,
+  isMyTurn, premove, onSetPremove, onClearPremove,
   turnBar, matchScore,
   topPanel, bottomPanel, bottomHand,
   onMove, onPlayCard,
@@ -46,6 +48,8 @@ export default function GameView({
   // countdown (a mine has no timer, it's armed until someone steps on it).
   const incomingMines = (gameState.mines ?? []).filter(m => m.hidden)
 
+  const hasAnalysisLeft = (color) => gameState.analysisUsed ? !gameState.analysisUsed[color] : false
+
   return (
     <div className="app" onClick={onBackgroundClick}>
       <div className="game-scene" onClick={onBackgroundClick}>
@@ -56,12 +60,20 @@ export default function GameView({
             timeSeconds={gameState.timers?.[topPanel.color]}
             turnStartedAt={gameState.turnStartedAt}
             ticking={!gameResult && gameState.turn === topPanel.color}
+            analysisSeconds={gameState.analysisSeconds}
+            hasAnalysisLeft={hasAnalysisLeft(topPanel.color)}
           />
         </div>
 
         {matchScore && <MatchScoreBoard {...matchScore} />}
 
         {turnBar && <TurnBar {...turnBar} />}
+
+        <AnalysisBanner
+          turnStartedAt={gameState.turnStartedAt}
+          analysisSeconds={gameState.analysisSeconds}
+          hasAnalysisLeft={hasAnalysisLeft(gameState.turn)}
+        />
 
         {soonestMeteor != null && (
           <div className="meteor-warning">
@@ -101,6 +113,10 @@ export default function GameView({
             lastMoveAnim={lastMoveAnim}
             meteorStrikeAnim={meteorStrikeAnim}
             mineStrikeAnim={mineStrikeAnim}
+            isMyTurn={isMyTurn}
+            premove={premove}
+            onSetPremove={onSetPremove}
+            onClearPremove={onClearPremove}
             flipped={boardFlipped}
           />
 
@@ -133,6 +149,8 @@ export default function GameView({
             timeSeconds={gameState.timers?.[bottomPanel.color]}
             turnStartedAt={gameState.turnStartedAt}
             ticking={!gameResult && gameState.turn === bottomPanel.color}
+            analysisSeconds={gameState.analysisSeconds}
+            hasAnalysisLeft={hasAnalysisLeft(bottomPanel.color)}
           />
         </div>
 

@@ -1,21 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { startRound, applyRoundResult, tryDraftBan, tryDraftBuy } from './matchEngine.js'
+import { startRound, applyRoundResult, tryDraftPick, tryDraftDone } from './matchEngine.js'
+import { shopPieceCost } from '../client/src/game/economy.js'
 
 function matchWithGameState(gameState) {
   const match = startRound({ white: 0, black: 0 }, 1, 'white')
   return { ...match, phase: 'battle', gameState }
 }
 
-function passBans(match) {
-  const round1 = tryDraftBan(match, 'white', [{ kind: 'piece', pieceType: 'knight' }])
-  const round2 = tryDraftBan(round1.match, 'black', [{ kind: 'piece', pieceType: 'knight' }])
-  return round2.match
-}
-
-describe('draft ban/buy — leftover budget becomes starting battle coins', () => {
-  it('rejects a buy submission before both sides have banned', () => {
-    const match = startRound({ white: 0, black: 0 }, 1, 'white')
-    const res = tryDraftBuy(match, 'white', [])
+describe('turn-based draft — leftover budget becomes starting battle coins', () => {
+  it('rejects a pick when it is not that color\'s turn', () => {
+    const match = startRound({ white: 0, black: 0 }, 1, 'white') // white picks first
+    const res = tryDraftPick(match, 'black', { kind: 'piece', pieceType: 'pawn' })
     expect(res.error).toBeTruthy()
   })
 
@@ -24,20 +19,32 @@ describe('draft ban/buy — leftover budget becomes starting battle coins', () =
     expect(match.startingCoins).toEqual({ white: 0, black: 0 })
   })
 
-  it('sets startingCoins to each color\'s unspent budget once the draft completes', () => {
-    let match = passBans(startRound({ white: 0, black: 0 }, 1, 'white'))
+  it('sets startingCoins to each color\'s unspent budget once both sides finish the draft', () => {
+    let match = startRound({ white: 0, black: 0 }, 1, 'white')
     const budget = match.draft.budgets.white
     expect(match.draft.budgets.black).toBe(budget) // identical starting budgets
 
-    // Buy nothing — the whole budget should become starting battle coins.
-    match = tryDraftBuy(match, 'white', []).match
-    const res = tryDraftBuy(match, 'black', [])
+    // Each side buys the cheapest possible piece (a pawn) then declares
+    // done — the rest of the budget carries into the battle as coins.
+    match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).match
+    match = tryDraftPick(match, 'black', { kind: 'piece', pieceType: 'pawn' }).match
+    match = tryDraftDone(match, 'white').match
+    const res = tryDraftDone(match, 'black')
     expect(res.error).toBeUndefined()
     match = res.match
 
     expect(match.phase).toBe('placement')
-    expect(match.startingCoins.white).toBe(budget)
-    expect(match.startingCoins.black).toBe(budget)
+    const leftover = budget - shopPieceCost('pawn')
+    expect(match.startingCoins.white).toBe(leftover)
+    expect(match.startingCoins.black).toBe(leftover)
+  })
+
+  it('a color with no budget left for anything is auto-skipped without needing to declare done', () => {
+    let match = startRound({ white: 0, black: 0 }, 1, 'white')
+    match = { ...match, draft: { ...match.draft, budgets: { ...match.draft.budgets, white: shopPieceCost('pawn') } } }
+    match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).match
+    expect(match.draft.done.white).toBe(true)
+    expect(match.draft.turn).toBe('black')
   })
 })
 
@@ -61,7 +68,10 @@ describe('applyRoundResult', () => {
     expect(next.phase).toBe('draft')
     expect(next.previousRound).toBe(1)
     expect(next.startingCoins).toEqual({ white: 0, black: 0 })
-    expect(next.draft.picks).toEqual({ white: null, black: null })
+    expect(next.draft.picks).toEqual({
+      white: { pieces: [], cards: [] },
+      black: { pieces: [], cards: [] },
+    })
     expect(next.gameState).toBeNull()
     expect(next.scores).toEqual({ white: 0, black: 1 })
     // The finished round's own board is otherwise lost the moment the next

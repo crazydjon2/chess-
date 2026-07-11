@@ -1,16 +1,9 @@
-// Draft-mode round tables. The draft itself has no rolled pool any more —
-// every piece type and card is available from round 1 (see draftEngine.js);
-// a round only changes how many bans each side gets and how big their
-// budget is. Kept in its own file (rather than inlined in draftEngine.js)
-// so all three round-scaled tables — bans, budget, move limit — live next
-// to each other.
-
-// Bans per player this round — each ban removes one piece type or card
-// from what the OPPONENT (not you) is allowed to buy this round. Escalates
-// round to round: later rounds have a bigger, more consequential catalog
-// (more coins to spend), so denying the opponent's best options matters
-// more and there's more to deny.
-export const BAN_COUNT_BY_ROUND = { 1: 1, 2: 2, 3: 3 }
+// Draft-mode round tables. The draft itself has no rolled pool and no bans
+// any more — every piece type and card is available from round 1 on, and
+// both sides pick turn by turn in full view of each other (see
+// draftEngine.js); a round only changes the budget and the board size.
+// Kept in its own file (rather than inlined in draftEngine.js) so all the
+// round-scaled tables — budget, move limit — live next to each other.
 
 // Flat coin budget for the round's buy phase — the same every game,
 // regardless of anything left over from a previous round (nothing carries
@@ -26,3 +19,16 @@ export const BUDGET_BY_ROUND = { 1: 30, 2: 45, 3: 60 }
 // tiebreak — unlike no_moves/insufficient-material draws, only one side
 // can ever actually run out, so there's no symmetric case to weigh.
 export const TIME_LIMIT_BY_ROUND = { 1: 120, 2: 180, 3: 240 } // 2 / 3 / 4 minutes
+
+// Fischer-style increment: seconds added back to the mover's own clock
+// after each of their moves (see chess.js's applyMove) — on top of, not
+// instead of, the flat TIME_LIMIT_BY_ROUND above. Escalates with round the
+// same direction as the base clock, so later rounds (bigger boards, pricier
+// cards worth lingering over) don't get proportionally stingier per move.
+export const TIME_INCREMENT_BY_ROUND = { 1: 3, 2: 4, 3: 5 }
+
+// Free look at the board before the clock starts — only the round's very
+// first move gets this (see initialState.js's createDraftRoundState, which
+// offsets turnStartedAt by this much; every move after that resets
+// turnStartedAt to the real clock, so it can never recur mid-round).
+export const ANALYSIS_TIME_SECONDS = 10

@@ -50,65 +50,7 @@
   color: rgba(230,220,200,0.9);
 }
 
-/* ── Budgets ──────────────────────────────────────────────────────── */
-.draft-budgets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  width: min(680px, 92vw);
-  justify-content: center;
-}
-
-.draft-budget {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: rgba(0,0,0,0.25);
-  border: 1.5px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  padding: 8px 22px;
-}
-
-.draft-budget.mine { border-color: rgba(232,201,106,0.45); }
-.draft-budget.opp  { border-color: rgba(127,160,224,0.4); }
-
-.draft-budget-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(200,180,140,0.5);
-}
-
-.draft-budget-value {
-  font-size: 16px;
-  font-weight: 800;
-  color: #e8c96a;
-}
-
-.draft-budget.opp .draft-budget-value { color: #93aee0; }
-
-/* ── Ban step ─────────────────────────────────────────────────────── */
-.draft-ban-counter {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(200,180,140,0.65);
-}
-
-.draft-ban-counter b { color: #e8c96a; }
-
-.draft-ban-summary {
-  font-size: 12px;
-  color: rgba(200,180,140,0.6);
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 8px;
-  padding: 6px 14px;
-  max-width: min(680px, 92vw);
-  text-align: center;
-}
-
+/* ── Turn banner ──────────────────────────────────────────────────── */
 .draft-turn-banner {
   font-size: 13px;
   font-weight: 700;
@@ -126,9 +68,89 @@
   animation: draft-turn-pulse 1.2s ease-in-out infinite;
 }
 
+.draft-turn-banner.opp {
+  color: #cdd9f5;
+  background: rgba(127,160,224,0.16);
+  border-color: rgba(127,160,224,0.4);
+}
+
 @keyframes draft-turn-pulse {
   0%, 100% { box-shadow: 0 0 10px rgba(232,201,106,0.3); }
   50%      { box-shadow: 0 0 22px rgba(232,201,106,0.55); }
+}
+
+/* ── Sides — both players' live budget/roster, side by side ─────────── */
+.draft-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: min(680px, 92vw);
+}
+
+.draft-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0,0,0,0.22);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px 14px 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.draft-side.mine { border-color: rgba(232,201,106,0.3); }
+.draft-side.opp  { border-color: rgba(127,160,224,0.28); }
+
+/* The side whose turn it currently is gets a visible glow — this is the
+   whole point of open information: it should be obvious at a glance who's
+   acting right now, not just readable from the banner text. */
+.draft-side.mine.active {
+  border-color: #e8c96a;
+  box-shadow: 0 0 0 1px rgba(232,201,106,0.25), 0 0 18px rgba(232,201,106,0.25);
+}
+
+.draft-side.opp.active {
+  border-color: #7fa0e0;
+  box-shadow: 0 0 0 1px rgba(127,160,224,0.25), 0 0 18px rgba(127,160,224,0.2);
+}
+
+.draft-side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.draft-side-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(200,180,140,0.55);
+}
+
+.draft-side.opp .draft-side-label { color: rgba(147,174,224,0.75); }
+
+.draft-side-done {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(120,200,140,0.9);
+  background: rgba(80,180,110,0.14);
+  border: 1px solid rgba(80,180,110,0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.draft-side-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.draft-side-stat {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(220,200,170,0.8);
 }
 
 /* ── Pools ────────────────────────────────────────────────────────── */
@@ -209,31 +231,18 @@
   color: #e08070;
 }
 
-/* Chosen as one of this turn's bans (before submitting) */
-.draft-pick-btn.selected {
-  border-color: #e8c96a;
-  background: rgba(232,201,106,0.14);
-  box-shadow: 0 0 10px rgba(232,201,106,0.35);
-}
-
-/* Pawn — structurally exempt from banning, always shown but locked out of
-   the ban step so it can't be selected (see UNBANNABLE_PIECE). */
-.draft-pick-btn.unbannable {
+/* Piece cap reached (see maxPieces) — distinct from unaffordable, so the
+   reason reads at a glance instead of looking like a budget problem. */
+.draft-pick-btn.capped {
+  border-color: rgba(200,140,50,0.35);
   opacity: 0.55;
 }
 
-/* Banned FOR this viewer by the opponent — distinct from merely
-   unaffordable, so the reason reads at a glance. */
-.draft-pick-btn.banned {
-  border-color: rgba(200,60,50,0.5);
-  background: rgba(200,60,50,0.08);
-}
-
-.draft-pick-banned-mark {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-size: 11px;
+/* Not your turn right now — dimmed but still fully legible, since seeing
+   the whole catalog (prices included) while you wait is part of planning
+   your next pick. */
+.draft-pick-btn.waiting {
+  opacity: 0.45;
 }
 
 .draft-pass-btn {
@@ -311,46 +320,7 @@
   line-height: 1.15;
 }
 
-/* ── Rosters ──────────────────────────────────────────────────────── */
-.draft-rosters {
-  display: flex;
-  gap: 14px;
-  width: min(680px, 92vw);
-}
-
-.draft-roster {
-  flex: 1;
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-
-.draft-roster.mine {
-  border-color: rgba(232,201,106,0.3);
-}
-
-.draft-roster-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.draft-roster-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(200,180,140,0.45);
-}
-
-.draft-roster-coins {
-  font-size: 11px;
-  font-weight: 800;
-  color: #e8c96a;
-}
-
+/* ── Rosters (live, inside each .draft-side) ─────────────────────────── */
 .draft-roster-items {
   display: flex;
   flex-wrap: wrap;
@@ -373,12 +343,6 @@
   color: var(--accent);
 }
 
-/* Freshly added to the cart this buy step, before submitting — clickable
-   to take back out. */
-.draft-roster-chip.removable {
-  cursor: pointer;
-}
-
-.draft-roster-chip.removable:hover {
-  opacity: 0.6;
+@media (max-width: 480px) {
+  .draft-sides { grid-template-columns: 1fr; }
 }

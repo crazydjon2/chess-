@@ -1,4 +1,4 @@
-import { getValidSquares, emptyHomeSquares } from './chess.js'
+import { getValidSquares, emptyHomeSquares, UNSTABLE_TYPES } from './chess.js'
 
 function squareCol(sq)  { return sq.charCodeAt(0) - 97 }
 function squareRank(sq) { return parseInt(sq.slice(1), 10) }
@@ -126,20 +126,25 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
     }
 
     // Marks targetSquare's piece as "unstable" for 6 turns — no immediate
-    // type change (the first shapeshift happens on the next tick). Recorded
-    // on the PIECE itself, not the square, so the effect follows it like
-    // `frozen` does if it moves or gets captured onto. The actual per-turn
-    // reshuffling and eventual revert to `originalType` is chess.js's
-    // tickUnstablePieces, run every move exactly like tickFogZones — see its
-    // comment for why cards themselves never tick anything.
+    // type change (the first shapeshift happens on the next SHIFT tick, 2
+    // turns in — see tickUnstablePieces). `nextType` is rolled right away so
+    // the very first shift is telegraphed from the moment of casting, same
+    // as every shift after it. Recorded on the PIECE itself, not the
+    // square, so the effect follows it like `frozen` does if it moves or
+    // gets captured onto. The actual scheduling/reshuffling and eventual
+    // revert to `originalType` is chess.js's tickUnstablePieces, run every
+    // move exactly like tickFogZones — see its comment for why cards
+    // themselves never tick anything.
     case 'unstable': {
       const piece = gameState.pieces[targetSquare]
       if (!piece || piece.type === 'king' || piece.color === 'neutral' || piece.unstable) return gameState
+      const pool = UNSTABLE_TYPES.filter(t => t !== piece.type)
+      const nextType = pool[Math.floor(Math.random() * pool.length)]
       return {
         ...gameState,
         pieces: {
           ...gameState.pieces,
-          [targetSquare]: { ...piece, unstable: { originalType: piece.type, turnsLeft: 6 } },
+          [targetSquare]: { ...piece, unstable: { originalType: piece.type, turnsLeft: 6, nextType } },
         },
       }
     }

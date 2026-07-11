@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { CARD_DEFS } from '../game/cards'
 import { PIECE_GLYPHS } from '../game/economy'
 import { BOARD_PATTERNS } from '../game/boardPatterns'
-import { TIME_LIMIT_BY_ROUND } from '../game/draftPools'
+import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, ANALYSIS_TIME_SECONDS } from '../game/draftPools'
 import BoardThumbnail from './BoardThumbnail'
 import './HowToPlay.css'
 
 // Minutes per round, derived from the real constant so this copy can't go
 // stale the next time TIME_LIMIT_BY_ROUND gets tuned.
 const CLOCK_MINUTES = [1, 2, 3].map(r => Math.round(TIME_LIMIT_BY_ROUND[r] / 60)).join('/')
+const CLOCK_INCREMENT = [1, 2, 3].map(r => TIME_INCREMENT_BY_ROUND[r]).join('/')
 
 // Miniature mockups of each phase's actual screen — small CSS/glyph
 // illustrations rather than plain emoji, so a player can recognize the real
@@ -18,11 +19,11 @@ function DraftDiagram() {
   return (
     <div className="htp-diagram htp-diagram-draft">
       <div className="htp-draft-pool">
-        <span className="htp-draft-tile piece">{PIECE_GLYPHS.white.pawn}</span>
-        <span className="htp-draft-tile piece banned">{PIECE_GLYPHS.white.queen}</span>
-        <span className="htp-draft-tile piece">{PIECE_GLYPHS.white.knight}</span>
+        <span className="htp-draft-tile piece picked-mine">{PIECE_GLYPHS.white.pawn}</span>
+        <span className="htp-draft-tile piece">{PIECE_GLYPHS.white.queen}</span>
+        <span className="htp-draft-tile piece picked-opp">{PIECE_GLYPHS.white.knight}</span>
         <span className="htp-draft-tile card" style={{ '--accent': '#d35400' }}>☄</span>
-        <span className="htp-draft-tile card banned" style={{ '--accent': '#2980b9' }}>❄</span>
+        <span className="htp-draft-tile card picked-mine" style={{ '--accent': '#2980b9' }}>❄</span>
       </div>
     </div>
   )
@@ -85,7 +86,7 @@ const STEPS = [
   {
     title: '1. Драфт',
     Diagram: DraftDiagram,
-    desc: 'Сначала оба игрока вслепую банят друг другу несколько фигур и карт (пешку забанить нельзя). Затем баны раскрываются, и на оставшийся бюджет можно закупить что угодно — карты не ограничены количеством, а фигур можно набрать не больше, чем клеток на вашей половине доски.',
+    desc: 'Закупка фигур и карт по очереди, видя выбор соперника — на бюджет, фигур не больше, чем клеток на вашей половине доски.',
   },
   {
     title: '2. Расстановка',
@@ -95,12 +96,12 @@ const STEPS = [
   {
     title: '3. Бой',
     Diagram: BattleDiagram,
-    desc: `Ходите по очереди, карта — это отдельный ход вместо обычного. У каждого свои часы (${CLOCK_MINUTES} мин по раундам), тикают только на вашем ходу — если время выйдет, раунд проигран сразу, независимо от того, что осталось на доске. За съеденную фигуру соперника капают монеты — но это деньги только этого раунда, они не переходят в следующий драфт.`,
+    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу; свой первый ход в раунде каждый может обдумывать бесплатно ${ANALYSIS_TIME_SECONDS} сек. Можно заранее выбрать ход на чужом ходу — сыграет сам. За срубленную фигуру капают монеты этого раунда.`,
   },
   {
     title: '4. Итог раунда',
     Diagram: RoundResultDiagram,
-    desc: 'Короля нет — побеждает тот, кто уничтожит армию соперника целиком, у кого выйдет время у соперника, или у кого совсем не останется ходов — в любом из этих случаев раунд сразу проигран, независимо от того, что осталось на доске. Матч — до 2 побед; каждый раунд — новый драфт с нуля: фигуры, карты и деньги не переносятся, что бы ни осталось на доске.',
+    desc: 'Короля нет — побеждает тот, кто уничтожит армию соперника, у кого кончилось время или не осталось ходов. Матч до 2 побед; каждый раунд — новый драфт с нуля.',
   },
 ]
 

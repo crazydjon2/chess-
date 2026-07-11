@@ -6,7 +6,7 @@ export default function PlayerPanel({
   color, capturedByMe, active, inCheck, isYou,
   opponentCards, selectedCardId, onCardClick,
   coins,
-  timeSeconds, turnStartedAt, ticking,
+  timeSeconds, turnStartedAt, ticking, analysisSeconds, hasAnalysisLeft,
   characterName,
   onSurrender,
   // `active` is purely visual (turn highlight/dot). `controllable` gates
@@ -46,7 +46,13 @@ export default function PlayerPanel({
           🪙 {coins}
         </span>
       )}
-      <Clock baseSeconds={timeSeconds} turnStartedAt={turnStartedAt} ticking={ticking} />
+      <Clock
+        baseSeconds={timeSeconds}
+        turnStartedAt={turnStartedAt}
+        ticking={ticking}
+        analysisSeconds={analysisSeconds}
+        hasAnalysisLeft={hasAnalysisLeft}
+      />
       {opponentCards && (
         <OpponentHand
           cards={opponentCards}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { tryMove, tryPlayCard } from './gameEngine.js'
 import { createDraftRoundState } from '../client/src/game/initialState.js'
+import { getLegalMoves } from '../client/src/game/chess.js'
 
 const boardPattern = { rows: 6, cols: 6, blockedCells: ['a1'] }
 
@@ -106,8 +107,84 @@ describe('meteor integration (tryPlayCard + tryMove ticking/detonation)', () => 
     res = tryMove(res.gameState, 'black', 'b5', 'b4')
     expect(res.gameState.meteors).toEqual([])
     expect(res.gameState.pieces.c6).toBeUndefined()
-    expect(res.meteorStrikes).toEqual([{ square: 'c6', destroyed: { type: 'pawn', color: 'black', hp: 1 } }])
+    expect(res.meteorStrikes).toEqual([{ square: 'c6', destroyed: { type: 'pawn', color: 'black', hp: 1 }, owner: 'white' }])
     expect(res.gameState.meteorStrikes).toBeUndefined() // transient — never persisted
+
+    // The kill is just as real as a direct capture — white gets paid for it
+    // (pawn = 1 coin) and it shows up as a genuine capture in moveHistory.
+    expect(res.gameState.coins.white).toBe(21)
+    expect(res.gameState.moveHistory.at(-1)).toEqual({
+      from: null, to: 'c6', piece: null,
+      captured: { type: 'pawn', color: 'black', hp: 1 }, cause: 'meteor',
+    })
+  })
+
+  it('friendly fire earns no coins — a meteor destroying its own owner\'s piece is not a paid kill', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { b1: { type: 'pawn', color: 'white', hp: 1 }, c6: { type: 'knight', color: 'white', hp: 1 } },
+      { b6: { type: 'pawn', color: 'black', hp: 1 } },
+      ['meteor'], [], null, null,
+    )
+    gs.coins = { white: 20, black: 20 }
+
+    const cast = tryPlayCard(gs, 'white', 'meteor', 'c6')
+    let res = tryMove(cast.gameState, 'white', 'b1', 'b2') // white's own residual move — no tick
+    res = tryMove(res.gameState, 'black', 'b6', 'b5')       // 1st opponent move — no detonation yet
+    res = tryMove(res.gameState, 'white', 'b2', 'b3')       // white's move — still no tick
+    res = tryMove(res.gameState, 'black', 'b5', 'b4')       // 2nd opponent move — detonates on white's own knight
+
+    expect(res.gameState.pieces.c6).toBeUndefined()
+    expect(res.gameState.coins.white).toBe(20) // no reward for destroying their own piece
+  })
+})
+
+describe('no_moves suppressed while a rescue card is available', () => {
+  // A rook walled into a corner by two blocked holes (a2, b1) has zero
+  // legal moves on its own — genuinely stuck — but add_cell can carve out
+  // a brand-new square (a0) right next to it.
+  function boxedRookState(cardIds) {
+    const tinyBoard = { rows: 3, cols: 3, blockedCells: ['a2', 'b1'] }
+    const gs = createDraftRoundState(
+      tinyBoard,
+      { a1: { type: 'rook', color: 'white', hp: 1 } },
+      { c3: { type: 'pawn', color: 'black', hp: 1 } },
+      cardIds, [], null, null,
+    )
+    gs.coins = { white: 20, black: 20 }
+    return { ...gs, turn: 'black' }
+  }
+
+  it('does not end the round the instant white has no move, while add_cell could still open one', () => {
+    const gs = boxedRookState(['add_cell'])
+
+    // Black's move flips the turn to white, who — as things stand — has
+    // zero legal moves for their only piece.
+    const res = tryMove(gs, 'black', 'c3', 'c2')
+    expect(res.error).toBeUndefined()
+    expect(res.gameState.turn).toBe('white')
+    expect(res.result).toBeNull() // NOT no_moves — white can still try add_cell
+
+    // White plays their rescue card, carving out a0 right next to the rook...
+    const cardRes = tryPlayCard(res.gameState, 'white', 'add_cell', 'a0')
+    expect(cardRes.error).toBeUndefined()
+    expect(cardRes.gameState.board.extraCells).toContain('a0')
+    // ...and now genuinely has a legal move.
+    expect(getLegalMoves(cardRes.gameState, 'a1')).toContain('a0')
+  })
+
+  it('still ends the round with no_moves once white has no card that could rescue the position', () => {
+    const gs = boxedRookState(['barricade']) // a wall can't unblock anything
+
+    const res = tryMove(gs, 'black', 'c3', 'c2')
+    expect(res.result).toEqual({ type: 'no_moves', winner: 'black' })
+  })
+
+  it('still ends the round with no_moves once white has no cards in hand at all', () => {
+    const gs = boxedRookState([])
+
+    const res = tryMove(gs, 'black', 'c3', 'c2')
+    expect(res.result).toEqual({ type: 'no_moves', winner: 'black' })
   })
 })
 

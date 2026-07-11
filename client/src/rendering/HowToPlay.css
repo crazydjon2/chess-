@@ -136,10 +136,17 @@
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.htp-draft-tile.banned {
-  opacity: 0.5;
-  border-color: rgba(200,60,50,0.5);
-  background: rgba(200,60,50,0.1);
+/* Just bought by you (gold) / by the opponent (blue) — the draft is now
+   turn-based and fully visible, so the mockup shows both sides picking
+   live instead of the old hidden-ban mechanic. */
+.htp-draft-tile.picked-mine {
+  border-color: rgba(232,201,106,0.7);
+  background: rgba(232,201,106,0.14);
+}
+
+.htp-draft-tile.picked-opp {
+  border-color: rgba(127,160,224,0.7);
+  background: rgba(127,160,224,0.14);
 }
 
 /* ── Placement mockup ─────────────────────────────────────────────── */

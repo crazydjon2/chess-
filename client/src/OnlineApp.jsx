@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useCallback } from 'react'
+import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
 import GameView from './rendering/GameView'
 import Lobby from './rendering/Lobby'
 import DraftPhase from './rendering/DraftPhase'
@@ -20,7 +20,7 @@ const other = color => (color === 'white' ? 'black' : 'white')
 // hidden placement -> battle -> round result -> next round, best of 3.
 // The server is fully authoritative; this component just renders whatever
 // `match` phase the last `match_update` broadcast said we're in and sends
-// requests (draft_ban / draft_buy / submit_placement / move / play_card).
+// requests (draft_pick / draft_done / submit_placement / move / play_card).
 export default function OnlineApp({ onExit }) {
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
@@ -39,6 +39,9 @@ export default function OnlineApp({ onExit }) {
   const [pendingNecromancy, setPendingNecromancy] = useState(null) // { card, options } awaiting which piece to revive
   const [surrenderConfirm, setSurrenderConfirm] = useState(false)
   const [nickname, setNickname] = useState(loadNickname)
+  const [premove, setPremove] = useState(null) // { from, to } | null
+  const premoveRef = useRef(null) // mirrors premove for the socket handler below (avoids a stale closure)
+  useEffect(() => { premoveRef.current = premove }, [premove])
 
   function handleNicknameChange(name) {
     setNickname(name)
@@ -59,6 +62,19 @@ export default function OnlineApp({ onExit }) {
       setRoom(prev => (prev ? { ...prev, ...roomInfo } : prev))
       setMatch(m)
       dispatch({ type: 'CANCEL' })
+
+      // Fire a queued premove once it's our turn; drop it if we've left battle.
+      if (premoveRef.current) {
+        if (m.phase === 'battle' && m.gameState.turn === roomInfo.color) {
+          const { from, to } = premoveRef.current
+          premoveRef.current = null
+          setPremove(null)
+          getSocket().emit('move', { from, to })
+        } else if (m.phase !== 'battle') {
+          premoveRef.current = null
+          setPremove(null)
+        }
+      }
       // `hidden: true` means the server redacted the card id/piece type
       // because it happened inside the actor's own active fog zone (see
       // rooms.js's redactLastAction) — nothing to show this viewer.
@@ -138,6 +154,8 @@ export default function OnlineApp({ onExit }) {
     setSummarySeenFor(null)
     setPendingPromotion(null)
     setSurrenderConfirm(false)
+    premoveRef.current = null
+    setPremove(null)
     dispatch({ type: 'CANCEL' })
   }
 
@@ -176,7 +194,7 @@ export default function OnlineApp({ onExit }) {
     )
   }
 
-  // ── Draft phase (blind bans, then blind free-buy) ──────────────────
+  // ── Draft phase (turn-based, no bans — every pick is live/visible) ──
   if (match.phase === 'draft') {
     return (
       <DraftPhase
@@ -184,8 +202,8 @@ export default function OnlineApp({ onExit }) {
         boardPattern={match.boardPattern}
         draft={match.draft}
         myColor={myColor}
-        onBan={(targets) => getSocket().emit('draft_ban', targets)}
-        onBuy={(items) => getSocket().emit('draft_buy', items)}
+        onPick={(item) => getSocket().emit('draft_pick', item)}
+        onDone={() => getSocket().emit('draft_done')}
       />
     )
   }
@@ -331,7 +349,14 @@ export default function OnlineApp({ onExit }) {
         meteorStrikeAnim={meteorStrikeAnim}
         mineStrikeAnim={mineStrikeAnim}
         boardFlipped={myColor === 'black'}
-        boardPlayerColor={myTurn ? myColor : 'none'}
+        // Always your own color (not gated by whose turn it is) so you can
+        // select your pieces to queue a premove while waiting — actually
+        // executing a move is what stays gated, via isMyTurn below.
+        boardPlayerColor={matchOver ? 'none' : myColor}
+        isMyTurn={myTurn}
+        premove={premove}
+        onSetPremove={setPremove}
+        onClearPremove={() => setPremove(null)}
         onMove={handleMove}
         onPlayCard={handlePlayCard}
         gameResult={gameResult}

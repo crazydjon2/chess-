@@ -14,7 +14,11 @@ function findKingSquare(pieces, color) {
   ) ?? null
 }
 
-export default function Board({ gameState, skin = 'default', playerColor = 'white', onMove, onPlayCard, boardMode, dispatch, lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false }) {
+export default function Board({
+  gameState, skin = 'default', playerColor = 'white', onMove, onPlayCard, boardMode, dispatch,
+  lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false,
+  isMyTurn = true, premove = null, onSetPremove, onClearPremove, // premove: see OnlineApp.jsx
+}) {
   const { rows, cols } = gameState.board.size
   const width  = cols * CELL
   const height = rows * CELL
@@ -45,9 +49,19 @@ export default function Board({ gameState, skin = 'default', playerColor = 'whit
   const handleSquareClick = useCallback((square) => {
     const piece = gameState.pieces[square]
 
+    // Reclicking a piece with a queued premove clears it and falls through
+    // to reselect, so one click swaps the target instead of cancel-then-reselect.
+    if (!isMyTurn && premove && square === premove.from) {
+      onClearPremove?.()
+    }
+
     if (boardMode.type === 'piece_selected' && square !== boardMode.square) {
       if (boardMode.legalMoves.includes(square)) {
-        onMove?.({ from: boardMode.square, to: square })
+        if (isMyTurn) {
+          onMove?.({ from: boardMode.square, to: square })
+        } else {
+          onSetPremove?.({ from: boardMode.square, to: square })
+        }
         dispatch({ type: 'CANCEL' })
         return
       }
@@ -65,7 +79,7 @@ export default function Board({ gameState, skin = 'default', playerColor = 'whit
       : []
 
     dispatch({ type: 'CLICK_SQUARE', square, piece, playerColor, legalMoves })
-  }, [boardMode, gameState, playerColor, onMove, onPlayCard, dispatch])
+  }, [boardMode, gameState, playerColor, onMove, onPlayCard, dispatch, isMyTurn, premove, onSetPremove, onClearPremove])
 
   const handleDragStart = useCallback((square) => {
     const piece = gameState.pieces[square]
@@ -81,10 +95,14 @@ export default function Board({ gameState, skin = 'default', playerColor = 'whit
 
   const handleDrop = useCallback((square) => {
     if (boardMode.type === 'dragging' && boardMode.legalMoves.includes(square)) {
-      onMove?.({ from: boardMode.fromSquare, to: square })
+      if (isMyTurn) {
+        onMove?.({ from: boardMode.fromSquare, to: square })
+      } else {
+        onSetPremove?.({ from: boardMode.fromSquare, to: square })
+      }
     }
     dispatch({ type: 'DROP', square })
-  }, [boardMode, onMove, dispatch])
+  }, [boardMode, onMove, dispatch, isMyTurn, onSetPremove])
 
   const ranks = Array.from({ length: rows }, (_, i) => rows - i)
   const files = Array.from({ length: cols }, (_, i) => String.fromCharCode(97 + i))
@@ -120,6 +138,8 @@ export default function Board({ gameState, skin = 'default', playerColor = 'whit
                 lastMoveAnim={lastMoveAnim}
                 meteorStrikeAnim={meteorStrikeAnim}
                 mineStrikeAnim={mineStrikeAnim}
+                premove={premove}
+                isMyTurn={isMyTurn}
                 flipped={flipped}
               />
               <HitLayer

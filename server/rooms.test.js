@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createRoom, joinRoom, getRoomByCode, handlePlayCard, handlePlacement, handleDraftBan, handleDraftBuy, handleMove, handleSurrender } from './rooms.js'
+import { createRoom, joinRoom, getRoomByCode, handlePlayCard, handlePlacement, handleDraftPick, handleDraftDone, handleMove, handleSurrender } from './rooms.js'
 import { getCaptured } from '../client/src/game/economy.js'
 
 function makeSocket(id) {
@@ -153,7 +153,7 @@ describe('meteor redaction (viewFor + lastAction)', () => {
 
     handleMove(io, socketBlack, { from: 'f6', to: 'f5' })
 
-    const expectedStrikes = [{ square: 'b2', destroyed: { type: 'pawn', color: 'white', hp: 1 } }]
+    const expectedStrikes = [{ square: 'b2', destroyed: { type: 'pawn', color: 'white', hp: 1 }, owner: 'white' }]
     expect(emits['sock-white'].at(-1).payload.meteorStrikes).toEqual(expectedStrikes)
     expect(emits['sock-black'].at(-1).payload.meteorStrikes).toEqual(expectedStrikes)
 
@@ -231,63 +231,52 @@ describe('freeze mine redaction (viewFor + lastAction)', () => {
   })
 })
 
-describe('handleDraftBan/handleDraftBuy with a missing/malformed payload', () => {
-  it('does not throw when the ban payload is entirely missing (e.g. socket.emit(\'draft_ban\') with no args)', () => {
+describe('handleDraftPick/handleDraftDone with a missing/malformed payload', () => {
+  function baseDraft(overrides = {}) {
+    return {
+      round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', turn: 'white',
+      budgets: { white: 20, black: 20 },
+      maxPieces: 8,
+      picks: { white: { pieces: [], cards: [] }, black: { pieces: [], cards: [] } },
+      done: { white: false, black: false },
+      ...overrides,
+    }
+  }
+
+  it('does not throw when the pick payload is entirely missing (e.g. socket.emit(\'draft_pick\') with no args)', () => {
     const { io, socketWhite, room } = makeRoom()
-    room.match = { phase: 'draft', draft: { round: 1, firstColor: 'white', secondColor: 'black', phase: 'ban', banCount: 1, bans: { white: null, black: null }, budgets: { white: 0, black: 0 }, picks: { white: null, black: null } } }
-    expect(() => handleDraftBan(io, socketWhite, undefined)).not.toThrow()
+    room.match = { phase: 'draft', draft: baseDraft() }
+    expect(() => handleDraftPick(io, socketWhite, undefined)).not.toThrow()
   })
 
-  it('does not throw when the buy payload is entirely missing (e.g. socket.emit(\'draft_buy\') with no args)', () => {
+  it('does not throw on handleDraftDone with zero pieces bought (rejected, not a crash)', () => {
     const { io, socketWhite, room } = makeRoom()
-    room.match = { phase: 'draft', draft: { round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', banCount: 1, bans: { white: [], black: [] }, budgets: { white: 0, black: 0 }, picks: { white: null, black: null } } }
-    expect(() => handleDraftBuy(io, socketWhite, undefined)).not.toThrow()
+    room.match = { phase: 'draft', draft: baseDraft() }
+    expect(() => handleDraftDone(io, socketWhite)).not.toThrow()
   })
 })
 
-describe('draft-phase redaction (viewFor)', () => {
-  it('hides the opponent\'s ban targets until both sides have submitted', () => {
-    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
+describe('draft-phase visibility (viewFor)', () => {
+  it('picks are live/open information — the opponent sees each pick land immediately, not just after both finish', () => {
+    const { io, emits, socketWhite, room } = makeRoom()
     room.match = {
       phase: 'draft',
       round: 1,
       draft: {
-        round: 1, firstColor: 'white', secondColor: 'black', phase: 'ban', banCount: 1,
-        bans: { white: null, black: null },
+        round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', turn: 'white',
         budgets: { white: 20, black: 20 },
-        picks: { white: null, black: null },
+        maxPieces: 8,
+        picks: { white: { pieces: [], cards: [] }, black: { pieces: [], cards: [] } },
+        done: { white: false, black: false },
       },
     }
-    handleDraftBan(io, socketWhite, [{ kind: 'piece', pieceType: 'queen' }])
-    const blackSees = lastView(emits, 'sock-black').draft
-    expect(blackSees.bans.white).toBeNull() // white's ban is hidden from black until black also submits
-    const whiteSees = lastView(emits, 'sock-white').draft
-    expect(whiteSees.bans.white).toEqual([{ kind: 'piece', pieceType: 'queen' }]) // you always see your own ban
-
-    handleDraftBan(io, socketBlack, [{ kind: 'piece', pieceType: 'rook' }])
-    const blackSeesNow = lastView(emits, 'sock-black').draft
-    expect(blackSeesNow.bans.white).toEqual([{ kind: 'piece', pieceType: 'queen' }]) // revealed once both submitted
-  })
-
-  it('hides the opponent\'s cart for the whole draft phase, even after both have bought', () => {
-    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
-    room.match = {
-      phase: 'draft',
-      round: 1,
-      draft: {
-        round: 1, firstColor: 'white', secondColor: 'black', phase: 'buy', banCount: 1,
-        bans: { white: [{ kind: 'piece', pieceType: 'knight' }], black: [{ kind: 'piece', pieceType: 'rook' }] },
-        budgets: { white: 20, black: 20 },
-        picks: { white: null, black: null },
-      },
-    }
-    handleDraftBuy(io, socketWhite, [{ kind: 'piece', pieceType: 'pawn' }])
-    // Check the broadcast right after white's own buy, while the match was
-    // still mid-draft (black hasn't bought yet) — black's cart must be
-    // hidden from white even though it's white's own view.
-    const whiteFirstView = emits['sock-white'][0].payload.match
-    expect(whiteFirstView.draft.picks.black).toBeNull()
-    expect(whiteFirstView.draft.picks.white).toEqual({ pieces: ['pawn'], cards: [] })
+    handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'pawn' })
+    // Check the broadcast right after white's own pick, while the match was
+    // still mid-draft (black hasn't acted yet) — black should already see
+    // white's pick land, since visibility is the whole point now.
+    const blackView = emits['sock-black'][0].payload.match
+    expect(blackView.draft.picks.white).toEqual({ pieces: ['pawn'], cards: [] })
+    expect(blackView.draft.turn).toBe('black')
   })
 })
 

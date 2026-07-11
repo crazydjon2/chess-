@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { applyMove, needsPromotion, getGameResult, tickFogZones, getFogCaptureSquares, tickMeteors, tickUnstablePieces, emptyHomeSquares } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
 import { createDraftRoundState } from './initialState.js'
+import { getCaptured } from './economy.js'
 
 const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
 
@@ -37,6 +38,18 @@ describe('pawn promotion', () => {
       [], [], null, null,
     )
     expect(needsPromotion(gs, 'a5', 'b6')).toBe(false)
+  })
+
+  it('clears .unstable on a normal move-triggered promotion, so the choice cannot later be reverted away', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a5: { type: 'pawn', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 3, nextType: 'knight' } } },
+      { f1: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    const next = applyMove(gs, 'a5', 'a6', 'knight')
+    expect(next.pieces.a6.type).toBe('knight')
+    expect(next.pieces.a6.unstable).toBeUndefined()
   })
 })
 
@@ -137,6 +150,105 @@ describe('timeouts (per-player clock)', () => {
     expect(next.timers).toBeNull()
     expect(getGameResult(next)).toBeNull()
   })
+
+  it('adds the round\'s increment back onto the mover\'s clock after a move with time to spare', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start, 5, // +5s increment
+    )
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 5_000) // used 5 of 180s
+    expect(next.timers.white).toBe(180 - 5 + 5) // charged, then the bonus added back
+  })
+
+  it('does not add the increment if the move used up exactly all remaining time — still a timeout', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 10, start, 5, // +5s increment
+    )
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 10_000) // used exactly all 10s
+    expect(next.timers.white).toBe(0) // no bonus — they flagged, the increment can't save them
+    expect(getGameResult(next)).toEqual({ type: 'timeout', winner: 'black' })
+  })
+
+  it('untimed rounds never apply an increment either — timerIncrement stays null', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null, undefined, 5, // increment passed, but timeLimit is null
+    )
+    expect(gs.timerIncrement).toBeNull()
+    const next = applyMove(gs, 'a1', 'a2')
+    expect(next.timers).toBeNull()
+  })
+
+  it('a color\'s own first move is free within its analysis window — no charge at all', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start, 0, 10, // 10s analysis window, no increment
+    )
+    expect(gs.analysisUsed).toEqual({ white: false, black: false })
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 8_000) // well inside the window
+    expect(next.timers.white).toBe(180)
+    expect(next.analysisUsed).toEqual({ white: true, black: false }) // spent, doesn't touch black's
+  })
+
+  it('the analysis window only discounts the overage, not the whole move', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start, 0, 10,
+    )
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 15_000) // 10s free + 5s real
+    expect(next.timers.white).toBe(175)
+  })
+
+  it('BLACK gets its own independent analysis window on its own first move — not just whoever moves first', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start, 0, 10,
+    )
+    let next = applyMove(gs, 'a1', 'a2', undefined, start + 2_000) // white moves fast, still free
+    expect(next.timers.white).toBe(180)
+    // Black takes 8s on their own first move — still fully inside their OWN window.
+    next = applyMove(next, 'a6', 'a5', undefined, next.turnStartedAt + 8_000)
+    expect(next.timers.black).toBe(180)
+    expect(next.analysisUsed).toEqual({ white: true, black: true })
+  })
+
+  it('only a color\'s first move gets the window — its next move is charged normally', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start, 0, 10,
+    )
+    let next = applyMove(gs, 'a1', 'a2', undefined, start + 8_000) // white's free first move
+    next = applyMove(next, 'a6', 'a5', undefined, next.turnStartedAt + 3_000) // black's free first move
+    next = applyMove(next, 'a2', 'a3', undefined, next.turnStartedAt + 5_000) // white's 2nd move — no window left
+    expect(next.timers.white).toBe(175)
+  })
+
+  it('defaults to no analysis discount when omitted', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { a6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, 180, start,
+    )
+    expect(gs.analysisSeconds).toBe(0)
+    const next = applyMove(gs, 'a1', 'a2', undefined, start + 5_000)
+    expect(next.timers.white).toBe(175)
+  })
 })
 
 describe('tickFogZones', () => {
@@ -204,6 +316,13 @@ describe('tickMeteors', () => {
     expect(result.pieces.e4).toBeUndefined()
   })
 
+  it('reports the meteor\'s owner on each strike (for coin/capture attribution — see applyMove)', () => {
+    const pieces  = { e4: { type: 'pawn', color: 'black', hp: 1 } }
+    const meteors = [{ owner: 'white', square: 'e4', turnsLeft: 1 }]
+    const result = tickMeteors(pieces, meteors, 'black')
+    expect(result.strikes).toEqual([{ square: 'e4', destroyed: { type: 'pawn', color: 'black', hp: 1 }, owner: 'white' }])
+  })
+
   it('detonates harmlessly if the target square is empty by then (the piece moved away)', () => {
     const pieces  = { a1: { type: 'rook', color: 'black', hp: 1 } }
     const meteors = [{ owner: 'white', square: 'e4', turnsLeft: 1 }]
@@ -235,26 +354,63 @@ describe('tickUnstablePieces', () => {
     expect(tickUnstablePieces(pieces)).toBe(pieces)
   })
 
-  it('reassigns an unstable piece to a different type and decrements its timer', () => {
-    const pieces = { a1: { type: 'rook', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 6 } } }
-    const next = tickUnstablePieces(pieces)
+  it('on a SHIFT tick (odd remaining), becomes the telegraphed nextType and rolls a fresh one', () => {
+    const pieces = { a1: { type: 'rook', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 6, nextType: 'queen' } } }
+    const next = tickUnstablePieces(pieces) // remaining = 5, odd -> shift
+    expect(next.a1.type).toBe('queen') // became exactly what was telegraphed
     expect(next.a1.unstable.turnsLeft).toBe(5)
-    expect(next.a1.type).not.toBe('rook')
-    expect(['pawn', 'knight', 'bishop', 'rook', 'queen']).toContain(next.a1.type)
+    expect(next.a1.unstable.nextType).not.toBe('queen') // freshly rolled, visibly different
+    expect(['pawn', 'knight', 'bishop', 'rook', 'queen']).toContain(next.a1.unstable.nextType)
+  })
+
+  it('on a HOLD tick (even remaining), does not change type — just counts down', () => {
+    const pieces = { a1: { type: 'queen', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 5, nextType: 'knight' } } }
+    const next = tickUnstablePieces(pieces) // remaining = 4, even -> hold
+    expect(next.a1.type).toBe('queen') // unchanged
+    expect(next.a1.unstable.turnsLeft).toBe(4)
+    expect(next.a1.unstable.nextType).toBe('knight') // preview untouched, still accurate
+  })
+
+  it('previews the real original type once the NEXT event is the final revert, not another shift', () => {
+    // remaining after this tick will be 1 (odd -> shift), and 1 - 2 <= 0,
+    // so the following event is the revert, not a 4th shift.
+    const pieces = { a1: { type: 'bishop', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 2, nextType: 'pawn' } } }
+    const next = tickUnstablePieces(pieces)
+    expect(next.a1.type).toBe('pawn')
+    expect(next.a1.unstable.nextType).toBe('rook') // honest preview: revert is next, not a random guess
   })
 
   it('reverts to the original type and clears the flag once the timer runs out', () => {
-    const pieces = { a1: { type: 'queen', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 1 } } }
+    const pieces = { a1: { type: 'queen', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 1, nextType: 'rook' } } }
     const next = tickUnstablePieces(pieces)
     expect(next.a1.type).toBe('rook')
     expect(next.a1.unstable).toBeUndefined()
   })
 
   it('preserves other piece fields (color, hp) through a shapeshift', () => {
-    const pieces = { a1: { type: 'rook', color: 'black', hp: 2, unstable: { originalType: 'rook', turnsLeft: 3 } } }
-    const next = tickUnstablePieces(pieces)
+    const pieces = { a1: { type: 'rook', color: 'black', hp: 2, unstable: { originalType: 'rook', turnsLeft: 4, nextType: 'queen' } } }
+    const next = tickUnstablePieces(pieces) // remaining = 3, odd -> shift
     expect(next.a1.color).toBe('black')
     expect(next.a1.hp).toBe(2)
+  })
+
+  it('a full 6-turn cycle is exactly 3 shifts, not 6, then reverts', () => {
+    let pieces = { a1: { type: 'rook', color: 'white', hp: 1, unstable: { originalType: 'rook', turnsLeft: 6, nextType: 'queen' } } }
+    pieces = tickUnstablePieces(pieces) // remaining 5, shift -> queen
+    expect(pieces.a1.type).toBe('queen')
+    const secondType = pieces.a1.type
+    pieces = tickUnstablePieces(pieces) // remaining 4, hold
+    expect(pieces.a1.type).toBe(secondType)
+    pieces = tickUnstablePieces(pieces) // remaining 3, shift
+    const thirdType = pieces.a1.type
+    expect(thirdType).not.toBe(secondType)
+    pieces = tickUnstablePieces(pieces) // remaining 2, hold
+    expect(pieces.a1.type).toBe(thirdType)
+    pieces = tickUnstablePieces(pieces) // remaining 1, shift — last one, previewed the revert
+    expect(pieces.a1.unstable.nextType).toBe('rook')
+    pieces = tickUnstablePieces(pieces) // remaining 0, revert
+    expect(pieces.a1.type).toBe('rook')
+    expect(pieces.a1.unstable).toBeUndefined()
   })
 })
 
@@ -316,6 +472,44 @@ describe('applyMove: freeze mine trigger', () => {
     expect(next.pieces.a1).toEqual({ type: 'pawn', color: 'white', hp: 1 }) // stayed on `from`
     expect(next.mines).toEqual([{ owner: 'black', square: 'b2' }]) // untouched
     expect(next.mineStrike).toBeNull()
+  })
+})
+
+describe('applyMove: meteor kill counts as a capture', () => {
+  it('folds a meteor strike into moveHistory as a capture, alongside the move\'s own', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      { b6: { type: 'pawn', color: 'black', hp: 1 }, c6: { type: 'knight', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    let cast = applyCardEffect('meteor', gs, 'c6', 'white')
+    cast = { ...cast, meteors: [{ owner: 'white', square: 'c6', turnsLeft: 1 }] } // one opponent move from landing
+    // Black moves — ticks white's meteor down to 0, detonating on c6 and
+    // destroying the knight sitting there.
+    const next = applyMove({ ...cast, turn: 'black' }, 'b6', 'b5')
+    expect(next.meteorStrikes).toEqual([{ square: 'c6', destroyed: { type: 'knight', color: 'black', hp: 1 }, owner: 'white' }])
+    expect(next.pieces.c6).toBeUndefined()
+    expect(next.moveHistory).toHaveLength(2) // the move itself + the meteor kill
+    expect(next.moveHistory[1]).toEqual({
+      from: null, to: 'c6', piece: null,
+      captured: { type: 'knight', color: 'black', hp: 1 }, cause: 'meteor',
+    })
+    expect(getCaptured(next, 'black')).toContain('knight') // black lost it — same as any other capture
+  })
+
+  it('friendly fire (meteor destroys its own owner\'s piece) still records a capture, attributed to the victim', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a1: { type: 'pawn', color: 'white', hp: 1 }, c6: { type: 'knight', color: 'white', hp: 1 } },
+      { b6: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    let cast = applyCardEffect('meteor', gs, 'c6', 'white')
+    cast = { ...cast, meteors: [{ owner: 'white', square: 'c6', turnsLeft: 1 }] }
+    const next = applyMove({ ...cast, turn: 'black' }, 'b6', 'b5')
+    expect(next.pieces.c6).toBeUndefined()
+    expect(getCaptured(next, 'white')).toContain('knight') // white lost their OWN knight
   })
 })
 

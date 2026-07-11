@@ -1,5 +1,6 @@
 import { squareName, cellXY } from '../game/coords'
 import { getRenderer } from './pieces/registry'
+import { PIECE_GLYPHS } from '../game/economy'
 import './VisualLayer.css'
 
 const LIGHT = '#f0d9b5'
@@ -10,6 +11,7 @@ const MOVE_COLOR    = 'rgba(46,204,113,0.85)'  // green — plain move, unambigu
 const CAPTURE_COLOR = 'rgba(231,76,60,0.92)'   // red — capture, unambiguous
 const CARD_STROKE   = 'rgba(200,160,255,0.75)'
 const CARD_FILL     = 'rgba(130,60,220,0.10)'
+const PREMOVE_COLOR = 'rgba(90,150,220,0.95)'  // blue — distinct from the gold "selected" bracket, so a queued premove can never be mistaken for an in-progress selection
 
 function squareDark(col, rank) { return (rank + col) % 2 === 1 }
 
@@ -34,7 +36,7 @@ function frame(key, x, y, S, color, w = 3) {
   )
 }
 
-export default function VisualLayer({ gameState, highlights, skin, width, height, cellSize, lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false }) {
+export default function VisualLayer({ gameState, highlights, skin, width, height, cellSize, lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, premove = null, isMyTurn = true, flipped = false }) {
   const { rows, cols } = gameState.board.size
   const { Component: PieceComponent, Defs } = getRenderer(skin)
 
@@ -42,6 +44,14 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
   const cardTargetSet  = new Set(highlights.cardTargets)
   const extraCells     = gameState.board.extraCells ?? []
   const blockedSet     = new Set(gameState.board.blockedCells ?? [])
+
+  // Not your turn = premove selection, colored like a queued premove.
+  const selectColor  = isMyTurn ? BRACKET_COLOR : PREMOVE_COLOR
+  const dragColor    = isMyTurn ? 'rgba(230,200,100,0.55)' : 'rgba(90,150,220,0.55)'
+  const targetColor  = (square) => {
+    if (!isMyTurn) return PREMOVE_COLOR
+    return gameState.pieces[square] ? CAPTURE_COLOR : MOVE_COLOR
+  }
 
   const at = (col, rank) => cellXY(col, rank, rows, cols, cellSize, flipped)
 
@@ -86,9 +96,9 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
 
       // Corner brackets for selected / drag-from
       if (square === highlights.selected) {
-        overlays.push(...brackets(`sel-${square}`, x, y, cellSize, BRACKET_COLOR, 2.8))
+        overlays.push(...brackets(`sel-${square}`, x, y, cellSize, selectColor, 2.8))
       } else if (square === highlights.dragFrom) {
-        overlays.push(...brackets(`df-${square}`, x, y, cellSize, `rgba(230,200,100,0.55)`, 2.2))
+        overlays.push(...brackets(`df-${square}`, x, y, cellSize, dragColor, 2.2))
       }
 
       // Drag-over: subtle tint
@@ -109,10 +119,22 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
         )
       }
 
-      // Move indicators — full square outline, red for a capture, green for a plain move
+      // Move indicators — red for a capture, green for a plain move, blue while premove-selecting.
       if (targetSet.has(square)) {
-        const isCapture = !!gameState.pieces[square]
-        moveIndicators.push(frame(`mv-${square}`, x, y, cellSize, isCapture ? CAPTURE_COLOR : MOVE_COLOR))
+        moveIndicators.push(frame(`mv-${square}`, x, y, cellSize, targetColor(square)))
+      }
+
+      // Queued premove: bracket on the piece, dashed frame on the destination.
+      if (premove && square === premove.from) {
+        overlays.push(...brackets(`pm-from-${square}`, x, y, cellSize, PREMOVE_COLOR, 2.8))
+      }
+      if (premove && square === premove.to) {
+        moveIndicators.push(
+          <rect key={`pm-to-${square}`} x={x+2} y={y+2}
+            width={cellSize-4} height={cellSize-4}
+            fill="rgba(90,150,220,0.14)" stroke={PREMOVE_COLOR}
+            strokeWidth={2.4} strokeDasharray="6,4" rx={3} />
+        )
       }
     }
   }
@@ -129,9 +151,9 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
         fill={squareDark(col, rank) ? DARK : LIGHT} />
     )
     if (sq === highlights.selected) {
-      extraElements.push(...brackets(`sel-ex-${sq}`, x, y, cellSize, BRACKET_COLOR, 2.8))
+      extraElements.push(...brackets(`sel-ex-${sq}`, x, y, cellSize, selectColor, 2.8))
     } else if (sq === highlights.dragFrom) {
-      extraElements.push(...brackets(`df-ex-${sq}`, x, y, cellSize, `rgba(230,200,100,0.55)`, 2.2))
+      extraElements.push(...brackets(`df-ex-${sq}`, x, y, cellSize, dragColor, 2.2))
     }
     if (sq === highlights.dragOver) {
       extraElements.push(
@@ -146,8 +168,18 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
       )
     }
     if (targetSet.has(sq)) {
-      const isCapture = !!gameState.pieces[sq]
-      extraElements.push(frame(`mv-ex-${sq}`, x, y, cellSize, isCapture ? CAPTURE_COLOR : MOVE_COLOR))
+      extraElements.push(frame(`mv-ex-${sq}`, x, y, cellSize, targetColor(sq)))
+    }
+    if (premove && sq === premove.from) {
+      extraElements.push(...brackets(`pm-from-ex-${sq}`, x, y, cellSize, PREMOVE_COLOR, 2.8))
+    }
+    if (premove && sq === premove.to) {
+      extraElements.push(
+        <rect key={`pm-to-ex-${sq}`} x={x+2} y={y+2}
+          width={cellSize-4} height={cellSize-4}
+          fill="rgba(90,150,220,0.14)" stroke={PREMOVE_COLOR}
+          strokeWidth={2.4} strokeDasharray="6,4" rx={3} />
+      )
     }
   })
 
@@ -193,9 +225,11 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
   })
 
   // ── Unstable pieces (see chess.js's tickUnstablePieces) — the shimmer
-  // itself is a CSS class on the piece <g> (piece-unstable, above); this is
-  // just the turns-remaining badge, same bottom-right-corner-circle
-  // treatment as the fog zone's badge so it reads consistently as "a timer".
+  // itself is a CSS class on the piece <g> (piece-unstable, above). Two
+  // badges: turns-remaining (bottom-right corner, same treatment as the fog
+  // zone's badge) and, right next to it, a preview of what it's about to
+  // become — the shift is always telegraphed ahead of time (unstable.nextType),
+  // never a blind surprise for either side.
   const unstableOverlays = []
   Object.entries(gameState.pieces).forEach(([square, piece]) => {
     if (!piece.unstable) return
@@ -213,6 +247,19 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
           style={{ pointerEvents: 'none', userSelect: 'none' }}>{piece.unstable.turnsLeft}</text>
       </g>
     )
+    if (piece.unstable.nextType) {
+      const px = x + cellSize * 0.56
+      const py = y + cellSize * 0.82
+      unstableOverlays.push(
+        <g key={`un-next-${square}`} className="unstable-badge unstable-next-badge" title="Следующий тип">
+          <circle cx={px} cy={py} r={cellSize * 0.20}
+            fill="rgba(35,10,50,0.88)" stroke="rgba(210,150,255,0.9)" strokeWidth={1.5} />
+          <text x={px} y={py + 1} textAnchor="middle" dominantBaseline="central"
+            fontSize={cellSize * 0.24} fill="#eccfff"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}>{PIECE_GLYPHS[piece.color][piece.unstable.nextType]}</text>
+        </g>
+      )
+    }
   })
 
   // ── Smoke-screen fog zones ───────────────────────────────────────

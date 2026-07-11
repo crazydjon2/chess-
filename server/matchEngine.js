@@ -1,11 +1,11 @@
 // Orchestrates a Bo3 draft match: draft -> hidden placement -> battle ->
 // round result -> next round (or match over). Reuses the exact same pure
 // client/src/game modules the client renders with, same as gameEngine.js.
-import { createDraftState, submitBans, submitPurchases, isDraftComplete } from '../client/src/game/draftEngine.js'
+import { createDraftState, submitPick, submitDone, isDraftComplete } from '../client/src/game/draftEngine.js'
 import { pickBoardPattern } from '../client/src/game/boardPatterns.js'
 import { validatePlacement, buildPlacementPieces } from '../client/src/game/placementEngine.js'
 import { createDraftRoundState } from '../client/src/game/initialState.js'
-import { TIME_LIMIT_BY_ROUND } from '../client/src/game/draftPools.js'
+import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, ANALYSIS_TIME_SECONDS } from '../client/src/game/draftPools.js'
 
 const ROUNDS_TO_WIN  = 2
 const MAX_POOL_ROUND = 3   // round 4+ (draw-extended matches) reuse round 3's tier
@@ -46,28 +46,30 @@ export function createMatch() {
   return startRound({ white: 0, black: 0 }, 1, 'white')
 }
 
-export function tryDraftBan(match, color, targets) {
-  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
-  const res = submitBans(match.draft, color, targets)
-  if (res.error) return { error: res.error }
-  return { match: { ...match, draft: res.draftState } }
-}
-
-export function tryDraftBuy(match, color, items) {
-  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
-  const res = submitPurchases(match.draft, color, items)
-  if (res.error) return { error: res.error }
-
-  const draft = res.draftState
+// Whatever's left of this round's budget becomes this round's starting
+// battle coins (see tryPlacement) — a same-round handoff only; it's never
+// read again once the round ends (see startRound, which always resets
+// startingCoins to 0 for the next round).
+function finalizeDraftStep(match, draft) {
   if (isDraftComplete(draft)) {
-    // Whatever's left of this round's budget becomes this round's starting
-    // battle coins (see tryPlacement) — a same-round handoff only; it's
-    // never read again once the round ends (see startRound, which always
-    // resets startingCoins to 0 for the next round).
     const startingCoins = { white: draft.budgets.white, black: draft.budgets.black }
     return { match: { ...match, draft, startingCoins, phase: 'placement' } }
   }
   return { match: { ...match, draft } }
+}
+
+export function tryDraftPick(match, color, item) {
+  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
+  const res = submitPick(match.draft, color, item)
+  if (res.error) return { error: res.error }
+  return finalizeDraftStep(match, res.draftState)
+}
+
+export function tryDraftDone(match, color) {
+  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
+  const res = submitDone(match.draft, color)
+  if (res.error) return { error: res.error }
+  return finalizeDraftStep(match, res.draftState)
 }
 
 export function tryPlacement(match, color, placementMap) {
@@ -87,11 +89,14 @@ export function tryPlacement(match, color, placementMap) {
   const blackPieces = buildPlacementPieces('black', placement.black.map)
   const whiteCardIds = match.draft.picks.white.cards
   const blackCardIds = match.draft.picks.black.cards
-  const timeLimit = TIME_LIMIT_BY_ROUND[Math.min(match.round, MAX_POOL_ROUND)]
+  const poolRound   = Math.min(match.round, MAX_POOL_ROUND)
+  const timeLimit   = TIME_LIMIT_BY_ROUND[poolRound]
+  const timeIncrement = TIME_INCREMENT_BY_ROUND[poolRound]
 
   const gameState = createDraftRoundState(
     match.boardPattern, whitePieces, blackPieces,
-    whiteCardIds, blackCardIds, match.startingCoins, timeLimit
+    whiteCardIds, blackCardIds, match.startingCoins, timeLimit,
+    undefined, timeIncrement, ANALYSIS_TIME_SECONDS
   )
 
   return { match: { ...match, placement, phase: 'battle', gameState } }

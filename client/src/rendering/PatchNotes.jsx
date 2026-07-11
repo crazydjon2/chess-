@@ -16,7 +16,7 @@ export default function PatchNotes({ onClose }) {
                 <div className="pn-entry-head">
                   {i === 0 && <span className="pn-entry-latest">Новое</span>}
                   <span className="pn-entry-title">{entry.title}</span>
-                  <span className="pn-entry-date">{entry.date}</span>
+                  <span className="pn-entry-version">{entry.version}</span>
                 </div>
                 <ul className="pn-changes">
                   {entry.changes.map(change => <li key={change}>{change}</li>)}

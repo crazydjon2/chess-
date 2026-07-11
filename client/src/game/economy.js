@@ -26,7 +26,10 @@ export const CAPTURE_ORDER = ['queen', 'rook', 'bishop', 'knight', 'pawn', 'king
 // promoted pawn "disappearing" from the pawn count (it's not captured, just
 // upgraded) and a smoke_screen-hidden piece being invisible in a redacted
 // view (it's not captured, just fogged). History only ever records a real
-// capture, so neither case can be mistaken for one.
+// capture, so neither case can be mistaken for one. A meteor kill counts
+// too (see chess.js's applyMove, which folds tickMeteors' strikes in here
+// alongside the move's own capture) — a piece is just as gone whether a
+// meteor or a direct move ended it.
 //
 // A capture marked `revived` (see cardEffects.js's necromancy) is excluded
 // — that piece is back on the board, not a casualty any more, so it

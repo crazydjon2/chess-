@@ -34,7 +34,17 @@ function baseState(pieces, board, whiteHand, blackHand) {
 // `null` means untimed (the sandbox testing mode uses this, so manual
 // testing is never cut off mid-poke). `now` defaults to the real clock but
 // is accepted explicitly so tests can drive it deterministically.
-export function createDraftRoundState(boardPattern, whitePlacement, blackPlacement, whiteCardIds, blackCardIds, startingCoins, timeLimit, now = Date.now()) {
+// `timerIncrement` (seconds, defaults to 0) is added back to the mover's
+// own clock after each of their moves (see chess.js's applyMove) — meaningless
+// (and left null) when untimed, same as `timers`/`turnStartedAt`.
+// `analysisSeconds` (defaults to 0) is EACH color's own free-look budget on
+// their own first move of the round — not just whoever moves first
+// chronologically (turn always starts white, so a single shared "first
+// move is free" window would only ever benefit white). `analysisUsed`
+// tracks which colors have already spent theirs this round; applyMove
+// discounts elapsed time by up to `analysisSeconds` the first time each
+// color moves, then flips that color's flag so it never applies again.
+export function createDraftRoundState(boardPattern, whitePlacement, blackPlacement, whiteCardIds, blackCardIds, startingCoins, timeLimit, now = Date.now(), timerIncrement = 0, analysisSeconds = 0) {
   const board = {
     size: { rows: boardPattern.rows, cols: boardPattern.cols },
     blockedCells: boardPattern.blockedCells ?? [],
@@ -47,6 +57,9 @@ export function createDraftRoundState(boardPattern, whitePlacement, blackPlaceme
   state.eliminationMode = true
   state.timers = timeLimit != null ? { white: timeLimit, black: timeLimit } : null
   state.turnStartedAt = timeLimit != null ? now : null
+  state.timerIncrement = timeLimit != null ? timerIncrement : null
+  state.analysisSeconds = timeLimit != null ? analysisSeconds : null
+  state.analysisUsed = timeLimit != null ? { white: false, black: false } : null
   if (startingCoins) {
     state.coins = { white: startingCoins.white ?? 0, black: startingCoins.black ?? 0 }
   }

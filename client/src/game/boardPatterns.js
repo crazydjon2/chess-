@@ -113,7 +113,7 @@ export function pickBoardPattern(round) {
 // top), so home-rank capacity — 2 full open ranks × the board's width — is
 // constant per round too, regardless of which of that round's variants
 // actually gets picked. This is exactly the hard cap on how many pieces
-// either side may draft that round (see draftEngine.js's submitPurchases):
+// either side may draft that round (see draftEngine.js's submitPick):
 // buying more than fit on the home ranks would leave hidden placement
 // impossible to complete.
 export const HOME_CAPACITY_BY_ROUND = Object.fromEntries(

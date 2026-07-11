@@ -172,7 +172,11 @@ describe('unstable', () => {
     )
     const next = applyCardEffect('unstable', gs, 'f6', 'white')
     expect(next.pieces.f6.type).toBe('pawn') // unchanged yet — see chess.js's tickUnstablePieces
-    expect(next.pieces.f6.unstable).toEqual({ originalType: 'pawn', turnsLeft: 6 })
+    expect(next.pieces.f6.unstable.originalType).toBe('pawn')
+    expect(next.pieces.f6.unstable.turnsLeft).toBe(6)
+    // Telegraphed from the moment of casting — never a blind first shift.
+    expect(next.pieces.f6.unstable.nextType).not.toBe('pawn')
+    expect(['pawn', 'knight', 'bishop', 'rook', 'queen']).toContain(next.pieces.f6.unstable.nextType)
   })
 
   it('can target the caster\'s own piece', () => {
@@ -183,7 +187,9 @@ describe('unstable', () => {
       [], [], null, null,
     )
     const next = applyCardEffect('unstable', gs, 'a1', 'white')
-    expect(next.pieces.a1.unstable).toEqual({ originalType: 'rook', turnsLeft: 6 })
+    expect(next.pieces.a1.unstable.originalType).toBe('rook')
+    expect(next.pieces.a1.unstable.turnsLeft).toBe(6)
+    expect(next.pieces.a1.unstable.nextType).not.toBe('rook')
   })
 
   it('refuses to target a king', () => {

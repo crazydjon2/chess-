@@ -3,9 +3,23 @@
 // any of these files), so the server can never disagree with the client
 // about what a legal move or card target is.
 import { getLegalMoves, applyMove, getGameResult } from '../client/src/game/chess.js'
-import { getValidTargets } from '../client/src/game/cards.js'
+import { getValidTargets, hasRescueCard } from '../client/src/game/cards.js'
 import { applyCardEffect } from '../client/src/game/cardEffects.js'
 import { PIECE_VALUE } from '../client/src/game/economy.js'
+
+// getGameResult's `no_moves` loss fires the instant it becomes a player's
+// turn with no legal move — but cards don't end the turn, so a player isn't
+// really out of options while they still have a card that could open one up
+// (add_cell, necromancy, ...). Suppress a `no_moves` result whenever
+// hasRescueCard says the about-to-lose side still has that option; every
+// other result (elimination, timeout, draw) is never something a card can
+// talk your way out of, so it passes through untouched.
+function resolveResult(gameState) {
+  const result = getGameResult(gameState)
+  if (result?.type !== 'no_moves') return result
+  const loserColor = result.winner === 'white' ? 'black' : 'white'
+  return hasRescueCard(gameState, loserColor) ? null : result
+}
 
 export function tryMove(gameState, color, from, to, promotion, now = Date.now()) {
   if (gameState.turn !== color) return { error: 'Не ваш ход' }
@@ -20,12 +34,21 @@ export function tryMove(gameState, color, from, to, promotion, now = Date.now())
   const mineStrike = next.mineStrike ?? null
   delete next.mineStrike // transient — same as meteorStrikes, never persisted
   const captured = target && target.hp <= 1
-  const coins = captured
+  let coins = captured
     ? { ...gameState.coins, [color]: gameState.coins[color] + (PIECE_VALUE[target.type] || 0) }
     : gameState.coins
+  // A meteor detonating this move is just as much a kill as the move's own
+  // capture — see chess.js's tickMeteors/applyMove — so its owner gets paid
+  // the same way, just delayed. Friendly fire (a meteor destroying its own
+  // owner's piece) earns nothing, same as a normal move can never capture
+  // your own piece for a reward either.
+  meteorStrikes.forEach(strike => {
+    if (!strike.destroyed || strike.destroyed.color === strike.owner) return
+    coins = { ...coins, [strike.owner]: coins[strike.owner] + (PIECE_VALUE[strike.destroyed.type] || 0) }
+  })
 
   const finalState = { ...next, coins, cardPlayedThisTurn: false }
-  const result = getGameResult(finalState)
+  const result = resolveResult(finalState)
 
   let actionType = 'move'
   if (target && target.hp > 1) actionType = 'bounce'
@@ -61,6 +84,6 @@ export function tryPlayCard(gameState, color, cardId, target) {
       [color]: { hand: newHand, used: [...(next.cards[color]?.used ?? []), card] },
     },
   }
-  const result = getGameResult(finalState)
+  const result = resolveResult(finalState)
   return { gameState: finalState, lastAction: { type: 'card', cardId, target, color }, result }
 }
