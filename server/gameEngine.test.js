@@ -207,3 +207,57 @@ describe('tryMove', () => {
     expect(res.lastAction.type).toBe('capture')
   })
 })
+
+describe('actionLog — the scrubbable battle-log history', () => {
+  it('starts with just the synthetic opening entry', () => {
+    const gs = freshState()
+    expect(gs.actionLog).toHaveLength(1)
+    expect(gs.actionLog[0].kind).toBe('start')
+  })
+
+  it('a move appends a move entry with no capturedType', () => {
+    const gs = freshState()
+    const res = tryMove(gs, 'white', 'b1', 'b2')
+    expect(res.gameState.actionLog).toHaveLength(2)
+    const entry = res.gameState.actionLog.at(-1)
+    expect(entry).toMatchObject({ kind: 'move', color: 'white', from: 'b1', to: 'b2', capturedType: null })
+    expect(entry.snapshot.pieces).toEqual(res.gameState.pieces) // matches the resulting board, not the pre-move one
+  })
+
+  it('a capturing move records the captured piece\'s type', () => {
+    const gs = freshState()
+    gs.pieces = {
+      b1: { type: 'pawn', color: 'white', hp: 1 },
+      c2: { type: 'knight', color: 'black', hp: 1 },
+    }
+    const res = tryMove(gs, 'white', 'b1', 'c2')
+    expect(res.gameState.actionLog.at(-1)).toMatchObject({ kind: 'move', capturedType: 'knight' })
+  })
+
+  it('a card play appends a card entry with its target, without ending the turn', () => {
+    const gs = freshState()
+    const res = tryPlayCard(gs, 'white', 'smoke_screen', 'b1')
+    expect(res.gameState.actionLog).toHaveLength(2)
+    expect(res.gameState.actionLog.at(-1)).toMatchObject({ kind: 'card', color: 'white', cardId: 'smoke_screen', target: 'b1' })
+  })
+
+  it('entries accumulate across an interleaved card+move+move sequence', () => {
+    const gs = freshState()
+    let res = tryPlayCard(gs, 'white', 'smoke_screen', 'b1')
+    res = tryMove(res.gameState, 'white', 'b1', 'b2')
+    res = tryMove(res.gameState, 'black', 'b6', 'b5')
+    // start, card, move, move
+    expect(res.gameState.actionLog.map(e => e.kind)).toEqual(['start', 'card', 'move', 'move'])
+  })
+
+  it('each move entry snapshots the board as it stood right after that move, not the live/final board', () => {
+    const gs = freshState()
+    let res = tryMove(gs, 'white', 'b1', 'b2')
+    res = tryMove(res.gameState, 'black', 'b6', 'b5')
+    const firstMoveSnapshot = res.gameState.actionLog[1].snapshot.pieces
+    // After white's move, black's pawn was still on b6 — that's frozen into
+    // entry 1's snapshot even though the LIVE board has since moved it to b5.
+    expect(firstMoveSnapshot.b6).toEqual({ type: 'pawn', color: 'black', hp: 1 })
+    expect(res.gameState.pieces.b6).toBeUndefined() // live board has moved on
+  })
+})

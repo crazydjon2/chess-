@@ -1,11 +1,14 @@
+/* Top-anchored, not centered — error messages/connection state appear and
+   disappear here (see Lobby.jsx), and `justify-content: center` would
+   re-center the whole screen around every single one of those changes. */
 .lobby-screen {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: #1a1410;
-  padding: 32px 16px;
+  padding: 8vh 16px 32px;
   gap: 22px;
 }
 

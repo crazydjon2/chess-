@@ -12,6 +12,27 @@
 // running counter, not semver; no need to reason about major/minor/patch.
 export const PATCH_NOTES = [
   {
+    id: 'battle-log',
+    version: 'v13',
+    title: 'Журнал боя',
+    glyph: '📜',
+    accent: '#60a5fa',
+    changes: [
+      'Кликабельный журнал: ходы и карты, можно посмотреть доску на любой момент раунда.',
+      'Доступен и на экране итогов раунда.'
+    ],
+  },
+  {
+    id: 'draft-duplicate-pricing',
+    version: 'v12',
+    title: 'Повторная покупка дорожает',
+    glyph: '📈',
+    accent: '#fbbf24',
+    changes: [
+      'Каждая следующая копия одной фигуры или карты в раунде стоит дороже.',
+    ],
+  },
+  {
     id: 'draft-redesign',
     version: 'v11',
     title: 'Драфт без банов — закупка по очереди',

@@ -1,4 +1,7 @@
 /* ── Mode select (online vs local sandbox) ───────────────────────────── */
+/* Static content (never resizes while shown), so centering here is safe —
+   unlike the draft/placement/battle screens below, there's no dynamic
+   content whose height could change and force a re-center. */
 .mode-select-screen {
   min-height: 100vh;
   display: flex;
@@ -146,9 +149,16 @@
 }
 
 /* ── Page ──────────────────────────────────────────────────────────── */
+/* `align-items` (this container is a row, so THAT's the vertical/cross
+   axis, not justify-content) is flex-start, not center, on purpose — the
+   battle screen's content height changes constantly (hand size, captured
+   trays, warnings, action toasts), and centering here would re-anchor the
+   WHOLE page around every single one of those changes instead of only
+   shifting what's below. `justify-content: center` (horizontal) is fine to
+   keep — the single .game-scene child's WIDTH doesn't change. */
 .app {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100svh;
   background:
@@ -680,6 +690,32 @@
 
 .restart-btn:hover  { filter: brightness(1.20); }
 .restart-btn:active { transform: scale(0.97); }
+
+/* ── Analysis-banner slot (see GameView.jsx) ──────────────────────────
+   Same reserved-height trick as .threat-warnings below, for the same
+   reason: AnalysisBanner mounts/unmounts itself once per color per round. */
+.analysis-banner-slot {
+  min-height: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Threat-warnings slot (see GameView.jsx) ──────────────────────────
+   Reserves a stable min-height for the meteor/mine warnings below,
+   whether either is currently showing or not — a meteor/mine gets armed
+   and resolved many times over a match, and without this the board (a
+   sibling further down in .game-scene's flex column) would visibly jump
+   up and down every single time. Sized for one banner's typical height
+   (~34px, from .meteor-warning's own padding/font/border); the rarer
+   case of BOTH showing at once still shifts things a bit — a smaller,
+   less frequent jump than the 0-vs-1 case this primarily targets. */
+.threat-warnings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+}
 
 /* ── Incoming meteor warning (location unknown — see GameView.jsx) ──── */
 .meteor-warning {

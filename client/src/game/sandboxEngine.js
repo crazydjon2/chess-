@@ -4,7 +4,7 @@
 // the client/server boundary, so the sandbox behaves identically to a real
 // online match without needing a socket connection. Keep in sync with
 // server/gameEngine.js if either changes.
-import { getLegalMoves, applyMove, getGameResult } from './chess.js'
+import { getLegalMoves, applyMove, getGameResult, appendLogEntry } from './chess.js'
 import { getValidTargets, hasRescueCard } from './cards.js'
 import { applyCardEffect } from './cardEffects.js'
 import { PIECE_VALUE } from './economy.js'
@@ -49,7 +49,9 @@ export function tryMove(gameState, color, from, to, promotion, now = Date.now())
     coins = { ...coins, [strike.owner]: coins[strike.owner] + (PIECE_VALUE[strike.destroyed.type] || 0) }
   })
 
-  const finalState = { ...next, coins, cardPlayedThisTurn: false }
+  const finalState = appendLogEntry({ ...next, coins, cardPlayedThisTurn: false }, {
+    kind: 'move', color, from, to, capturedType: captured ? target.type : null, meteorStrikes, mineStrike,
+  })
   const result = resolveResult(finalState)
 
   let actionType = 'move'
@@ -71,14 +73,14 @@ export function tryPlayCard(gameState, color, cardId, target) {
   const next = applyCardEffect(cardId, gameState, target, color)
   const newHand = [...hand.slice(0, idx), ...hand.slice(idx + 1)]
 
-  const finalState = {
+  const finalState = appendLogEntry({
     ...next,
     cardPlayedThisTurn: true,
     cards: {
       ...next.cards,
       [color]: { hand: newHand, used: [...(next.cards[color]?.used ?? []), card] },
     },
-  }
+  }, { kind: 'card', color, cardId, target })
   const result = resolveResult(finalState)
   return { gameState: finalState, lastAction: { type: 'card', cardId, target, color }, result }
 }

@@ -42,6 +42,13 @@ export default function OnlineApp({ onExit }) {
   const [premove, setPremove] = useState(null) // { from, to } | null
   const premoveRef = useRef(null) // mirrors premove for the socket handler below (avoids a stale closure)
   useEffect(() => { premoveRef.current = premove }, [premove])
+  // Which battle-log entry the board is currently displaying — null means
+  // "live" (see GameView.jsx's displayGameState). Never carries over: each
+  // round is a fresh actionLog (see initialState.js), so a stale index
+  // would either point at nothing or, worse, silently land on the wrong
+  // round's snapshot.
+  const [historyIndex, setHistoryIndex] = useState(null)
+  useEffect(() => { setHistoryIndex(null) }, [match?.round])
 
   function handleNicknameChange(name) {
     setNickname(name)
@@ -75,10 +82,14 @@ export default function OnlineApp({ onExit }) {
           setPremove(null)
         }
       }
-      // `hidden: true` means the server redacted the card id/piece type
-      // because it happened inside the actor's own active fog zone (see
-      // rooms.js's redactLastAction) — nothing to show this viewer.
-      if (lastAction && !lastAction.hidden) {
+      // `hidden: true` means the server redacted this action's TARGET
+      // square because it happened inside the actor's own active fog zone
+      // (see rooms.js's redactLastAction) — the card itself is still shown
+      // (never secret which card was played, only where), so the toast
+      // fires exactly the same as a normal card play. Move/capture/bounce
+      // actions carry no target-square secrecy at all — `hidden` only ever
+      // applies to cards.
+      if (lastAction) {
         if (['move', 'capture', 'bounce'].includes(lastAction.type)) {
           setLastMoveAnim({ type: lastAction.type, from: lastAction.from, to: lastAction.to, ts: Date.now() })
         } else if (lastAction.type === 'card') {
@@ -359,6 +370,10 @@ export default function OnlineApp({ onExit }) {
         onClearPremove={() => setPremove(null)}
         onMove={handleMove}
         onPlayCard={handlePlayCard}
+        battleLog={gameState.actionLog}
+        historyIndex={historyIndex}
+        onSelectHistory={setHistoryIndex}
+        onReturnToLive={() => setHistoryIndex(null)}
         gameResult={gameResult}
         resultTitle={resultTitle}
         resultOutcome={matchOutcome}

@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import Board from './Board'
 import CardHand from './CardHand'
 import PlayerPanel from './PlayerPanel'
 import TurnBar from './TurnBar'
 import MatchScoreBoard from './MatchScoreBoard'
 import AnalysisBanner from './AnalysisBanner'
+import BattleLog from './BattleLog'
 
 const RESULT_TEXT = {
   checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
@@ -34,7 +36,24 @@ export default function GameView({
   onMove, onPlayCard,
   gameResult, resultTitle, resultOutcome, restartLabel, onRestart,
   onBackgroundClick,
+  battleLog, historyIndex, onSelectHistory, onReturnToLive,
 }) {
+  // Open by default (docked left — see BattleLog.css's .bl-panel) whenever
+  // there's a log to show at all; the panel's own header button collapses
+  // it, and .bl-toggle (rendered only while collapsed) brings it back.
+  const [logOpen, setLogOpen] = useState(!!battleLog)
+  const viewingHistory = battleLog && historyIndex != null
+
+  // A pure LOCAL view swap — jumping into history never touches the live
+  // match. Only pieces/fogZones/meteors/mines come from the selected
+  // snapshot (see chess.js's appendLogEntry); turn/timers/hands/coins stay
+  // live, so the clock keeps visibly running while you browse (see
+  // BattleLog's "your turn" warning instead of silently pausing it).
+  const displayGameState = viewingHistory
+    ? { ...gameState, ...battleLog[historyIndex].snapshot }
+    : gameState
+  const effectivePlayerColor = viewingHistory ? 'none' : (boardPlayerColor ?? 'none')
+  const isMyLiveTurn = !gameResult && gameState.turn === bottomPanel?.color
   // Opponent's meteors arrive here with the square stripped (see rooms.js's
   // redactMeteors) — we only ever know THAT one is coming and how long
   // until the soonest lands, never where, so this can only ever be a
@@ -51,7 +70,7 @@ export default function GameView({
   const hasAnalysisLeft = (color) => gameState.analysisUsed ? !gameState.analysisUsed[color] : false
 
   return (
-    <div className="app" onClick={onBackgroundClick}>
+    <div className={`app${logOpen && battleLog ? ' bl-open' : ''}`} onClick={onBackgroundClick}>
       <div className="game-scene" onClick={onBackgroundClick}>
 
         <div className="player-section">
@@ -69,29 +88,55 @@ export default function GameView({
 
         {turnBar && <TurnBar {...turnBar} />}
 
-        <AnalysisBanner
-          turnStartedAt={gameState.turnStartedAt}
-          analysisSeconds={gameState.analysisSeconds}
-          hasAnalysisLeft={hasAnalysisLeft(gameState.turn)}
-        />
+        {battleLog && !logOpen && (
+          <button className="bl-toggle" onClick={() => setLogOpen(true)}>
+            📜 Журнал{viewingHistory ? ` · ход ${historyIndex}` : ''}
+          </button>
+        )}
 
-        {soonestMeteor != null && (
-          <div className="meteor-warning">
-            <span className="meteor-warning-icon">☄</span>
-            {incomingMeteors.length === 1
-              ? `Соперник бросил метеор — упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`
-              : `Метеоры соперника (${incomingMeteors.length}) — ближайший упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`}
+        {viewingHistory && !logOpen && (
+          <div className="bl-history-banner">
+            {isMyLiveTurn ? '⚠ Просмотр истории — сейчас ваш ход' : 'Просмотр истории'}
+            <button onClick={onReturnToLive}>Вернуться в игру</button>
           </div>
         )}
 
-        {incomingMines.length > 0 && (
-          <div className="mine-warning">
-            <span className="mine-warning-icon">❄</span>
-            {incomingMines.length === 1
-              ? 'Соперник где-то заложил мину заморозки'
-              : `Соперник заложил мины заморозки (${incomingMines.length})`}
-          </div>
-        )}
+        {/* Reserves space the same way .threat-warnings does below —
+           AnalysisBanner mounts/unmounts itself (returns null when
+           inactive) once per color per round, which used to shift the
+           board the same way a meteor/mine warning did. */}
+        <div className="analysis-banner-slot">
+          <AnalysisBanner
+            turnStartedAt={gameState.turnStartedAt}
+            analysisSeconds={gameState.analysisSeconds}
+            hasAnalysisLeft={hasAnalysisLeft(gameState.turn)}
+          />
+        </div>
+
+        {/* Reserves space for these two regardless of whether either is
+           currently showing — meteors/mines get armed and resolve many
+           times over a match, and this pair used to sit in normal flex flow
+           (see .game-scene), so the board below would visibly jump up/down
+           every single time one popped in or out. */}
+        <div className="threat-warnings">
+          {soonestMeteor != null && (
+            <div className="meteor-warning">
+              <span className="meteor-warning-icon">☄</span>
+              {incomingMeteors.length === 1
+                ? `Соперник бросил метеор — упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`
+                : `Метеоры соперника (${incomingMeteors.length}) — ближайший упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`}
+            </div>
+          )}
+
+          {incomingMines.length > 0 && (
+            <div className="mine-warning">
+              <span className="mine-warning-icon">❄</span>
+              {incomingMines.length === 1
+                ? 'Соперник где-то заложил мину заморозки'
+                : `Соперник заложил мины заморозки (${incomingMines.length})`}
+            </div>
+          )}
+        </div>
 
         {gameResult && (
           <div className={`result-banner${resultOutcome ? ` result-banner-${resultOutcome}` : ''}`}>
@@ -103,22 +148,33 @@ export default function GameView({
 
         <div className="board-area">
           <Board
-            gameState={gameState}
-            playerColor={boardPlayerColor ?? 'none'}
+            gameState={displayGameState}
+            playerColor={effectivePlayerColor}
             skin="default"
-            onMove={onMove}
-            onPlayCard={onPlayCard}
+            onMove={viewingHistory ? undefined : onMove}
+            onPlayCard={viewingHistory ? undefined : onPlayCard}
             boardMode={boardMode}
             dispatch={dispatch}
-            lastMoveAnim={lastMoveAnim}
-            meteorStrikeAnim={meteorStrikeAnim}
-            mineStrikeAnim={mineStrikeAnim}
-            isMyTurn={isMyTurn}
-            premove={premove}
+            lastMoveAnim={viewingHistory ? null : lastMoveAnim}
+            meteorStrikeAnim={viewingHistory ? null : meteorStrikeAnim}
+            mineStrikeAnim={viewingHistory ? null : mineStrikeAnim}
+            isMyTurn={!viewingHistory && isMyTurn}
+            premove={viewingHistory ? null : premove}
             onSetPremove={onSetPremove}
             onClearPremove={onClearPremove}
             flipped={boardFlipped}
           />
+
+          {logOpen && battleLog && (
+            <BattleLog
+              entries={battleLog}
+              historyIndex={historyIndex}
+              onSelect={onSelectHistory}
+              onReturnToLive={onReturnToLive}
+              onClose={() => setLogOpen(false)}
+              isMyLiveTurn={isMyLiveTurn}
+            />
+          )}
 
           {actionToast && (
             <div
@@ -140,9 +196,9 @@ export default function GameView({
         <div className="player-section">
           <CardHand
             cards={bottomHand.cards}
-            isActive={bottomHand.isActive}
+            isActive={bottomHand.isActive && !viewingHistory}
             selectedCardId={bottomHand.selectedCardId}
-            onCardClick={bottomHand.onCardClick}
+            onCardClick={viewingHistory ? undefined : bottomHand.onCardClick}
           />
           <PlayerPanel
             {...bottomPanel}

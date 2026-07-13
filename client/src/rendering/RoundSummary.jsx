@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import Board from './Board'
+import BattleLog from './BattleLog'
 import { IDLE } from '../game/boardMode'
 import './RoundSummary.css'
 
@@ -34,8 +36,21 @@ export default function RoundSummary({ match, previousMyColor, onContinue }) {
   const outcome = outcomeFor(result, previousMyColor)
   const outcomeLabel = { win: 'Вы победили в раунде', loss: 'Вы проиграли раунд', draw: 'Ничья' }[outcome]
 
+  const battleLog = match.previousGameState?.actionLog
+  const [logOpen, setLogOpen] = useState(!!battleLog)
+  const [historyIndex, setHistoryIndex] = useState(null)
+  // The round is over — nothing will move again, so "live" here just means
+  // "the final position" (historyIndex === null), and there's no own-turn
+  // clock to warn about while browsing (see BattleLog's isMyLiveTurn).
+  const displayGameState = historyIndex != null
+    ? { ...match.previousGameState, ...battleLog[historyIndex].snapshot }
+    : match.previousGameState
+
   return (
-    <div className="rs-screen">
+    <div className={`rs-screen${logOpen && battleLog ? ' bl-open' : ''}`}>
+      {battleLog && !logOpen && (
+        <button className="bl-toggle" onClick={() => setLogOpen(true)}>📜 Журнал</button>
+      )}
       <div className="rs-card">
         <div className={`rs-banner rs-banner-${outcome}`}>
           <span className="rs-banner-icon">{RESULT_ICON[result?.type] ?? '½'}</span>
@@ -52,9 +67,11 @@ export default function RoundSummary({ match, previousMyColor, onContinue }) {
 
         {match.previousGameState && (
           <div className="rs-board-wrap">
-            <div className="rs-board-label">Как закончился раунд</div>
+            <div className="rs-board-label">
+              {historyIndex != null ? `Ход ${historyIndex}` : 'Как закончился раунд'}
+            </div>
             <Board
-              gameState={match.previousGameState}
+              gameState={displayGameState}
               playerColor="none"
               boardMode={IDLE}
               dispatch={() => {}}
@@ -65,6 +82,17 @@ export default function RoundSummary({ match, previousMyColor, onContinue }) {
 
         <button className="rs-continue-btn" onClick={onContinue}>Продолжить → Раунд {match.round}</button>
       </div>
+
+      {logOpen && battleLog && (
+        <BattleLog
+          entries={battleLog}
+          historyIndex={historyIndex}
+          onSelect={setHistoryIndex}
+          onReturnToLive={() => setHistoryIndex(null)}
+          onClose={() => setLogOpen(false)}
+          isMyLiveTurn={false}
+        />
+      )}
     </div>
   )
 }

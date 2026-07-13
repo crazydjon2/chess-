@@ -108,6 +108,57 @@ function redactMines(gameState, viewerColor) {
   )
 }
 
+// Each battle-log entry (see chess.js's appendLogEntry) carries its own
+// snapshot of pieces/meteors/mines at that point in time, redacted through
+// the exact same per-viewer rules as the live board — otherwise scrubbing
+// history would let a viewer see, after the fact, exactly what a still-live
+// fog zone/meteor/mine was hiding from them at the time, defeating the
+// whole point of those cards. A card entry's OWN target square gets the
+// same treatment `redactLastAction` (below) already gives the live toast:
+// meteor/freeze targets are unconditionally secret from the non-caster,
+// and any other card's target is secret if it falls inside the caster's
+// own fog zone AT THAT TIME (the entry's own snapshot.fogZones, not the
+// current live ones).
+function redactActionLogEntry(entry, viewerColor) {
+  const snapshot = {
+    ...entry.snapshot,
+    pieces: redactFog(entry.snapshot, viewerColor),
+    meteors: redactMeteors(entry.snapshot, viewerColor),
+    mines: redactMines(entry.snapshot, viewerColor),
+  }
+  if (entry.kind !== 'card' || entry.color === viewerColor) {
+    return { ...entry, snapshot }
+  }
+  if (entry.cardId === 'meteor' || entry.cardId === 'freeze') {
+    const { target, ...rest } = entry
+    return { ...rest, hidden: true, snapshot }
+  }
+  const hiddenByFog = entry.snapshot.fogZones.some(z => z.owner === entry.color && z.cells.includes(entry.target))
+  if (!hiddenByFog) return { ...entry, snapshot }
+  const { target, ...rest } = entry
+  return { ...rest, hidden: true, snapshot }
+}
+
+function redactActionLog(gameState, viewerColor) {
+  return (gameState.actionLog ?? []).map(entry => redactActionLogEntry(entry, viewerColor))
+}
+
+// Same three redactions (pieces/meteors/mines/actionLog) apply to any
+// gameState-shaped object — the live `match.gameState` AND the frozen
+// `match.previousGameState` the round-summary screen shows (see
+// matchEngine.js's applyRoundResult) both carry the exact same secrets and
+// need the exact same treatment; a round having just ended doesn't
+// retroactively make what was hidden during it fair game.
+function redactGameState(gameState, viewerColor) {
+  return gameState && {
+    ...gameState,
+    pieces: redactFog(gameState, viewerColor),
+    meteors: redactMeteors(gameState, viewerColor),
+    mines: redactMines(gameState, viewerColor),
+    actionLog: redactActionLog(gameState, viewerColor),
+  }
+}
+
 // Per-recipient view: never leak the opponent's hidden placement map, their
 // smoke_screen-covered pieces, or their meteors' target squares. Also tells
 // the recipient which color they currently are — this can change between
@@ -125,17 +176,20 @@ function viewFor(room, color) {
   // Draft picks are live/open information by design now — both sides watch
   // each other's army form in real time (see draftEngine.js's turn-based
   // submitPick), so nothing about match.draft needs redacting here.
-  const gameState = match.gameState && {
-    ...match.gameState,
-    pieces: redactFog(match.gameState, color),
-    meteors: redactMeteors(match.gameState, color),
-    mines: redactMines(match.gameState, color),
-  }
+  const gameState = redactGameState(match.gameState, color)
+  // previousGameState is the JUST-FINISHED round's board — but sides swap
+  // (see swapPlayerColors) BEFORE this broadcast goes out, so by the time
+  // we're redacting, `color` is already this viewer's NEXT round's color,
+  // not the one they actually played the finished round as. Redact with
+  // `other` instead — the color they held when that round's secrets (fog
+  // zones, meteors, mines) were actually assigned (mirrors OnlineApp.jsx's
+  // `previousMyColor={oppColor}`, the client-side half of this same fix).
+  const previousGameState = redactGameState(match.previousGameState, other)
   return {
     code: room.code,
     color,
     players: publicPlayers(room),
-    match: { ...match, placement, gameState },
+    match: { ...match, placement, gameState, previousGameState },
   }
 }
 
@@ -163,18 +217,22 @@ function swapPlayerColors(io, room) {
 function redactLastAction(gameState, lastAction, viewerColor) {
   if (!lastAction || lastAction.color === viewerColor) return lastAction
 
-  // meteor's and freeze's (mine) targets are secret unconditionally, not
-  // just inside fog — the current UI toast never renders a target square
-  // anyway (see OnlineApp.jsx), but the wire payload shouldn't carry it
-  // regardless of what today's UI happens to display.
+  // Only the TARGET square is ever secret — which card was cast is not:
+  // the opponent already experiences the card being played (a mine
+  // triggering, a meteor landing, a zone appearing), so hiding its
+  // identity too would just be confusing, not actually secret. meteor's
+  // and freeze's targets are secret unconditionally, not just inside fog —
+  // the current UI toast never renders a target square anyway (see
+  // OnlineApp.jsx), but the wire payload shouldn't carry it regardless of
+  // what today's UI happens to display.
   if (lastAction.type === 'card' && (lastAction.cardId === 'meteor' || lastAction.cardId === 'freeze')) {
-    return { type: 'card', color: lastAction.color, hidden: true }
+    return { type: 'card', color: lastAction.color, cardId: lastAction.cardId, hidden: true }
   }
 
   if (lastAction.type !== 'card') return lastAction
   const hidden = (gameState?.fogZones ?? []).some(z => z.owner === lastAction.color && z.cells.includes(lastAction.target))
   if (!hidden) return lastAction
-  return { type: 'card', color: lastAction.color, hidden: true }
+  return { type: 'card', color: lastAction.color, cardId: lastAction.cardId, hidden: true }
 }
 
 // meteorStrikes/mineStrike (see tickMeteors/triggerMine) report detonations

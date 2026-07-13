@@ -1,13 +1,9 @@
-import { ALL_PIECE_TYPES, ALL_CARD_IDS, targetKey } from '../game/draftEngine'
+import { ALL_PIECE_TYPES, ALL_CARD_IDS, targetKey, nextItemCost } from '../game/draftEngine'
 import { CARD_DEFS } from '../game/cards'
-import { PIECE_GLYPHS, PIECE_LABEL, shopPieceCost } from '../game/economy'
+import { PIECE_GLYPHS, PIECE_LABEL } from '../game/economy'
 import BoardThumbnail from './BoardThumbnail'
 import './Card.css' // reuses .card-help-btn / .card-tooltip for card descriptions here too
 import './DraftPhase.css'
-
-function itemCost(t) {
-  return t.kind === 'piece' ? shopPieceCost(t.pieceType) : CARD_DEFS[t.cardId].cost
-}
 
 function itemsFor(draft, color) {
   return [
@@ -30,7 +26,6 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, onPick
 
   const myCart  = itemsFor(draft, myColor)
   const oppCart = itemsFor(draft, oppColor)
-  const spent     = myCart.reduce((sum, t) => sum + itemCost(t), 0)
   const remaining = draft.budgets[myColor]
   const pieceCount = draft.picks[myColor].pieces.length
 
@@ -73,15 +68,16 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, onPick
           <div className="draft-pool-items">
             {ALL_PIECE_TYPES.map(type => {
               const target = { kind: 'piece', pieceType: type }
+              const price = nextItemCost(draft, myColor, target)
               const capReached = pieceCount >= draft.maxPieces
-              const affordable = itemCost(target) <= remaining
+              const affordable = price <= remaining
               const disabled = !myTurn || capReached || !affordable
               return (
                 <CatalogTile
                   key={type}
                   glyph={PIECE_GLYPHS.white[type]}
                   label={PIECE_LABEL[type]}
-                  price={shopPieceCost(type)}
+                  price={price}
                   state={disabled ? (capReached ? 'capped' : !affordable ? 'unaffordable' : 'waiting') : undefined}
                   onClick={disabled ? undefined : () => onPick(target)}
                 />
@@ -96,14 +92,15 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, onPick
             {ALL_CARD_IDS.map(cardId => {
               const card = CARD_DEFS[cardId]
               const target = { kind: 'card', cardId }
-              const affordable = itemCost(target) <= remaining
+              const price = nextItemCost(draft, myColor, target)
+              const affordable = price <= remaining
               const disabled = !myTurn || !affordable
               return (
                 <CatalogTile
                   key={cardId}
                   glyph={card.glyph}
                   label={card.name}
-                  price={card.cost}
+                  price={price}
                   accent={card.accent}
                   desc={card.desc}
                   state={disabled ? (!affordable ? 'unaffordable' : 'waiting') : undefined}

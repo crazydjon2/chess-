@@ -11,8 +11,30 @@ import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
 export const ALL_PIECE_TYPES = SHOP_PIECE_TYPES
 export const ALL_CARD_IDS = Object.keys(CARD_DEFS)
 
+// Base (1st-copy) cost of a catalog item — see nextItemCost below for what
+// a buyer actually pays, which climbs with every repeat of the SAME item.
+// Also doubles as the reserve floor in submitPick's zero-pieces guard,
+// valid there specifically because that guard only ever fires when NOTHING
+// has been bought yet (so nothing has escalated off its base price).
 const CHEAPEST_PIECE_COST = shopPieceCost('pawn')
-const CHEAPEST_CARD_COST = Math.min(...ALL_CARD_IDS.map(id => CARD_DEFS[id].cost))
+
+// Each further copy of the SAME item a color buys THIS round costs this
+// much more than the last (1st copy = base price, 2nd = base+STEP, 3rd =
+// base+2*STEP, ...) — a flat per-round "duplicate tax" on both pieces and
+// cards, so spamming the cheapest option (mainly pawns: unlimited supply +
+// elimination-mode win condition means raw body count is worth far more
+// here than in classical chess) or stacking a single powerful card no
+// longer buys unlimited value at a flat price. Applies uniformly rather
+// than singling out pawns specifically, so it also curbs stacking several
+// queens or several Necromancies the same way, with one mechanism instead
+// of a pile of special cases. Starting value: 1 coin/copy — this caps a
+// round-1 (budget 30) pawn spree at ~6 instead of the board's full 12
+// slots, and scales up on its own as later rounds' budgets grow (~8 of 14
+// in round 2, ~9 of 16 in round 3) without needing a different step per
+// round. Test plan: playtest a few matches: if wide-pawn-wall or
+// stacked-card builds still dominate, raise the step; if pawns feel
+// unaffordable in any real number, lower it.
+const DUPLICATE_STEP = 1
 
 export function targetKey(target) {
   return target.kind === 'piece' ? `piece:${target.pieceType}` : `card:${target.cardId}`
@@ -28,8 +50,23 @@ function isValidCatalogTarget(target) {
   return false
 }
 
-function itemCost(item) {
+function baseCost(item) {
   return item.kind === 'piece' ? shopPieceCost(item.pieceType) : CARD_DEFS[item.cardId].cost
+}
+
+function copiesOwned(draftState, color, item) {
+  const picks = draftState.picks[color]
+  return item.kind === 'piece'
+    ? picks.pieces.filter(t => t === item.pieceType).length
+    : picks.cards.filter(id => id === item.cardId).length
+}
+
+// What `color` would actually pay for their NEXT copy of `item` right now
+// — see DUPLICATE_STEP above. This is the price shown on the catalog tile
+// and the price actually charged (see submitPick), always in sync since
+// both read straight off the same live draftState.
+export function nextItemCost(draftState, color, item) {
+  return baseCost(item) + copiesOwned(draftState, color, item) * DUPLICATE_STEP
 }
 
 // `firstColor` decides who picks first this round — see rooms.js's
@@ -79,13 +116,20 @@ export function isDraftComplete(draftState) {
 // color's own purchase to decide whether they're auto-skipped out of the
 // turn rotation (see submitPick) — nothing else ever changes their own
 // affordability, so this never needs checking on the opponent's turn.
+//
+// Has to check every catalog item's OWN next price (see nextItemCost), not
+// just a flat cheapest-base-price constant: once duplicate pricing has
+// pushed pawns (say) up past what's left in the budget, a piece type they
+// haven't bought yet at all is still sitting at its base price and may
+// well be the actual cheapest option still on the table.
 function canStillAct(draftState, color) {
   const budget = draftState.budgets[color]
   const pieceCount = draftState.picks[color].pieces.length
-  const cheapest = pieceCount < draftState.maxPieces
-    ? Math.min(CHEAPEST_PIECE_COST, CHEAPEST_CARD_COST)
-    : CHEAPEST_CARD_COST
-  return budget >= cheapest
+  const pieceCosts = pieceCount < draftState.maxPieces
+    ? ALL_PIECE_TYPES.map(pieceType => nextItemCost(draftState, color, { kind: 'piece', pieceType }))
+    : []
+  const cardCosts = ALL_CARD_IDS.map(cardId => nextItemCost(draftState, color, { kind: 'card', cardId }))
+  return budget >= Math.min(...pieceCosts, ...cardCosts)
 }
 
 // Whose turn is next after `actingColor` just acted — strict alternation
@@ -112,7 +156,7 @@ export function submitPick(draftState, color, item) {
   if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
   if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
 
-  const cost = itemCost(item)
+  const cost = nextItemCost(draftState, color, item)
   if (cost > draftState.budgets[color]) return { error: 'Недостаточно бюджета' }
 
   const picks = draftState.picks[color]

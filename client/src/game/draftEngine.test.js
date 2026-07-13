@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  createDraftState, submitPick, submitDone, isDraftComplete,
+  createDraftState, submitPick, submitDone, isDraftComplete, nextItemCost,
   ALL_PIECE_TYPES, ALL_CARD_IDS,
 } from './draftEngine.js'
 import { BUDGET_BY_ROUND } from './draftPools.js'
@@ -71,17 +71,22 @@ describe('submitPick — turn order', () => {
     expect(res.error).toBeTruthy()
   })
 
-  it('unlimited supply — buying multiple copies of the same type across turns is fine', () => {
+  it('unlimited supply — buying multiple copies of the same type across turns is fine, at an escalating price', () => {
     let ds = createDraftState(1, 'white')
     ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
     ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }).draftState
     ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
     expect(ds.picks.white.pieces).toEqual(['pawn', 'pawn'])
-    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - shopPieceCost('pawn') * 2)
+    // 1st copy at base price, 2nd one coin more (see DUPLICATE_STEP).
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - shopPieceCost('pawn') - (shopPieceCost('pawn') + 1))
   })
 
   it('rejects a piece pick with more pieces than the board has home-rank squares for', () => {
+    // A large budget isolates the board-capacity cap from the separate
+    // escalating-price cap (see the "duplicate pricing" describe block
+    // below) — this test is specifically about maxPieces.
     let ds = createDraftState(1, 'white')
+    ds = { ...ds, budgets: { white: 100000, black: 100000 } }
     for (let i = 0; i < ds.maxPieces; i++) {
       ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
       ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }).draftState
@@ -201,6 +206,53 @@ describe('submitDone — voluntary early finish', () => {
     expect(isDraftComplete(ds)).toBe(false)
     ds = submitDone(ds, 'black').draftState
     expect(isDraftComplete(ds)).toBe(true)
+  })
+})
+
+describe('duplicate pricing — each repeat copy of the same item costs more', () => {
+  it('nextItemCost is the flat base price for a never-bought item', () => {
+    const ds = createDraftState(1, 'white')
+    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'pawn' })).toBe(shopPieceCost('pawn'))
+    expect(nextItemCost(ds, 'white', { kind: 'card', cardId: 'freeze' })).toBe(CARD_DEFS.freeze.cost)
+  })
+
+  it('climbs by 1 with each further copy actually bought, and charges exactly that', () => {
+    let ds = createDraftState(1, 'white')
+    const base = shopPieceCost('pawn')
+    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'pawn' })).toBe(base)
+
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - base)
+    ds = { ...ds, turn: 'white' } // isolate white's own repeat-buy, ignore turn order here
+    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'pawn' })).toBe(base + 1)
+
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - base - (base + 1))
+  })
+
+  it('is per-color and per-item — buying pawns does not raise the price of knights, and the opponent\'s purchases do not raise yours', () => {
+    let ds = createDraftState(1, 'white')
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
+    ds = { ...ds, turn: 'white' }
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
+
+    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'knight' })).toBe(shopPieceCost('knight'))
+    expect(nextItemCost(ds, 'black', { kind: 'piece', pieceType: 'pawn' })).toBe(shopPieceCost('pawn'))
+  })
+
+  it('caps how many of the cheapest piece are actually affordable in round 1', () => {
+    // Starting value: DUPLICATE_STEP=1 caps a round-1 (budget 30) pawn
+    // spree well short of the board's 12 home-rank slots.
+    let ds = createDraftState(1, 'white')
+    let bought = 0
+    while (true) {
+      const res = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' })
+      if (res.error) break
+      ds = { ...res.draftState, turn: 'white' }
+      bought++
+    }
+    expect(bought).toBeLessThan(HOME_CAPACITY_BY_ROUND[1])
+    expect(bought).toBeGreaterThan(0)
   })
 })
 

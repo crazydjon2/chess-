@@ -139,7 +139,8 @@ describe('meteor redaction (viewFor + lastAction)', () => {
     const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
 
     expect(whiteLastAction).toEqual({ type: 'card', cardId: 'meteor', target: 'f6', color: 'white' })
-    expect(blackLastAction).toEqual({ type: 'card', color: 'white', hidden: true })
+    // Which card was cast is never secret — only its target square is.
+    expect(blackLastAction).toEqual({ type: 'card', cardId: 'meteor', color: 'white', hidden: true })
   })
 
   it('broadcasts a detonation unredacted to BOTH players, and actually destroys the piece', () => {
@@ -211,7 +212,7 @@ describe('freeze mine redaction (viewFor + lastAction)', () => {
     const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
 
     expect(whiteLastAction).toEqual({ type: 'card', cardId: 'freeze', target: 'c3', color: 'white' })
-    expect(blackLastAction).toEqual({ type: 'card', color: 'white', hidden: true })
+    expect(blackLastAction).toEqual({ type: 'card', cardId: 'freeze', color: 'white', hidden: true })
   })
 
   it('broadcasts a trigger unredacted to BOTH players once the opponent steps on it', () => {
@@ -228,6 +229,99 @@ describe('freeze mine redaction (viewFor + lastAction)', () => {
     const blackView = lastView(emits, 'sock-black').gameState
     expect(blackView.pieces.f5).toEqual({ type: 'pawn', color: 'black', hp: 1, frozen: 1 })
     expect(blackView.mines).toEqual([])
+  })
+})
+
+describe('actionLog redaction (viewFor)', () => {
+  function setup(cardId) {
+    const ctx = makeRoom()
+    ctx.room.match = {
+      phase: 'battle',
+      gameState: {
+        board: { size: { rows: 6, cols: 6 }, blockedCells: [], extraCells: [] },
+        pieces: {
+          b2: { type: 'pawn', color: 'white', hp: 1 },
+          f6: { type: 'pawn', color: 'black', hp: 1 },
+        },
+        cards: {
+          white: { hand: [{ id: cardId }], used: [] },
+          black: { hand: [], used: [] },
+        },
+        coins: { white: 0, black: 0 },
+        turn: 'white',
+        cardPlayedThisTurn: false,
+        halfMoveClock: 0,
+        moveHistory: [],
+        actionLog: [],
+        fogZones: [],
+        meteors: [],
+        mines: [],
+        eliminationMode: true,
+      },
+    }
+    return ctx
+  }
+
+  it('meteor\'s log entry hides its target from the opponent, keeps it for the caster — but WHICH card was cast is never hidden', () => {
+    const { io, emits, socketWhite } = setup('meteor')
+    handlePlayCard(io, socketWhite, { cardId: 'meteor', target: 'f6' })
+
+    const whiteEntry = lastView(emits, 'sock-white').gameState.actionLog.at(-1)
+    const blackEntry = lastView(emits, 'sock-black').gameState.actionLog.at(-1)
+    expect(whiteEntry).toMatchObject({ kind: 'card', cardId: 'meteor', target: 'f6' })
+    expect(blackEntry.cardId).toBe('meteor') // the opponent still knows it was a meteor
+    expect(blackEntry.target).toBeUndefined()
+    expect(blackEntry.hidden).toBe(true)
+  })
+
+  it('freeze\'s log entry hides its target from the opponent the same way, cardId still visible', () => {
+    const { io, emits, socketWhite } = setup('freeze')
+    handlePlayCard(io, socketWhite, { cardId: 'freeze', target: 'c3' })
+
+    const blackEntry = lastView(emits, 'sock-black').gameState.actionLog.at(-1)
+    expect(blackEntry.cardId).toBe('freeze')
+    expect(blackEntry.target).toBeUndefined()
+    expect(blackEntry.hidden).toBe(true)
+  })
+
+  it('a move entry\'s snapshot redacts fog-hidden pieces for the opponent, same as the live board', () => {
+    const { io, emits, socketWhite, room } = setup('smoke_screen')
+    // Cast smoke_screen over white's own pawn first.
+    handlePlayCard(io, socketWhite, { cardId: 'smoke_screen', target: 'b2' })
+    // White's own residual move this turn — lands a move entry while the
+    // zone is active.
+    handleMove(io, socketWhite, { from: 'b2', to: 'b3' })
+
+    const blackView = lastView(emits, 'sock-black').gameState
+    const moveEntry = blackView.actionLog.find(e => e.kind === 'move')
+    expect(moveEntry.snapshot.pieces.b3).toBeUndefined() // hidden inside white's own zone
+    const whiteView = lastView(emits, 'sock-white').gameState
+    const whiteMoveEntry = whiteView.actionLog.find(e => e.kind === 'move')
+    expect(whiteMoveEntry.snapshot.pieces.b3).toEqual({ type: 'pawn', color: 'white', hp: 1 }) // caster sees their own
+  })
+
+  it('a non-meteor/freeze card cast inside the caster\'s own fog zone also has its target hidden', () => {
+    const { io, emits, socketWhite, room } = setup('barricade')
+    // A zone already active from an earlier turn (cards don't end the turn
+    // — one spell per turn means these two casts can't land back to back
+    // in the same test, so the zone is set up directly instead).
+    room.match.gameState.fogZones = [{ owner: 'white', cells: ['c3'], turnsLeft: 4 }]
+    handlePlayCard(io, socketWhite, { cardId: 'barricade', target: 'c3' }) // cast inside that zone
+
+    const blackEntry = lastView(emits, 'sock-black').gameState.actionLog.at(-1)
+    expect(blackEntry.target).toBeUndefined()
+    expect(blackEntry.hidden).toBe(true)
+    const whiteEntry = lastView(emits, 'sock-white').gameState.actionLog.at(-1)
+    expect(whiteEntry.target).toBe('c3') // the caster always sees their own
+  })
+
+  it('a card cast OUTSIDE any fog zone is visible to both sides', () => {
+    const { io, emits, socketWhite } = setup('barricade')
+    handlePlayCard(io, socketWhite, { cardId: 'barricade', target: 'd4' })
+
+    const blackEntry = lastView(emits, 'sock-black').gameState.actionLog.at(-1)
+    expect(blackEntry.target).toBe('d4')
+    expect(blackEntry.hidden).toBeUndefined()
   })
 })
 
@@ -409,7 +503,7 @@ describe('lastAction redaction for fog-hidden actions', () => {
     const blackLastAction = emits['sock-black'].at(-1).payload.lastAction
 
     expect(whiteLastAction).toEqual({ type: 'card', cardId: 'barricade', target: 'c1', color: 'white' })
-    expect(blackLastAction).toEqual({ type: 'card', color: 'white', hidden: true })
+    expect(blackLastAction).toEqual({ type: 'card', cardId: 'barricade', color: 'white', hidden: true })
   })
 
   it('does not redact an action outside any active fog zone', () => {

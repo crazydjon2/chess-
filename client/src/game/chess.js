@@ -551,3 +551,23 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     mineStrike,
   }
 }
+
+// Appends one entry to gameState.actionLog — the scrubbable battle-log
+// history (see rendering/BattleLog.jsx and rooms.js's per-viewer
+// redaction). Snapshots exactly the fields a viewer's redaction needs to
+// reconstruct what THEY were allowed to see at this point in time —
+// pieces/meteors/mines get redacted per viewer same as the live board;
+// fogZones themselves are public metadata (only what's INSIDE a zone is
+// secret — see cardEffects.js), so they're stored as-is.
+export function appendLogEntry(gameState, entry) {
+  const snapshot = {
+    pieces: gameState.pieces,
+    fogZones: gameState.fogZones ?? [],
+    meteors: gameState.meteors ?? [],
+    mines: gameState.mines ?? [],
+  }
+  return {
+    ...gameState,
+    actionLog: [...(gameState.actionLog ?? []), { ...entry, snapshot }],
+  }
+}

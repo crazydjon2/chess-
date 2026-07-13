@@ -1,0 +1,226 @@
+:root {
+  --bl-width: 260px;
+}
+
+/* Docked side panel — never a full-screen overlay, since you need to keep
+   seeing the board update as you click through entries. Open by default,
+   docked LEFT (see GameView.jsx's .bl-open padding, which reserves this
+   exact width so the board never sits underneath it). */
+.bl-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(var(--bl-width), 84vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #1a1410;
+  border-right: 1.5px solid rgba(232,201,106,0.25);
+  box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+  padding: 14px 12px;
+  z-index: 60;
+}
+
+.bl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bl-title {
+  font-family: 'Georgia', serif;
+  font-size: 15px;
+  font-weight: bold;
+  color: #e8d5a3;
+}
+
+.bl-close {
+  background: none;
+  border: none;
+  color: rgba(220,200,170,0.6);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.bl-close:hover {
+  color: #e8c96a;
+}
+
+.bl-return {
+  border: 1.5px solid rgba(127,160,224,0.5);
+  background: rgba(127,160,224,0.14);
+  color: #cdd9f5;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.bl-return:hover {
+  background: rgba(127,160,224,0.22);
+}
+
+/* It's your live turn right now while you're still browsing the past —
+   not forced back automatically, just made hard to miss. */
+.bl-return.urgent {
+  border-color: rgba(232,201,106,0.7);
+  background: rgba(232,201,106,0.18);
+  color: #e8c96a;
+  animation: bl-urgent-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes bl-urgent-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(232,201,106,0.25); }
+  50%      { box-shadow: 0 0 16px rgba(232,201,106,0.55); }
+}
+
+.bl-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bl-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.bl-entry:hover {
+  background: rgba(232,201,106,0.08);
+}
+
+.bl-entry.selected {
+  border-color: rgba(232,201,106,0.5);
+  background: rgba(232,201,106,0.12);
+}
+
+/* Who cast/moved — the ONLY thing this border stripe means. Card entries
+   used to let --accent (the card's own theme color, e.g. meteor's orange)
+   override this, which silently erased the one signal telling you WHOSE
+   action this was — a real bug, not just a style choice. The card's own
+   color now only tints its glyph (below), never this. */
+.bl-entry.p-white { border-left-color: #e8d5a3; }
+.bl-entry.p-black { border-left-color: #7a90c0; }
+
+.bl-entry-index {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(200,180,140,0.4);
+  min-width: 16px;
+}
+
+/* Belt-and-suspenders on top of the border stripe (easy to miss at 1px) —
+   the exact same dot TurnBar.jsx uses for "whose turn", so it reads with
+   zero new visual language to learn. */
+.bl-entry-dot {
+  margin-right: -2px;
+}
+
+.bl-entry-glyph {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--accent, inherit);
+}
+
+.bl-entry-text {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(230,220,200,0.9);
+}
+
+.bl-entry-live {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(120,200,140,0.9);
+  background: rgba(80,180,110,0.14);
+  border: 1px solid rgba(80,180,110,0.4);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+/* Fixed, not part of any screen's normal flow — works the same whether
+   the parent is a vertical stack (GameView.jsx) or a centered flex row
+   (RoundSummary.jsx), and (see item 4 on layout jumpiness) its own
+   appearing/disappearing as the log opens/closes never shifts anything
+   else on the page either way. */
+.bl-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 61;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(220,200,170,0.75);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.bl-toggle:hover {
+  border-color: rgba(232,201,106,0.4);
+  color: #e8c96a;
+}
+
+/* Fixed, not flow — same reasoning as .bl-toggle: this only shows while
+   browsing history with the panel collapsed, and shouldn't shift the
+   board on the way in or out. */
+.bl-history-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 61;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cdd9f5;
+  background: rgba(127,160,224,0.16);
+  border: 1px solid rgba(127,160,224,0.4);
+  border-radius: 20px;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bl-history-banner button {
+  background: none;
+  border: none;
+  color: #cdd9f5;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Reserves room for the docked panel so nothing sits underneath it —
+   applied to whichever screen's outer wrapper is currently showing the log
+   (.app in GameView.jsx, .rs-screen in RoundSummary.jsx) only while it's
+   actually open. */
+.bl-open {
+  padding-left: min(var(--bl-width), 84vw);
+}
+
+@media (max-width: 480px) {
+  .bl-panel { width: 100vw; }
+  /* Full-width panel would cover everything anyway — reserving side room
+     for it too would just push the whole board off-screen for nothing. */
+  .bl-open { padding-left: 0; }
+}

@@ -16,6 +16,7 @@ function baseState(pieces, board, whiteHand, blackHand) {
     fogZones: [],
     meteors: [],
     mines: [],
+    actionLog: [],
   }
 }
 
@@ -63,5 +64,13 @@ export function createDraftRoundState(boardPattern, whitePlacement, blackPlaceme
   if (startingCoins) {
     state.coins = { white: startingCoins.white ?? 0, black: startingCoins.black ?? 0 }
   }
+  // A synthetic first entry for the battle log (see chess.js's
+  // appendLogEntry) — the opening position, so "jump to the start of the
+  // round" is always available even before either side has acted.
+  state.actionLog = [{
+    kind: 'start',
+    color: null,
+    snapshot: { pieces: state.pieces, fogZones: state.fogZones, meteors: state.meteors, mines: state.mines },
+  }]
   return state
 }

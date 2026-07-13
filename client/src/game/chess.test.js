@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyMove, needsPromotion, getGameResult, tickFogZones, getFogCaptureSquares, tickMeteors, tickUnstablePieces, emptyHomeSquares } from './chess.js'
+import { applyMove, needsPromotion, getGameResult, tickFogZones, getFogCaptureSquares, tickMeteors, tickUnstablePieces, emptyHomeSquares, appendLogEntry } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
 import { createDraftRoundState } from './initialState.js'
 import { getCaptured } from './economy.js'
@@ -579,5 +579,51 @@ describe('getFogCaptureSquares', () => {
       fogZones: [{ owner: 'black', cells: ['b3'], turnsLeft: 3 }],
     }
     expect(getFogCaptureSquares(gs, 'a1')).toEqual([])
+  })
+})
+
+describe('appendLogEntry', () => {
+  it('appends to an empty/missing actionLog and snapshots pieces/fogZones/meteors/mines as they are right now', () => {
+    const gs = {
+      pieces: { a1: { type: 'pawn', color: 'white', hp: 1 } },
+      fogZones: [{ owner: 'white', cells: ['b2'], turnsLeft: 2 }],
+      meteors: [{ owner: 'white', square: 'c3', turnsLeft: 1 }],
+      mines: [{ owner: 'black', square: 'd4' }],
+    }
+    const next = appendLogEntry(gs, { kind: 'move', color: 'white', from: 'a1', to: 'a2' })
+    expect(next.actionLog).toHaveLength(1)
+    expect(next.actionLog[0]).toEqual({
+      kind: 'move', color: 'white', from: 'a1', to: 'a2',
+      snapshot: { pieces: gs.pieces, fogZones: gs.fogZones, meteors: gs.meteors, mines: gs.mines },
+    })
+  })
+
+  it('appends onto an existing actionLog without touching earlier entries', () => {
+    let gs = { pieces: {}, fogZones: [], meteors: [], mines: [] }
+    gs = appendLogEntry(gs, { kind: 'move', color: 'white', from: 'a1', to: 'a2' })
+    gs = appendLogEntry(gs, { kind: 'card', color: 'black', cardId: 'freeze', target: 'b5' })
+    expect(gs.actionLog).toHaveLength(2)
+    expect(gs.actionLog[0].kind).toBe('move')
+    expect(gs.actionLog[1].kind).toBe('card')
+  })
+
+  it('defaults missing fogZones/meteors/mines to empty arrays in the snapshot', () => {
+    const gs = { pieces: { a1: { type: 'pawn', color: 'white', hp: 1 } } }
+    const next = appendLogEntry(gs, { kind: 'start', color: null })
+    expect(next.actionLog[0].snapshot).toEqual({ pieces: gs.pieces, fogZones: [], meteors: [], mines: [] })
+  })
+})
+
+describe('createDraftRoundState: seeds actionLog with the opening position', () => {
+  it('starts with exactly one synthetic "start" entry snapshotting the initial pieces', () => {
+    const gs = createDraftRoundState(
+      boardPattern,
+      { a5: { type: 'pawn', color: 'white', hp: 1 } },
+      { f1: { type: 'pawn', color: 'black', hp: 1 } },
+      [], [], null, null,
+    )
+    expect(gs.actionLog).toHaveLength(1)
+    expect(gs.actionLog[0].kind).toBe('start')
+    expect(gs.actionLog[0].snapshot.pieces).toEqual(gs.pieces)
   })
 })

@@ -1,9 +1,14 @@
+/* Anchored to the TOP (not centered) on purpose — this screen's content
+   height changes constantly as picks land (see .draft-roster-items), and
+   `justify-content: center` would re-center the ENTIRE screen around every
+   single one of those changes, not just push things below it down. Top
+   anchoring means a height change only ever affects what's below it. */
 .draft-screen {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: #1a1410;
   padding: 24px 16px;
   gap: 16px;
@@ -321,11 +326,20 @@
 }
 
 /* ── Rosters (live, inside each .draft-side) ─────────────────────────── */
+/* Capped, not free to grow — an army can run up to 16 pieces plus several
+   cards, and this list grows on EVERY single pick (yours or the
+   opponent's, all round). Left uncapped, each pick could reflow the
+   catalog/confirm button below it — by far the most frequent layout jump
+   in the whole game, since a full draft is dozens of picks. Scrolls
+   internally past the cap instead. */
 .draft-roster-items {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 6px;
   min-height: 24px;
+  max-height: 96px;
+  overflow-y: auto;
 }
 
 .draft-roster-empty {

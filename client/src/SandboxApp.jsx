@@ -62,6 +62,7 @@ export default function SandboxApp({ onExit }) {
   const [mineStrikeAnim, setMineStrikeAnim] = useState(null)
   const [pendingPromotion, setPendingPromotion] = useState(null)
   const [pendingNecromancy, setPendingNecromancy] = useState(null)
+  const [historyIndex, setHistoryIndex] = useState(null) // null = live, see GameView.jsx
 
   const flashError = useCallback((msg) => {
     setErrorMsg(msg)
@@ -103,6 +104,7 @@ export default function SandboxApp({ onExit }) {
     setMineStrikeAnim(null)
     setPendingPromotion(null)
     setPendingNecromancy(null)
+    setHistoryIndex(null)
     dispatch({ type: 'CANCEL' })
   }
 
@@ -204,6 +206,10 @@ export default function SandboxApp({ onExit }) {
         boardPlayerColor={gameOver ? 'none' : myColor}
         onMove={handleMove}
         onPlayCard={handlePlayCard}
+        battleLog={gameState.actionLog}
+        historyIndex={historyIndex}
+        onSelectHistory={setHistoryIndex}
+        onReturnToLive={() => setHistoryIndex(null)}
         gameResult={gameResult}
         restartLabel="Сбросить песочницу"
         onRestart={handleRestart}

@@ -2,7 +2,7 @@
 // logic modules the client renders with (no browser/React dependency in
 // any of these files), so the server can never disagree with the client
 // about what a legal move or card target is.
-import { getLegalMoves, applyMove, getGameResult } from '../client/src/game/chess.js'
+import { getLegalMoves, applyMove, getGameResult, appendLogEntry } from '../client/src/game/chess.js'
 import { getValidTargets, hasRescueCard } from '../client/src/game/cards.js'
 import { applyCardEffect } from '../client/src/game/cardEffects.js'
 import { PIECE_VALUE } from '../client/src/game/economy.js'
@@ -47,7 +47,9 @@ export function tryMove(gameState, color, from, to, promotion, now = Date.now())
     coins = { ...coins, [strike.owner]: coins[strike.owner] + (PIECE_VALUE[strike.destroyed.type] || 0) }
   })
 
-  const finalState = { ...next, coins, cardPlayedThisTurn: false }
+  const finalState = appendLogEntry({ ...next, coins, cardPlayedThisTurn: false }, {
+    kind: 'move', color, from, to, capturedType: captured ? target.type : null, meteorStrikes, mineStrike,
+  })
   const result = resolveResult(finalState)
 
   let actionType = 'move'
@@ -76,14 +78,14 @@ export function tryPlayCard(gameState, color, cardId, target) {
   const next = applyCardEffect(cardId, gameState, target, color)
   const newHand = [...hand.slice(0, idx), ...hand.slice(idx + 1)]
 
-  const finalState = {
+  const finalState = appendLogEntry({
     ...next,
     cardPlayedThisTurn: true,
     cards: {
       ...next.cards,
       [color]: { hand: newHand, used: [...(next.cards[color]?.used ?? []), card] },
     },
-  }
+  }, { kind: 'card', color, cardId, target })
   const result = resolveResult(finalState)
   return { gameState: finalState, lastAction: { type: 'card', cardId, target, color }, result }
 }
