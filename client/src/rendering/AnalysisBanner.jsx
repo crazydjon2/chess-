@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import './AnalysisBanner.css'
 
 // Each color gets its OWN free-look window on its own first move of the
 // round (see chess.js's applyMove / analysisUsed) — not just whoever moves
@@ -23,10 +22,14 @@ export default function AnalysisBanner({ turnStartedAt, analysisSeconds, hasAnal
   if (!active) return null
   const secondsLeft = Math.max(1, Math.ceil((deadline - now) / 1000))
 
+  // A compact header badge, not a full-width banner — see GameView.jsx's
+  // comment on why: a banner needed its own reserved slot to avoid
+  // shifting the board every time it mounted/unmounted, and that slot ate
+  // real board height even on the (vast majority of) turns it sat empty.
+  // A badge's own presence never changes the header's height either way.
   return (
-    <div className="analysis-banner">
-      <span className="analysis-banner-icon">🔍</span>
-      Анализ: {secondsLeft} с — часы ещё не идут
-    </div>
+    <span className="threat-badge analysis" title="Часы ещё не идут — время спокойно посмотреть на позицию">
+      🔍 {secondsLeft}с
+    </span>
   )
 }

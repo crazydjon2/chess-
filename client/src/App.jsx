@@ -2,6 +2,9 @@ import { useState } from 'react'
 import OnlineApp from './OnlineApp'
 import SandboxApp from './SandboxApp'
 import PatchNotes from './rendering/PatchNotes'
+import MainMenu from './rendering/MainMenu'
+import MenuLayout from './rendering/MenuLayout'
+import PageTransition from './rendering/PageTransition'
 import { PATCH_NOTES } from './game/patchNotes'
 import './App.css'
 
@@ -32,27 +35,34 @@ export default function App() {
   const [patchNotesOpen, setPatchNotesOpen] = useState(false)
   const [unseenPatch, setUnseenPatch] = useState(hasUnseenPatch)
 
-  if (mode === 'online') return <OnlineApp onExit={() => setMode(null)} />
-  if (mode === 'sandbox') return <SandboxApp onExit={() => setMode(null)} />
-
   function openPatchNotes() {
     setPatchNotesOpen(true)
     setUnseenPatch(false)
     markPatchSeen()
   }
 
+  // MenuLayout wraps every mode (not just the menu) and is mounted exactly
+  // once here — that's what keeps its background/floating pieces from
+  // resetting every time `mode` changes. Sandbox/online screens paint
+  // their own full-viewport background over it, so it's simply invisible
+  // (not absent) whenever those are active.
   return (
-    <div className="mode-select-screen">
-      {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
-      <div className="mode-select-title">Chess+</div>
-      <button className="mode-select-btn" onClick={() => setMode('online')}>Играть онлайн</button>
-      <button className="mode-select-btn sandbox" onClick={() => setMode('sandbox')}>
-        Песочница <span className="mode-select-hint">(все скиллы, тест руками)</span>
-      </button>
-      <button className={`mode-select-patchnotes${unseenPatch ? ' unseen' : ''}`} onClick={openPatchNotes}>
-        <span className="mode-select-patchnotes-glyph">📜</span> Что нового
-        {unseenPatch && <span className="mode-select-patchnotes-dot" />}
-      </button>
-    </div>
+    <MenuLayout>
+      <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['online', 'sandbox']}>
+        {mode === 'online' && <OnlineApp onExit={() => setMode(null)} />}
+        {mode === 'sandbox' && <SandboxApp onExit={() => setMode(null)} />}
+        {mode === null && (
+          <>
+            {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
+            <MainMenu
+              onPlayOnline={() => setMode('online')}
+              onSandbox={() => setMode('sandbox')}
+              onOpenPatchNotes={openPatchNotes}
+              unseenPatch={unseenPatch}
+            />
+          </>
+        )}
+      </PageTransition>
+    </MenuLayout>
   )
 }

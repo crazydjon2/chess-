@@ -1,4 +1,5 @@
-import { PIECE_GLYPHS, PIECE_LABEL } from '../game/economy'
+import { PIECE_LABEL } from '../game/economy'
+import { PIECE_ICONS } from './pieceIcons'
 import './PromotionPicker.css'
 
 // Shown when the necromancy card is selected — unlike every other card,
@@ -18,7 +19,7 @@ export default function NecromancyPicker({ color, options, onPick, onCancel }) {
             <div className="promo-options">
               {options.map(type => (
                 <button key={type} className="promo-btn" onClick={() => onPick(type)}>
-                  <span className="promo-glyph">{PIECE_GLYPHS[color][type]}</span>
+                  <span className="promo-glyph">{PIECE_ICONS[color][type]}</span>
                   <span className="promo-label">{PIECE_LABEL[type]}</span>
                 </button>
               ))}

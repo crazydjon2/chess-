@@ -18,6 +18,14 @@ export default function Board({
   gameState, skin = 'default', playerColor = 'white', onMove, onPlayCard, boardMode, dispatch,
   lastMoveAnim, meteorStrikeAnim, mineStrikeAnim, flipped = false,
   isMyTurn = true, premove = null, onSetPremove, onClearPremove, // premove: see OnlineApp.jsx
+  // `fluid`: board fills whatever height its ancestor chain actually gives
+  // it (see Board.css's .board-root.fluid) instead of rendering at a fixed
+  // CELL-based pixel size — used in the live battle view, which should be
+  // exactly as large as the placement screen's board, not a small fixed
+  // size regardless of how much room the viewport actually has. Off by
+  // default (RoundSummary's frozen recap board stays at its natural size,
+  // a small reference thumbnail rather than a full-viewport board).
+  fluid = false,
 }) {
   const { rows, cols } = gameState.board.size
   const width  = cols * CELL
@@ -45,6 +53,18 @@ export default function Board({
       })
     : []
   const borderTargets = [...new Set([...extraCells, ...cardBorderTargets])]
+
+  // The board genuinely extends past its own frame once add_cell has
+  // landed outside the rectangle — the fluid surface's rounded-corner
+  // overflow clip (see Board.css) has to stay off for the REST of the
+  // round then, not just while targeting: it was silently swallowing the
+  // freshly added cell the moment card-targeting mode ended, leaving it
+  // in the game state but invisible and unclickable.
+  const hasOutsideCells = extraCells.some(sq => {
+    const rank = parseInt(sq.slice(1))
+    const col  = sq.charCodeAt(0) - 97
+    return rank > rows || rank < 1 || col >= cols || col < 0
+  })
 
   const handleSquareClick = useCallback((square) => {
     const piece = gameState.pieces[square]
@@ -110,6 +130,70 @@ export default function Board({
 
   const isCardMode = boardMode.type === 'card_targeting'
   const cardAccent = isCardMode ? (boardMode.card?.accent ?? '#888') : null
+  const cardModeStyle = isCardMode ? { '--card-accent': cardAccent } : {}
+
+  const layers = (
+    <>
+      <VisualLayer
+        gameState={gameState}
+        highlights={highlights}
+        skin={skin}
+        width={width}
+        height={height}
+        cellSize={CELL}
+        lastMoveAnim={lastMoveAnim}
+        meteorStrikeAnim={meteorStrikeAnim}
+        mineStrikeAnim={mineStrikeAnim}
+        premove={premove}
+        isMyTurn={isMyTurn}
+        flipped={flipped}
+      />
+      <HitLayer
+        rows={rows}
+        cols={cols}
+        cellSize={CELL}
+        pieces={gameState.pieces}
+        borderTargets={borderTargets}
+        flipped={flipped}
+        onSquareClick={handleSquareClick}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      />
+      <EffectLayer width={width} height={height} />
+    </>
+  )
+
+  // Fluid mode is deliberately a completely separate, much flatter
+  // structure from the fixed-pixel one below — not a shared tree with
+  // fluid-only style overrides sprinkled in. That's what broke last time:
+  // an aspect-ratio box nested inside a shrink-to-fit row-then-column flex
+  // chain (frame-inner > board-col) has no reliable width to resolve
+  // against, and collapsed to a sliver. This mirrors the placement
+  // screen's board instead (.pl-board-wrap/.pl-board) — a single
+  // centering flex box directly holding one aspect-ratio square, no
+  // intermediate layers — which is the one pattern already proven to
+  // size correctly. Rank/file coordinates are absolutely-positioned
+  // overlays instead of separate flex-matched <ol> lists, so they can
+  // never again feed back into the board's own sizing.
+  if (fluid) {
+    return (
+      <div className="board-scene-wrap fluid">
+        <div
+          className={`board-root fluid${isCardMode ? ' card-mode' : ''}${hasOutsideCells ? ' has-outside-cells' : ''}`}
+          style={{ aspectRatio: `${cols} / ${rows}`, ...cardModeStyle }}
+        >
+          <div className="board-fluid-surface">{layers}</div>
+          <div className="coords-overlay-ranks">
+            {ranks.map(r => <span key={r}>{r}</span>)}
+          </div>
+          <div className="coords-overlay-files">
+            {files.map(f => <span key={f}>{f}</span>)}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="board-scene-wrap">
@@ -122,39 +206,9 @@ export default function Board({
           <div className="board-col">
             <div
               className={`board-root${isCardMode ? ' card-mode' : ''}`}
-              style={{
-                width,
-                height,
-                ...(isCardMode ? { '--card-accent': cardAccent } : {}),
-              }}
+              style={{ width, height, ...cardModeStyle }}
             >
-              <VisualLayer
-                gameState={gameState}
-                highlights={highlights}
-                skin={skin}
-                width={width}
-                height={height}
-                cellSize={CELL}
-                lastMoveAnim={lastMoveAnim}
-                meteorStrikeAnim={meteorStrikeAnim}
-                mineStrikeAnim={mineStrikeAnim}
-                premove={premove}
-                isMyTurn={isMyTurn}
-                flipped={flipped}
-              />
-              <HitLayer
-                rows={rows}
-                cols={cols}
-                cellSize={CELL}
-                pieces={gameState.pieces}
-                borderTargets={borderTargets}
-                flipped={flipped}
-                onSquareClick={handleSquareClick}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              />
-              <EffectLayer width={width} height={height} />
+              {layers}
             </div>
 
             <ol className="coords-files" style={{ width }}>

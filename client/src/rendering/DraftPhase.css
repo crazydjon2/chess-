@@ -1,362 +1,614 @@
-/* Anchored to the TOP (not centered) on purpose — this screen's content
-   height changes constantly as picks land (see .draft-roster-items), and
-   `justify-content: center` would re-center the ENTIRE screen around every
-   single one of those changes, not just push things below it down. Top
-   anchoring means a height change only ever affects what's below it. */
-.draft-screen {
-  min-height: 100vh;
+/* Fixed, full-viewport dashboard — no page-level scroll on desktop; every
+   scrollable region (trays, catalog) manages its own overflow. This is a
+   deliberate departure from every other screen's flex-start-anchored,
+   page-scrolling layout (see App.css's .app comment on why those anchor
+   top): here there's simply no outer page height to jump around, since
+   nothing above/below the fixed regions ever changes size. Falls back to
+   a normal scrolling stacked layout below 700px (see the media query at
+   the bottom) — the desktop dashboard doesn't have room to breathe on a
+   phone screen.
+
+   v2 "stacked" layout: both rosters live in slim horizontal trays pinned
+   above/below a full-width catalog (see Tray in DraftPhase.jsx), instead
+   of wide side columns flanking it — the catalog gets almost the whole
+   screen, and each tray carries its own turn/done indicator so there's no
+   separate turn-bar strip either. */
+.dr-screen {
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  background: #1a1410;
-  padding: 24px 16px;
+  gap: 10px;
+  padding: 18px 24px;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 25%, #2f7d55 0%, #1c5c3c 45%, #123d29 80%, #0c2b1d 100%);
+  background-color: #123d29;
+  box-sizing: border-box;
+}
+
+.dr-screen * { box-sizing: border-box; }
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.dr-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-.draft-header {
+.dr-header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.draft-round {
-  font-family: 'Georgia', serif;
-  font-size: 1.6rem;
-  font-weight: bold;
-  color: #e8d5a3;
+.dr-round {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 21px;
+  color: #fdf6e8;
 }
 
-/* ── Board-for-this-round preview: big and unmissable, since which
-   pattern is in play materially changes how the draft should be spent
-   (open vs. blocked boards favor different pieces). ─────────────────── */
-.draft-board-card {
+.dr-banner-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: #c9ddc9;
+  margin-top: 1px;
+}
+
+.dr-board-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 13px;
+  box-shadow: 4px 4px 0 0 #241708;
+  padding: 6px 12px 6px 6px;
+  flex-shrink: 0;
+}
+
+.dr-board-thumb-wrap {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border: 2.5px solid #241708;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dcd3b8;
+}
+
+.dr-board-info {
   display: flex;
   flex-direction: column;
+}
+
+.dr-board-name {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+  line-height: 1.1;
+}
+
+.dr-board-size {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9.5px;
+  color: #8a7658;
+}
+
+/* ── Trays (opponent / mine roster strips) ───────────────────────── */
+.dr-tray {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 0 #241708;
+  padding: 9px 14px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+/* Color + an outer glow ring, never a border-width change — a 4px→5px
+   border on every turn swap quietly resized the tray (and everything
+   sharing its flex row) by a couple px each time, which read as jitter. */
+.dr-tray.active {
+  border-color: #f0b429;
+  box-shadow: 5px 5px 0 0 #241708, 0 0 0 3px #f0b429;
+}
+
+.dr-tray-edge {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 9px;
+  border-right: 2px solid #241708;
+}
+
+.dr-tray-opp .dr-tray-edge  { background: #33302c; }
+.dr-tray-mine .dr-tray-edge { background: #f0b429; }
+
+.dr-tray-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+  border: 2px solid transparent;
+  margin-left: 6px;
+}
+
+.dr-tray-dot.active {
+  background: #f0b429;
+  border-color: #241708;
+  animation: dr-glow 1.4s ease-in-out infinite;
+}
+
+.dr-tray-label {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+  flex-shrink: 0;
+}
+
+@keyframes dr-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+.dr-tray-done-badge {
+  flex-shrink: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  background: #2b6fd4;
+  color: #fdf6e8;
+  border: 2px solid #241708;
+  border-radius: 8px;
+  padding: 2px 7px;
+}
+
+.dr-tray-divider {
+  align-self: stretch;
+  width: 2px;
+  background: #e6ddc8;
+  flex-shrink: 0;
+}
+
+.dr-tray-budget {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 9px;
+  padding: 3px 9px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  color: #241708;
+}
+
+.dr-coin {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffe27a;
+  border: 1.5px solid #6b4a10;
+  flex-shrink: 0;
+}
+
+.dr-tray-count {
+  flex-shrink: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 10.5px;
+  color: #5a4f40;
+  background: #efe8d6;
+  border: 2px solid #b8a888;
+  border-radius: 9px;
+  padding: 3px 9px;
+}
+
+.dr-tray-chips {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(232,201,106,0.06);
-  border: 1.5px solid rgba(232,201,106,0.35);
+}
+
+.dr-tray-mine .dr-tray-chips { gap: 9px; padding-left: 2px; }
+
+.dr-tray-chips::-webkit-scrollbar { height: 7px; }
+.dr-tray-chips::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.dr-tray-chips::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; }
+
+.dr-tray-empty {
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  color: #b8a888;
+  white-space: nowrap;
+}
+
+.dr-chip {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dr-chip svg { width: auto; height: 22px; }
+
+.dr-chip-card {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fdf6e8;
+}
+
+.dr-tray-done-btn {
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 9px 20px;
+  background: #f0b429;
+  border: 3px solid #241708;
   border-radius: 12px;
-  padding: 12px 20px 14px;
-}
-
-.draft-board-card-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(232,201,106,0.7);
-}
-
-.draft-board-card-name {
-  font-size: 13px;
+  box-shadow: 0 4px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  color: rgba(230,220,200,0.9);
-}
-
-/* ── Turn banner ──────────────────────────────────────────────────── */
-.draft-turn-banner {
   font-size: 13px;
-  font-weight: 700;
-  color: rgba(200,180,140,0.6);
-  background: rgba(0,0,0,0.25);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 6px 18px;
+  color: #241708;
+  white-space: nowrap;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.draft-turn-banner.mine {
-  color: #1a1410;
-  background: #e8c96a;
-  border-color: #e8c96a;
-  animation: draft-turn-pulse 1.2s ease-in-out infinite;
+.dr-tray-done-btn:hover:not(:active):not(:disabled) {
+  transform: translateY(-2px);
 }
 
-.draft-turn-banner.opp {
-  color: #cdd9f5;
-  background: rgba(127,160,224,0.16);
-  border-color: rgba(127,160,224,0.4);
+.dr-tray-done-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
-@keyframes draft-turn-pulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(232,201,106,0.3); }
-  50%      { box-shadow: 0 0 22px rgba(232,201,106,0.55); }
+.dr-tray-done-btn:disabled {
+  cursor: not-allowed;
+  background: #e6ddc8;
+  border-color: #b8a888;
+  box-shadow: none;
+  color: #a89a7c;
 }
 
-/* ── Sides — both players' live budget/roster, side by side ─────────── */
-.draft-sides {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  width: min(680px, 92vw);
-}
-
-.draft-side {
+/* ── Catalog ──────────────────────────────────────────────────────── */
+.dr-catalog {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 22px;
+  box-shadow: 8px 8px 0 0 #241708;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: rgba(0,0,0,0.22);
-  border: 1.5px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 10px 14px 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 10px;
 }
 
-.draft-side.mine { border-color: rgba(232,201,106,0.3); }
-.draft-side.opp  { border-color: rgba(127,160,224,0.28); }
-
-/* The side whose turn it currently is gets a visible glow — this is the
-   whole point of open information: it should be obvious at a glance who's
-   acting right now, not just readable from the banner text. */
-.draft-side.mine.active {
-  border-color: #e8c96a;
-  box-shadow: 0 0 0 1px rgba(232,201,106,0.25), 0 0 18px rgba(232,201,106,0.25);
-}
-
-.draft-side.opp.active {
-  border-color: #7fa0e0;
-  box-shadow: 0 0 0 1px rgba(127,160,224,0.25), 0 0 18px rgba(127,160,224,0.2);
-}
-
-.draft-side-header {
+.dr-catalog-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.draft-side-label {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(200,180,140,0.55);
-}
-
-.draft-side.opp .draft-side-label { color: rgba(147,174,224,0.75); }
-
-.draft-side-done {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(120,200,140,0.9);
-  background: rgba(80,180,110,0.14);
-  border: 1px solid rgba(80,180,110,0.4);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.draft-side-stats {
-  display: flex;
-  gap: 12px;
-}
-
-.draft-side-stat {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(220,200,170,0.8);
-}
-
-/* ── Pools ────────────────────────────────────────────────────────── */
-.draft-pools {
-  display: flex;
-  gap: 18px;
   flex-wrap: wrap;
-  justify-content: center;
-  width: min(680px, 92vw);
-}
-
-.draft-pool-group {
-  flex: 1;
-  min-width: 220px;
-  background: rgba(26,18,12,0.9);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.draft-pool-title {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(200,180,140,0.5);
-  margin-bottom: 10px;
-}
-
-.draft-pool-items {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
   gap: 8px;
 }
 
-.draft-pick-btn {
+.dr-catalog-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #241708;
+}
+
+.dr-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dr-legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 10.5px;
+  color: #5a4f40;
+}
+
+.dr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dr-dot.avail { background: #f0b429; border: 1.5px solid #241708; }
+.dr-dot.cant  { background: #d4302f; }
+.dr-dot.sold  { background: #8a8378; }
+
+.dr-catalog-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+.dr-catalog-scroll::-webkit-scrollbar { width: 8px; }
+.dr-catalog-scroll::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.dr-catalog-scroll::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; border: 1px solid #e6ddc8; }
+
+.dr-section-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #8a7658;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.dr-piece-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 4px;
+}
+
+/* Pieces are NOT cards — no frame, no background, no border. Just the
+   artwork (big — this is a fixed set of exactly 5 types, they can afford
+   the room), a floating price tag, and a name underneath. */
+.dr-piece-tile {
   position: relative;
-  z-index: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 90px;
-  background: rgba(255,255,255,0.04);
-  border: 1.5px solid rgba(255,255,255,0.10);
-  border-radius: 8px;
-  padding: 8px 6px;
-  cursor: pointer;
-  color: inherit;
+  gap: 2px;
+  padding: 14px 4px 8px;
+  border: none;
+  background: none;
   font: inherit;
-  text-align: center;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-/* A tile's "?" tooltip (see Card.css) pops upward and can overlap
-   neighboring tiles — without an explicit z-index bump here, a hovered
-   tile has the same z-index:auto as every sibling, so paint order falls
-   back to DOM position and a LATER tile's tooltip can end up rendered
-   BEHIND an EARLIER tile it visually overlaps. Same fix CardHand.css
-   already applies to hovered hand cards (.card-wrap:hover). */
-.draft-pick-btn:hover,
-.draft-pick-btn:focus-within {
-  z-index: 25;
+.dr-piece-tile:hover:not(:disabled) { transform: translateY(-3px); }
+.dr-piece-tile:active:not(:disabled) { transform: translateY(0); }
+.dr-piece-tile:disabled { cursor: default; }
+
+.dr-piece-tile-cantAfford,
+.dr-piece-tile-soldOut {
+  opacity: 0.5;
 }
 
-.draft-pick-btn.unaffordable {
-  border-color: rgba(200,60,50,0.35);
+.dr-piece-tile-notMyTurn {
+  opacity: 0.4;
 }
 
-.draft-pick-price {
-  font-size: 10px;
+.dr-piece-cost {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 50%;
+  width: 23px;
+  height: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 800;
-  color: #e8c96a;
+  font-size: 10px;
+  color: #241708;
+  box-shadow: 0 2px 0 0 #241708;
+  z-index: 2;
 }
 
-.draft-pick-btn.unaffordable .draft-pick-price {
-  color: #e08070;
+.dr-piece-icon {
+  height: 58px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  filter: drop-shadow(2px 3px 0 rgba(36,23,8,0.12));
 }
 
-/* Piece cap reached (see maxPieces) — distinct from unaffordable, so the
-   reason reads at a glance instead of looking like a budget problem. */
-.draft-pick-btn.capped {
-  border-color: rgba(200,140,50,0.35);
-  opacity: 0.55;
-}
+.dr-piece-icon svg { width: auto; height: 58px; }
 
-/* Not your turn right now — dimmed but still fully legible, since seeing
-   the whole catalog (prices included) while you wait is part of planning
-   your next pick. */
-.draft-pick-btn.waiting {
-  opacity: 0.45;
-}
-
-.draft-pass-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.14);
-  color: rgba(220,200,170,0.75);
-  padding: 8px 22px;
-  border-radius: 8px;
-  font-size: 12px;
+.dr-piece-label {
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
+  font-size: 12px;
+  color: #241708;
+  text-align: center;
+}
+
+.dr-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 7px;
+}
+
+/* ── Tiles ────────────────────────────────────────────────────────── */
+.dr-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: 12px;
+  border: 3px solid #241708;
+  padding: 9px 4px 8px;
+  font: inherit;
+  color: inherit;
+  overflow: visible;
+  transition: transform 0.15s ease;
+}
+
+.dr-tile.has-band {
+  border-radius: 16px;
+  padding: 16px 6px 9px;
+}
+
+.dr-tile-band {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 10px;
+  border-radius: 16px 16px 0 0;
+  border-bottom: 2px solid #241708;
+}
+
+.dr-tile-available {
+  background: #fdf6e8;
+  box-shadow: 3px 3px 0 0 #241708;
   cursor: pointer;
 }
 
-/* The primary submit action — sticky so it's always reachable without
-   scrolling past a big catalog grid to find it, on any screen size. Floats
-   as a small pill rather than a full-width bar (this screen scrolls at
-   the page level, not inside its own card, so there's no edge to dock a
-   bar against) — the shadow is what visually lifts it off the content
-   scrolling underneath. */
-.draft-pass-btn.confirm {
-  position: sticky;
-  bottom: 14px;
-  z-index: 40;
-  border-color: rgba(232,201,106,0.5);
-  color: #e8c96a;
-  background: #1a1410;
-  padding: 11px 26px;
-  box-shadow: 0 8px 26px rgba(0,0,0,0.65), 0 0 0 1px rgba(232,201,106,0.12);
+.dr-tile.has-band.dr-tile-available { background: #f8f5ec; }
+
+.dr-tile-available:hover { transform: translateY(-2px); }
+.dr-tile-available:active { transform: translateY(1px); }
+
+.dr-tile-cantAfford,
+.dr-tile-soldOut {
+  background: #efe8d6;
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
-.draft-pass-btn:hover:not(:disabled) {
-  border-color: rgba(232,201,106,0.4);
-  color: #e8c96a;
+.dr-tile.has-band.dr-tile-cantAfford,
+.dr-tile.has-band.dr-tile-soldOut {
+  background: #efe9de;
 }
 
-.draft-pass-btn:disabled {
-  opacity: 0.4;
+.dr-tile-notMyTurn {
+  background: #e9e1cb;
+  opacity: 0.55;
   cursor: default;
 }
 
-.draft-pick-btn:not(:disabled):hover {
-  transform: translateY(-2px);
-  border-color: rgba(232,201,106,0.55);
-  background: rgba(232,201,106,0.08);
-}
+.dr-tile.has-band.dr-tile-notMyTurn { background: #e6e0d3; }
 
-.draft-pick-btn.card {
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-.draft-pick-btn.card:not(:disabled):hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.draft-pick-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.draft-pick-glyph {
-  font-size: 24px;
-  line-height: 1;
-  color: rgba(240,220,180,0.95);
-}
-
-.draft-pick-btn.card .draft-pick-glyph {
-  color: var(--accent);
-}
-
-.draft-pick-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(220,200,170,0.85);
-  line-height: 1.15;
-}
-
-/* ── Rosters (live, inside each .draft-side) ─────────────────────────── */
-/* Capped, not free to grow — an army can run up to 16 pieces plus several
-   cards, and this list grows on EVERY single pick (yours or the
-   opponent's, all round). Left uncapped, each pick could reflow the
-   catalog/confirm button below it — by far the most frequent layout jump
-   in the whole game, since a full draft is dozens of picks. Scrolls
-   internally past the cap instead. */
-.draft-roster-items {
+.dr-tile-cost {
+  position: absolute;
+  top: -10px;
+  right: 8px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 50%;
+  width: 23px;
+  height: 23px;
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 6px;
-  min-height: 24px;
-  max-height: 96px;
-  overflow-y: auto;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  color: #241708;
+  box-shadow: 0 2px 0 0 #241708;
+  z-index: 2;
 }
 
-.draft-roster-empty {
-  font-size: 11px;
-  color: rgba(200,180,140,0.3);
+.dr-tile-help {
+  position: absolute;
+  top: 16px;
+  right: 8px;
+  left: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fdf6e8;
+  border: 1.5px solid #8a7658;
+  color: #8a7658;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 8.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
 }
 
-.draft-roster-chip {
-  font-size: 18px;
-  color: rgba(240,220,180,0.9);
-  line-height: 1;
+.dr-tile-icon {
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
 }
 
-.draft-roster-chip.card {
-  color: var(--accent);
+.dr-tile.has-band .dr-tile-icon { margin-top: 2px; }
+
+.dr-tile-label {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #241708;
+  text-align: center;
 }
 
-@media (max-width: 480px) {
-  .draft-sides { grid-template-columns: 1fr; }
+.dr-tile.has-band .dr-tile-label { font-size: 11.5px; }
+
+.dr-tile-tag {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+.dr-tile-tag.cantAfford { color: #d4302f; }
+.dr-tile-tag.soldOut    { color: #8a8378; }
+
+/* ── Narrow screens: the fixed dashboard doesn't fit — fall back to a
+   normal scrolling stacked layout instead. ─────────────────────────── */
+@media (max-width: 700px) {
+  .dr-screen {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .dr-tray {
+    flex-wrap: wrap;
+  }
+
+  .dr-catalog {
+    min-height: 420px;
+  }
 }

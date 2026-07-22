@@ -2,79 +2,115 @@
   --bl-width: 260px;
 }
 
-/* Docked side panel — never a full-screen overlay, since you need to keep
-   seeing the board update as you click through entries. Open by default,
-   docked LEFT (see GameView.jsx's .bl-open padding, which reserves this
-   exact width so the board never sits underneath it). */
+/* Floats over the screen (fixed, docked left) rather than reserving space
+   for itself — pushing the board over to make room narrowed the whole
+   play area every time the log opened. A chunky rounded card in the same
+   language as every other panel in the app (4px outline, hard offset
+   shadow), not a bare flat strip; slides in from the left edge and back
+   out again (see GameView.jsx's logClosing for how the exit gets to play
+   before unmount). */
 .bl-panel {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: 14px;
+  left: 14px;
+  bottom: 14px;
   width: min(var(--bl-width), 84vw);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #1a1410;
-  border-right: 1.5px solid rgba(232,201,106,0.25);
-  box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 0 #241708;
   padding: 14px 12px;
   z-index: 60;
+  font-family: 'Nunito', sans-serif;
+  animation: bl-slide-in 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.bl-panel.closing {
+  animation: bl-slide-out 0.16s ease-in both;
+  pointer-events: none;
+}
+
+@keyframes bl-slide-in {
+  from { transform: translateX(calc(-100% - 26px)); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes bl-slide-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100% - 26px)); }
 }
 
 .bl-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e6ddc8;
 }
 
 .bl-title {
-  font-family: 'Georgia', serif;
-  font-size: 15px;
-  font-weight: bold;
-  color: #e8d5a3;
-}
-
-.bl-close {
-  background: none;
-  border: none;
-  color: rgba(220,200,170,0.6);
+  font-family: 'Baloo 2', sans-serif;
   font-size: 16px;
-  cursor: pointer;
-  line-height: 1;
+  font-weight: 700;
+  color: #241708;
 }
 
-.bl-close:hover {
-  color: #e8c96a;
+/* Same round red ✕ as every other closable panel (see .htp-close /
+   .pn-close) — it used to be a squarish beige one-off that matched
+   nothing else in the app. */
+.bl-close {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d4302f;
+  border: 3px solid #241708;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
 }
+
+.bl-close:hover  { transform: scale(1.08); }
+.bl-close:active { transform: scale(0.96); }
 
 .bl-return {
-  border: 1.5px solid rgba(127,160,224,0.5);
-  background: rgba(127,160,224,0.14);
-  color: #cdd9f5;
+  border: 2.5px solid #2b6fd4;
+  background: #fdf6e8;
+  color: #241708;
+  font-family: 'Nunito', sans-serif;
   font-size: 12px;
-  font-weight: 700;
-  border-radius: 8px;
-  padding: 8px 10px;
+  font-weight: 800;
+  border-radius: 10px;
+  padding: 9px 10px;
   cursor: pointer;
 }
 
 .bl-return:hover {
-  background: rgba(127,160,224,0.22);
+  background: #eef3fc;
 }
 
 /* It's your live turn right now while you're still browsing the past —
    not forced back automatically, just made hard to miss. */
 .bl-return.urgent {
-  border-color: rgba(232,201,106,0.7);
-  background: rgba(232,201,106,0.18);
-  color: #e8c96a;
+  border-color: #f0b429;
+  background: #fdf1d4;
+  color: #241708;
   animation: bl-urgent-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes bl-urgent-pulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(232,201,106,0.25); }
-  50%      { box-shadow: 0 0 16px rgba(232,201,106,0.55); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240,180,41,0.35); }
+  50%      { box-shadow: 0 0 0 4px rgba(240,180,41,0.35); }
 }
 
 .bl-list {
@@ -82,18 +118,22 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
+
+.bl-list::-webkit-scrollbar { width: 8px; }
+.bl-list::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.bl-list::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; border: 1px solid #e6ddc8; }
 
 .bl-entry {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-left: 3px solid transparent;
-  border-radius: 6px;
-  padding: 6px 8px;
+  background: #f7f0de;
+  border: 2px solid #241708;
+  border-left: 5px solid #241708;
+  border-radius: 9px;
+  padding: 6px 9px;
   cursor: pointer;
   color: inherit;
   font: inherit;
@@ -101,12 +141,11 @@
 }
 
 .bl-entry:hover {
-  background: rgba(232,201,106,0.08);
+  background: #f0e9d4;
 }
 
 .bl-entry.selected {
-  border-color: rgba(232,201,106,0.5);
-  background: rgba(232,201,106,0.12);
+  background: #f0b429;
 }
 
 /* Who cast/moved — the ONLY thing this border stripe means. Card entries
@@ -114,113 +153,58 @@
    override this, which silently erased the one signal telling you WHOSE
    action this was — a real bug, not just a style choice. The card's own
    color now only tints its glyph (below), never this. */
-.bl-entry.p-white { border-left-color: #e8d5a3; }
-.bl-entry.p-black { border-left-color: #7a90c0; }
+.bl-entry.p-white { border-left-color: #f0b429; }
+.bl-entry.p-black { border-left-color: #33302c; }
 
 .bl-entry-index {
+  font-family: 'Nunito', sans-serif;
   font-size: 10px;
   font-weight: 800;
-  color: rgba(200,180,140,0.4);
+  color: #a89a7c;
   min-width: 16px;
 }
 
 /* Belt-and-suspenders on top of the border stripe (easy to miss at 1px) —
-   the exact same dot TurnBar.jsx uses for "whose turn", so it reads with
-   zero new visual language to learn. */
+   the same white/black dot convention used elsewhere (see PlayerPanel.jsx's
+   .pp-turn-dot), so it reads with zero new visual language to learn. */
 .bl-entry-dot {
-  margin-right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1.5px solid #241708;
 }
+
+.bl-entry-dot.p-white { background: #fdf6e8; }
+.bl-entry-dot.p-black { background: #33302c; }
 
 .bl-entry-glyph {
   font-size: 16px;
   line-height: 1;
-  color: var(--accent, inherit);
+  color: var(--accent, #241708);
 }
 
 .bl-entry-text {
   flex: 1;
+  font-family: 'Nunito', sans-serif;
   font-size: 12px;
-  color: rgba(230,220,200,0.9);
+  font-weight: 700;
+  color: #241708;
 }
 
 .bl-entry-live {
+  font-family: 'Nunito', sans-serif;
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: rgba(120,200,140,0.9);
-  background: rgba(80,180,110,0.14);
-  border: 1px solid rgba(80,180,110,0.4);
+  color: #1c5c3c;
+  background: #d7ecdd;
+  border: 1.5px solid #4a9c6a;
   border-radius: 999px;
   padding: 1px 6px;
 }
 
-/* Fixed, not part of any screen's normal flow — works the same whether
-   the parent is a vertical stack (GameView.jsx) or a centered flex row
-   (RoundSummary.jsx), and (see item 4 on layout jumpiness) its own
-   appearing/disappearing as the log opens/closes never shifts anything
-   else on the page either way. */
-.bl-toggle {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 61;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(220,200,170,0.75);
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 20px;
-  padding: 6px 14px;
-  cursor: pointer;
-}
-
-.bl-toggle:hover {
-  border-color: rgba(232,201,106,0.4);
-  color: #e8c96a;
-}
-
-/* Fixed, not flow — same reasoning as .bl-toggle: this only shows while
-   browsing history with the panel collapsed, and shouldn't shift the
-   board on the way in or out. */
-.bl-history-banner {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 61;
-  font-size: 12px;
-  font-weight: 700;
-  color: #cdd9f5;
-  background: rgba(127,160,224,0.16);
-  border: 1px solid rgba(127,160,224,0.4);
-  border-radius: 20px;
-  padding: 6px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bl-history-banner button {
-  background: none;
-  border: none;
-  color: #cdd9f5;
-  font-weight: 800;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-/* Reserves room for the docked panel so nothing sits underneath it —
-   applied to whichever screen's outer wrapper is currently showing the log
-   (.app in GameView.jsx, .rs-screen in RoundSummary.jsx) only while it's
-   actually open. */
-.bl-open {
-  padding-left: min(var(--bl-width), 84vw);
-}
-
 @media (max-width: 480px) {
-  .bl-panel { width: 100vw; }
-  /* Full-width panel would cover everything anyway — reserving side room
-     for it too would just push the whole board off-screen for nothing. */
-  .bl-open { padding-left: 0; }
+  .bl-panel { width: calc(100vw - 28px); }
 }

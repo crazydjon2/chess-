@@ -5,7 +5,8 @@ import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import {
-  createRoom, joinRoom, getRoomByCode, bothConnected, startMatch,
+  createRoom, joinRoom, getRoomByCode,
+  broadcastRoom, handleStartMatch,
   handleDraftPick, handleDraftDone, handlePlacement,
   handleMove, handlePlayCard, handleSurrender,
   leaveRoom, handleDisconnect,
@@ -51,10 +52,14 @@ io.on('connection', (socket) => {
     }
     cb(res)
 
-    // Both seats filled — the draft begins automatically, no "ready up" step.
+    // Just let both seats know the room is now full — the HOST decides when
+    // to actually start (see handleStartMatch / 'start_match' below), so the
+    // second player no longer gets snapped straight into the draft.
     const room = getRoomByCode(socket.data.roomCode)
-    if (room && bothConnected(room)) startMatch(io, room)
+    if (room) broadcastRoom(io, room)
   })
+
+  socket.on('start_match', () => handleStartMatch(io, socket))
 
   socket.on('draft_pick', (payload) => handleDraftPick(io, socket, payload))
   socket.on('draft_done', () => handleDraftDone(io, socket))

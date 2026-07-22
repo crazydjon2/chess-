@@ -1,120 +1,73 @@
 .card {
   position: relative;
-  width: 78px;
-  height: 82px;
-  border-radius: 10px;
-  background: linear-gradient(170deg, #2e1f0f 0%, #160e04 100%);
-  border: 1.5px solid color-mix(in srgb, var(--accent) 38%, transparent);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
-  cursor: pointer;
-  transition:
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.22s ease,
-    border-color 0.22s ease;
+  width: 84px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 10px 6px 8px;
-  gap: 4px;
+  gap: 6px;
+  padding: 14px 6px 9px;
+  border-radius: 14px;
+  border: 3px solid #241708;
+  background: #fdf6e8;
+  box-shadow: 3px 3px 0 0 #241708;
+  cursor: pointer;
   user-select: none;
-  flex-shrink: 0;
-}
-
-/* inner ornament frame */
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
-  pointer-events: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card:hover:not(.disabled) {
-  transform: translateY(-11px) scale(1.06);
-  box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.80),
-    0 0 22px color-mix(in srgb, var(--accent) 50%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09);
-  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  transform: translateY(-3px);
 }
 
 .card.selected {
-  transform: translateY(-15px) scale(1.08);
-  border-color: var(--accent);
-  box-shadow:
-    0 22px 42px rgba(0, 0, 0, 0.85),
-    0 0 28px var(--accent),
-    0 0 56px color-mix(in srgb, var(--accent) 30%, transparent);
-  animation: card-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes card-pulse {
-  0%, 100% {
-    box-shadow:
-      0 22px 42px rgba(0, 0, 0, 0.85),
-      0 0 28px var(--accent),
-      0 0 56px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 22px 42px rgba(0, 0, 0, 0.85),
-      0 0 42px var(--accent),
-      0 0 80px color-mix(in srgb, var(--accent) 45%, transparent);
-  }
+  transform: translateX(-4px);
+  box-shadow: 0 0 0 2px #241708 inset, 3px 3px 0 0 #241708;
 }
 
 .card.disabled {
-  opacity: 0.32;
+  opacity: 0.45;
   cursor: default;
   filter: grayscale(0.3);
 }
 
-.card-glyph {
-  font-size: 22px;
-  color: var(--accent);
-  line-height: 1;
-  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--accent) 60%, transparent));
-  margin-top: 2px;
+.card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent);
+  border: 2.5px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: #fdf6e8;
   flex-shrink: 0;
-}
-
-.card-divider {
-  width: 55%;
-  height: 1px;
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  flex-shrink: 0;
-  margin: 1px 0;
 }
 
 .card-name {
-  font-size: 8px;
-  font-weight: 800;
-  color: rgba(240, 215, 170, 0.96);
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: #241708;
   text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  line-height: 1.2;
-  padding: 0 2px;
+  line-height: 1.15;
 }
 
 /* ── "?" info button + its tooltip ───────────────────────────────── */
 .card-help-btn {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 6px;
+  left: 6px;
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(230, 210, 180, 0.85);
+  background: #fdf6e8;
+  border: 1.5px solid #8a7658;
+  color: #8a7658;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
   font-size: 9px;
-  font-weight: 800;
   line-height: 1;
   padding: 0;
   display: flex;
@@ -122,53 +75,57 @@
   justify-content: center;
   cursor: help;
   z-index: 2;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 
 .card-help-btn:hover,
 .card-help-btn:focus-visible {
-  background: color-mix(in srgb, var(--accent) 35%, rgba(0, 0, 0, 0.35));
-  border-color: var(--accent);
+  background: #f0b429;
+  border-color: #241708;
+  color: #241708;
   outline: none;
+  transform: scale(1.15);
 }
 
-.card-tooltip {
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
+.card-help-btn:active {
+  transform: scale(0.9);
+}
+
+/* Fixed (not absolute off the button) — see CardHelp.jsx for why: a
+   button inside any scrolling container (the draft catalog, the battle
+   hand rail) could clip this the instant it popped above the container's
+   own edge. Position is computed on hover from the button's own on-screen
+   rect and clamped to the viewport, not from CSS alone. */
+.card-tooltip-fixed {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 9px));
   width: 190px;
-  background: #1a1410;
-  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  background: #fdf6e8;
+  border: 2.5px solid #241708;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 0 #241708;
   padding: 9px 11px;
+  font-family: 'Nunito', sans-serif;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.45;
-  color: rgba(225, 210, 190, 0.95);
+  color: #241708;
   text-align: left;
-  white-space: normal;
-  opacity: 0;
-  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 30;
+  z-index: 1000;
+  animation: card-tooltip-in 0.12s ease-out;
 }
 
-.card-help-btn:hover .card-tooltip,
-.card-help-btn:focus-visible .card-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
+@keyframes card-tooltip-in {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 4px)); }
+  to   { opacity: 1; transform: translate(-50%, calc(-100% - 9px)); }
 }
 
 .card-tooltip-name {
   display: block;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--accent);
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #241708;
   margin-bottom: 4px;
 }

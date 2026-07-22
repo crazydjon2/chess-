@@ -7,6 +7,7 @@ import RoundSummary from './rendering/RoundSummary'
 import PromotionPicker from './rendering/PromotionPicker'
 import NecromancyPicker from './rendering/NecromancyPicker'
 import ConfirmModal from './rendering/ConfirmModal'
+import PageTransition from './rendering/PageTransition'
 import { getSocket, connectSocket, disconnectSocket, request } from './net/socket'
 import { loadNickname, saveNickname } from './nickname'
 import { getValidTargets, CARD_DEFS } from './game/cards'
@@ -63,7 +64,17 @@ export default function OnlineApp({ onExit }) {
   useEffect(() => {
     const socket = connectSocket()
 
-    socket.on('room_update', (data) => setRoom(prev => (prev ? { ...prev, ...data } : prev)))
+    socket.on('room_update', (data) => {
+      setRoom(prev => (prev ? { ...prev, ...data } : prev))
+      // Both seats present again — any latched "opponent left" flag is
+      // stale by definition (the server only emits opponent_left during a
+      // live match now, but a transient dev-reload/etc could still have
+      // latched it earlier; without this it would sit invisible until the
+      // battle screen finally rendered it as a bogus banner).
+      if (data.players?.white?.connected && data.players?.black?.connected) {
+        setOpponentLeft(false)
+      }
+    })
 
     socket.on('match_update', ({ match: m, lastAction, meteorStrikes, mineStrike, ...roomInfo }) => {
       setRoom(prev => (prev ? { ...prev, ...roomInfo } : prev))
@@ -133,7 +144,7 @@ export default function OnlineApp({ onExit }) {
     setBusy(true)
     try {
       const res = await request('create_room', { color, name: nickname })
-      setRoom({ code: res.code, color: res.color, players: res.players })
+      setRoom({ code: res.code, color: res.color, host: res.host, players: res.players })
       setPhase('waiting')
     } catch (e) {
       flashError(e.message)
@@ -145,7 +156,7 @@ export default function OnlineApp({ onExit }) {
     setBusy(true)
     try {
       const res = await request('join_room', { code, name: nickname })
-      setRoom({ code, color: res.color, players: res.players })
+      setRoom({ code, color: res.color, host: res.host, players: res.players })
       setPhase('waiting')
     } catch (e) {
       flashError(e.message)
@@ -173,17 +184,21 @@ export default function OnlineApp({ onExit }) {
   // ── Menu / waiting for the second seat — no match yet ─────────────
   if (phase !== 'match' || !room || !match) {
     return (
-      <Lobby
-        phase={phase === 'menu' ? 'menu' : 'waiting'}
-        room={room}
-        busy={busy}
-        errorMsg={errorMsg}
-        onCreate={handleCreate}
-        onJoin={handleJoin}
-        onLeave={handleLeave}
-        nickname={nickname}
-        onNicknameChange={handleNicknameChange}
-      />
+      <PageTransition pageKey={phase === 'menu' ? 'online-menu' : 'online-waiting'}>
+        <Lobby
+          phase={phase === 'menu' ? 'menu' : 'waiting'}
+          room={room}
+          busy={busy}
+          errorMsg={errorMsg}
+          onCreate={handleCreate}
+          onJoin={handleJoin}
+          onLeave={handleLeave}
+          onStart={() => getSocket().emit('start_match')}
+          onExit={onExit}
+          nickname={nickname}
+          onNicknameChange={handleNicknameChange}
+        />
+      </PageTransition>
     )
   }
 
@@ -192,47 +207,76 @@ export default function OnlineApp({ onExit }) {
 
   // ── Round-over summary ───────────────────────────────────────────────
   // Shown once per round transition, right before the next round's draft.
+  // pageKey is "battle", SHARED with the live battle below — a round ending
+  // is not a new page, it's the same board now frozen with a result banner
+  // over it, so no transition plays between them; only the banner
+  // announces itself (its own result-banner-in, see App.css). Placement
+  // has its own key, but its exit into battle is just a soft whole-screen
+  // crossfade (see PageTransition.css) since the two share identical
+  // geometry — the real page transitions are draft -> placement and
+  // summary -> next round's draft.
   if (match.phase === 'draft' && match.previousRound != null && summarySeenFor !== match.previousRound) {
     return (
-      <RoundSummary
-        match={match}
-        // Colors swap every round (see matchEngine.js) — during the round
-        // that just ended, "my" pieces were whatever color I'm NOT playing
-        // now, so the frozen board must be oriented/labeled accordingly.
-        previousMyColor={oppColor}
-        onContinue={() => setSummarySeenFor(match.previousRound)}
-      />
+      <PageTransition pageKey="battle">
+        <RoundSummary
+          match={match}
+          // Colors swap every round (see matchEngine.js) — during the round
+          // that just ended, "my" pieces were whatever color I'm NOT playing
+          // now, so the frozen board must be oriented/labeled accordingly.
+          previousMyColor={oppColor}
+          room={room}
+          onContinue={() => setSummarySeenFor(match.previousRound)}
+        />
+      </PageTransition>
     )
   }
 
   // ── Draft phase (turn-based, no bans — every pick is live/visible) ──
   if (match.phase === 'draft') {
     return (
-      <DraftPhase
-        round={match.round}
-        boardPattern={match.boardPattern}
-        draft={match.draft}
-        myColor={myColor}
-        onPick={(item) => getSocket().emit('draft_pick', item)}
-        onDone={() => getSocket().emit('draft_done')}
-      />
+      <PageTransition pageKey="draft">
+        <DraftPhase
+          round={match.round}
+          boardPattern={match.boardPattern}
+          draft={match.draft}
+          myColor={myColor}
+          matchScore={{
+            round: match.round,
+            white: match.scores.white,
+            black: match.scores.black,
+            whiteName: room.players?.white?.name,
+            blackName: room.players?.black?.name,
+          }}
+          onPick={(item) => getSocket().emit('draft_pick', item)}
+          onDone={() => getSocket().emit('draft_done')}
+        />
+      </PageTransition>
     )
   }
 
   // ── Placement phase (hidden from opponent) ─────────────────────────
   if (match.phase === 'placement') {
     return (
-      <PlacementPhase
-        boardPattern={match.boardPattern}
-        draftedPieces={match.draft.picks[myColor].pieces}
-        myCards={match.draft.picks[myColor].cards}
-        myColor={myColor}
-        opponentReady={match.placement[oppColor].ready}
-        oppColor={oppColor}
-        oppPieces={match.draft.picks[oppColor].pieces}
-        oppCards={match.draft.picks[oppColor].cards}
-        onSubmit={(map) => getSocket().emit('submit_placement', { map })}
-      />
+      <PageTransition pageKey="placement">
+        <PlacementPhase
+          boardPattern={match.boardPattern}
+          draftedPieces={match.draft.picks[myColor].pieces}
+          myCards={match.draft.picks[myColor].cards}
+          myColor={myColor}
+          opponentReady={match.placement[oppColor].ready}
+          oppColor={oppColor}
+          oppPieces={match.draft.picks[oppColor].pieces}
+          oppCards={match.draft.picks[oppColor].cards}
+          matchScore={{
+            round: match.round,
+            white: match.scores.white,
+            black: match.scores.black,
+            whiteName: room.players?.white?.name,
+            blackName: room.players?.black?.name,
+          }}
+          onSubmit={(map) => getSocket().emit('submit_placement', { map })}
+        />
+      </PageTransition>
     )
   }
 
@@ -320,7 +364,7 @@ export default function OnlineApp({ onExit }) {
     : undefined
 
   return (
-    <>
+    <PageTransition pageKey="battle">
       {opponentLeft && (
         <div className="opponent-left-banner">
           Соперник покинул игру
@@ -426,6 +470,6 @@ export default function OnlineApp({ onExit }) {
           onCardClick: handleCardSelect,
         }}
       />
-    </>
+    </PageTransition>
   )
 }

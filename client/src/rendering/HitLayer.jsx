@@ -68,6 +68,7 @@ export default function HitLayer({ rows, cols, cellSize, pieces, borderTargets =
 
   return (
     <svg
+      viewBox={`0 0 ${cols * cellSize} ${rows * cellSize}`}
       style={{
         position: 'absolute',
         top: 0,

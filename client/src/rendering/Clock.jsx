@@ -43,7 +43,7 @@ export default function Clock({ baseSeconds, turnStartedAt, ticking, analysisSec
 
   return (
     <span className={`clock${ticking ? ' ticking' : ''}${low ? ' low' : ''}`}>
-      ⏱ {formatClock(remaining)}
+      {formatClock(remaining)}
     </span>
   )
 }

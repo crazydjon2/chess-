@@ -11,6 +11,9 @@ import { tryMove, tryPlayCard } from './game/sandboxEngine'
 
 const other = color => (color === 'white' ? 'black' : 'white')
 
+// Matches .sandbox-leaving's own animation length (see App.css).
+const EXIT_ANIM_MS = 180
+
 // Every card in the game, both hands, one of each piece type per side plus
 // a pawn one step from promoting — enough to manually poke at every skill
 // without going through a draft. 8x8 with two blocked holes so add_cell's
@@ -54,6 +57,19 @@ export default function SandboxApp({ onExit }) {
   const [gameState, setGameState] = useState(freshSandboxState)
   const [gameResult, setGameResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [leaving, setLeaving] = useState(false)
+
+  // Same reasoning as PlayOnlineMenu.jsx's back button: this unmounts the
+  // whole SandboxApp, which App.jsx's PageTransition intentionally never
+  // snapshots for an exit animation (nothing here has side effects worth
+  // protecting like OnlineApp's socket, but re-running this component's
+  // hooks mid-fade would still restart it). Fade out locally first, then
+  // call the real onExit once nothing's left on screen to cut abruptly.
+  function handleExit() {
+    if (leaving) return
+    setLeaving(true)
+    setTimeout(onExit, EXIT_ANIM_MS)
+  }
 
   const [boardMode, dispatch] = useReducer(boardModeReducer, IDLE)
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
@@ -173,9 +189,7 @@ export default function SandboxApp({ onExit }) {
   }
 
   return (
-    <>
-      <button className="sandbox-exit-btn" onClick={onExit}>← Выйти из песочницы</button>
-
+    <div className={leaving ? 'sandbox-leaving' : undefined}>
       {errorMsg && <div className="sandbox-error">{errorMsg}</div>}
 
       {pendingPromotion && (
@@ -204,6 +218,7 @@ export default function SandboxApp({ onExit }) {
         mineStrikeAnim={mineStrikeAnim}
         boardFlipped={false}
         boardPlayerColor={gameOver ? 'none' : myColor}
+        onBack={handleExit}
         onMove={handleMove}
         onPlayCard={handlePlayCard}
         battleLog={gameState.actionLog}
@@ -246,6 +261,6 @@ export default function SandboxApp({ onExit }) {
           onCardClick: handleCardSelect,
         }}
       />
-    </>
+    </div>
   )
 }

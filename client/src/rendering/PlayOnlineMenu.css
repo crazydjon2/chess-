@@ -1,0 +1,352 @@
+/* Same felt-table language as MainMenu.css/PatchNotes.css. Centered, same
+   as MainMenu — everything here is static (the error slot reserves its
+   own height whether or not it's showing, the two cards' color-toggle
+   state doesn't resize anything), so there's no risk of the "whole screen
+   re-centers under you" bug elsewhere. No background of its own — see
+   MainMenu.css's .mm-screen comment, same MenuLayout.css .ml-bg
+   underneath. */
+.po-screen {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+
+/* ── Back button ──────────────────────────────────────────────────── */
+.po-back {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  box-shadow: 0 4px 0 0 #241708;
+  color: #241708;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.po-back:hover:not(:active) {
+  transform: translateY(-2px);
+}
+
+.po-back:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.po-title {
+  position: relative;
+  z-index: 2;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 38px;
+  color: #fdf6e8;
+  -webkit-text-stroke: 4px #241708;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 rgba(0,0,0,0.3);
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+/* ── Nickname field ───────────────────────────────────────────────── */
+.po-field {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 22px;
+}
+
+.po-label {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c9e8d6;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.po-input {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #241708;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  padding: 12px 16px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.po-input::placeholder { color: #b8a888; font-weight: 600; }
+.po-input:focus { box-shadow: 0 0 0 3px rgba(240,180,41,0.5); }
+
+/* ── Cards ────────────────────────────────────────────────────────── */
+.po-cards {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.po-card {
+  flex: 1;
+  border: 5px solid #241708;
+  border-radius: 22px;
+  box-shadow: 0 9px 0 0 #241708, 0 16px 24px rgba(0,0,0,0.4);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.po-card:hover { transform: translateY(-6px); }
+
+.po-card-create { background: #d4302f; }
+.po-card-join   { background: #2b6fd4; }
+
+.po-card-icon {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.po-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.po-card-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: #fdf6e8;
+}
+
+.po-sublabel {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.po-card-create .po-sublabel { color: #ffd9d6; }
+.po-card-join   .po-sublabel { color: #dbe8fb; }
+
+.po-color-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-color-row {
+  display: flex;
+  gap: 8px;
+}
+
+.po-color-opt {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  color: inherit;
+}
+
+.po-color-opt:hover:not(:active) { transform: translateY(-2px); }
+.po-color-opt:active { transform: translateY(2px); }
+
+/* Selected = raised chunky shadow + full opacity + a check badge in the
+   corner (same "status in a circle" language as other confirmation dots
+   in the app); unselected is deliberately dimmed (not just flat) — both
+   options used to render at full strength all the time with only a
+   subtle shadow telling them apart, which read as "pick either" rather
+   than "here's your current choice". A gold ring around the whole button
+   said the same thing louder than it needed to; the badge is enough. */
+.po-color-opt.white { background: #fdf6e8; color: #241708; }
+.po-color-opt.black { background: #241708; color: #fdf6e8; }
+
+.po-color-opt:not(.selected) {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.po-color-opt.selected {
+  opacity: 1;
+  box-shadow: 0 3px 0 0 #241708;
+}
+.po-color-opt.black.selected { box-shadow: 0 3px 0 0 rgba(18,9,2,0.5); }
+
+.po-color-check {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f0b429;
+  border: 2px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #241708;
+  animation: po-check-pop 0.18s ease;
+}
+
+@keyframes po-check-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.po-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.po-color-dot.white { background: #fdf6e8; border: 2px solid #241708; }
+.po-color-dot.black { background: #241708; border: 2px solid #fdf6e8; }
+
+.po-code-input {
+  text-align: center;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.po-btn {
+  width: 100%;
+  background: #fdf6e8;
+  color: #241708;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 5px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.po-btn:hover:not(:active):not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.po-btn:active:not(:disabled) {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+
+.po-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Error ────────────────────────────────────────────────────────── */
+.po-error-slot {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 640px;
+  min-height: 44px;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.po-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fdf6e8;
+  border: 3px solid #d4302f;
+  border-radius: 12px;
+  padding: 10px 18px;
+  box-shadow: 0 4px 0 0 #241708;
+  animation: po-shake 0.4s ease;
+}
+
+@keyframes po-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.po-error-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d4302f;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.po-error span:last-child {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+}
+
+@media (max-width: 700px) {
+  .po-cards { flex-direction: column; }
+  .po-cards > .po-card { width: 100%; max-width: 360px; margin: 0 auto; }
+}
