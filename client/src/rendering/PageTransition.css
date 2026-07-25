@@ -1,0 +1,206 @@
+/* Both the outgoing and incoming screen occupy the SAME grid cell (grid
+   sizes itself to the taller of the two, and neither has to be told about
+   the other) — that overlap is what makes this a crossfade instead of a
+   layout-shifting swap. overflow:hidden clips any element that animates
+   out past the viewport edge (see the menu scatter below) so a transition
+   never pushes out a scrollbar. */
+.pt-stack {
+  display: grid;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.pt-stack > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/* ── Default whole-wrapper fade ────────────────────────────────────────
+   Fallback for any screen that doesn't opt into per-element choreography
+   below. Opacity only — no transform on the wrapper, so nothing it
+   contains gets moved or (crucially) scaled. */
+.pt-enter {
+  animation: pt-fade-in 0.2s ease both;
+}
+
+.pt-exit {
+  animation: pt-fade-out 0.14s ease-in both;
+  /* Frozen and on its way out — nothing in it should still be clickable
+     while it fades, even for the brief overlap with the incoming page. */
+  pointer-events: none;
+}
+
+@keyframes pt-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pt-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ── Per-screen choreography ───────────────────────────────────────────
+   Every selector anchors on `.pt-x > .yy-screen` — a DIRECT child. App.jsx
+   and OnlineApp each have their own PageTransition, nested; the outer
+   `.pt-enter` stays an ANCESTOR of the inner one the whole time it's
+   mounted, so a plain descendant selector would leak one transition's
+   rules into the other. `>` pins each rule to its own PageTransition.
+
+   Two flavors of pop-in keyframe:
+   - pt-pop-in  (menus): opacity + translateY + scale. The menu screens
+     are sparse (hero, a few cards) with NO board, so a springy scale
+     looks good and disturbs nothing.
+   - pt-section-in (board screens): opacity + translateY, NO scale. These
+     screens put a size-critical, aspect-ratio board inside an animated
+     section; `scale()` on that section's ancestor visibly resizes the
+     board mid-animation (measured: 560→612px from a 0.92→1 scale), which
+     reads as the board "jumping". translateY slides the section into
+     place without ever changing the board's actual size. */
+
+/* All the choreographed screens turn OFF the plain wrapper fade above and
+   animate their own parts instead.
+   Deliberately NOT in this list:
+   - .pt-exit:has(> .pl-screen)  — placement only ever exits INTO battle,
+     and since their header/HUD/board geometry is now identical, the right
+     transition there is the soft default wrapper crossfade: nothing moves,
+     the trays simply dissolve into the player panels. Per-section slides
+     felt like a whole page change for what is barely a content change,
+     and no animation at all was a jarring hard cut.
+   - .pt-enter:has(> .bt-screen) — same crossfade, receiving side. (The
+     battle wrapper only mounts once; the round summary swaps in under the
+     same "battle" pageKey later without replaying it — see OnlineApp.) */
+.pt-exit:has(> .mm-screen), .pt-enter:has(> .mm-screen),
+.pt-exit:has(> .po-screen), .pt-enter:has(> .po-screen),
+.pt-exit:has(> .wr-screen), .pt-enter:has(> .wr-screen),
+.pt-exit:has(> .dr-screen), .pt-enter:has(> .dr-screen),
+.pt-enter:has(> .pl-screen),
+.pt-exit:has(> .bt-screen) {
+  animation: none;
+}
+
+/* ── Stagger order (top-to-bottom, shared by menus + board screens) ──── */
+.mm-logo,
+.po-back,
+.wr-title,
+.dr-header, .pl-header, .bt-header          { --stagger-i: 0; }
+.mm-hero,
+.po-title,
+.wr-subtitle,
+.dr-tray-opp, .pl-tray-opp, .player-panel.opp { --stagger-i: 1; }
+.mm-row > .mm-card:nth-child(1),
+.po-field,
+.wr-panel,
+.dr-catalog, .pl-main, .bt-main             { --stagger-i: 2; }
+.mm-row > .mm-card:nth-child(2),
+.po-cards > .po-card:nth-child(1),
+.dr-tray-mine, .pl-tray-mine, .player-panel.mine { --stagger-i: 3; }
+.mm-row > .mm-card:nth-child(3),
+.po-cards > .po-card:nth-child(2)           { --stagger-i: 4; }
+.mm-skins-banner                            { --stagger-i: 5; }
+
+/* ── Menu exit: a clean, quick in-place fade (NOT the old scatter) ─────
+   The cards used to fly off in random directions, which flew them right
+   over the top of the incoming screen's content — messy overlap. Fading
+   in place, fast, with a tiny top-to-bottom stagger, clears them out of
+   the way before the next screen is really visible, no fly-over. */
+.pt-exit > .mm-screen .mm-logo,
+.pt-exit > .mm-screen .mm-hero,
+.pt-exit > .mm-screen .mm-card,
+.pt-exit > .mm-screen .mm-skins-banner,
+.pt-exit > .po-screen .po-back,
+.pt-exit > .po-screen .po-title,
+.pt-exit > .po-screen .po-field,
+.pt-exit > .po-screen .po-card {
+  animation: pt-menu-out 0.16s ease-in both;
+  animation-delay: calc(var(--stagger-i, 0) * 20ms);
+}
+
+@keyframes pt-menu-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-10px) scale(0.96); }
+}
+
+/* No .pl-screen entries — placement's exit is the soft whole-wrapper
+   crossfade into battle (see the opt-out list comment above). */
+.pt-exit > .wr-screen .wr-title,  .pt-exit > .wr-screen .wr-subtitle,  .pt-exit > .wr-screen .wr-panel,
+.pt-exit > .dr-screen .dr-header, .pt-exit > .dr-screen .dr-tray-opp,  .pt-exit > .dr-screen .dr-catalog, .pt-exit > .dr-screen .dr-tray-mine,
+.pt-exit > .bt-screen .bt-header, .pt-exit > .bt-screen .player-panel, .pt-exit > .bt-screen .bt-main,
+/* The round-result banner must fade out WITH the rest of the summary when
+   moving on to the next draft — it's not in the stagger list otherwise, so
+   it would sit frozen at full opacity for the whole exit while the draft
+   faded in behind it (the "plate lingers on the way to draft" report). */
+.pt-exit > .bt-screen .result-inline {
+  animation: pt-section-out 0.16s ease-in both;
+  animation-delay: calc(var(--stagger-i, 0) * 22ms);
+}
+
+@keyframes pt-section-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-14px); }
+}
+
+/* ── Menus + board screens: enter (pop-in) ──────────────────────────── */
+/* Snappy: total choreography (last element settled) lands well under
+   half a second. At the previous 0.42s + 60ms stagger the tail element
+   only finished at ~660ms — rapid navigation meant constantly waiting on
+   entrances, which read as the app lagging even at a solid 60fps. */
+.pt-enter > .mm-screen .mm-logo,
+.pt-enter > .mm-screen .mm-hero,
+.pt-enter > .mm-screen .mm-card,
+.pt-enter > .mm-screen .mm-skins-banner,
+.pt-enter > .po-screen .po-back,
+.pt-enter > .po-screen .po-title,
+.pt-enter > .po-screen .po-field,
+.pt-enter > .po-screen .po-card {
+  animation: pt-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--stagger-i, 0) * 35ms);
+}
+
+/* NOTE: no .bt-screen entries here — the battle screen NEVER animates in.
+   It only ever appears by replacing the placement screen (or the round
+   summary) inside the same shared "game" pageKey (see OnlineApp.jsx):
+   identical header/HUD/board geometry, only the content changes, so any
+   entrance animation there just re-announced a screen the player was
+   already looking at. The pl-screen enter below (arriving from the draft)
+   is the one real entrance into that shared layout. */
+.pt-enter > .wr-screen .wr-title,  .pt-enter > .wr-screen .wr-subtitle,  .pt-enter > .wr-screen .wr-panel,
+.pt-enter > .dr-screen .dr-header, .pt-enter > .dr-screen .dr-tray-opp,  .pt-enter > .dr-screen .dr-catalog, .pt-enter > .dr-screen .dr-tray-mine,
+.pt-enter > .pl-screen .pl-header, .pt-enter > .pl-screen .pl-tray-opp,  .pt-enter > .pl-screen .pl-main,    .pt-enter > .pl-screen .pl-tray-mine {
+  animation: pt-section-in 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation-delay: calc(var(--stagger-i, 0) * 35ms);
+}
+
+@keyframes pt-pop-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pt-section-in {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* RoundSummary reuses GameView's battle markup (.bt-header/.player-panel/
+   .bt-main), but it isn't a fresh screen arriving — it's the same board
+   you were just on, frozen, with a result banner (.result-inline) placed
+   over it. Re-playing the whole section pop-in there read as the screen
+   pointlessly restarting; only the genuinely new thing (the banner, which
+   animates itself via App.css's result-banner-in) should announce itself.
+   Higher specificity + later in the file beats the .bt-screen rule above. */
+.pt-enter:has(> .bt-screen .result-inline) .bt-header,
+.pt-enter:has(> .bt-screen .result-inline) .player-panel,
+.pt-enter:has(> .bt-screen .result-inline) .bt-main {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pt-enter, .pt-exit,
+  .pt-exit > .mm-screen .mm-logo, .pt-exit > .mm-screen .mm-hero, .pt-exit > .mm-screen .mm-card, .pt-exit > .mm-screen .mm-skins-banner,
+  .pt-exit > .po-screen .po-back, .pt-exit > .po-screen .po-title, .pt-exit > .po-screen .po-field, .pt-exit > .po-screen .po-card,
+  .pt-exit > .wr-screen .wr-title,  .pt-exit > .wr-screen .wr-subtitle,  .pt-exit > .wr-screen .wr-panel,
+  .pt-exit > .dr-screen .dr-header, .pt-exit > .dr-screen .dr-tray-opp,  .pt-exit > .dr-screen .dr-catalog, .pt-exit > .dr-screen .dr-tray-mine,
+  .pt-exit > .pl-screen .pl-header, .pt-exit > .pl-screen .pl-tray-opp,  .pt-exit > .pl-screen .pl-main,    .pt-exit > .pl-screen .pl-tray-mine,
+  .pt-exit > .bt-screen .bt-header, .pt-exit > .bt-screen .player-panel, .pt-exit > .bt-screen .bt-main,
+  .pt-enter > .mm-screen .mm-logo, .pt-enter > .mm-screen .mm-hero, .pt-enter > .mm-screen .mm-card, .pt-enter > .mm-screen .mm-skins-banner,
+  .pt-enter > .po-screen .po-back, .pt-enter > .po-screen .po-title, .pt-enter > .po-screen .po-field, .pt-enter > .po-screen .po-card,
+  .pt-enter > .wr-screen .wr-title,  .pt-enter > .wr-screen .wr-subtitle,  .pt-enter > .wr-screen .wr-panel,
+  .pt-enter > .dr-screen .dr-header, .pt-enter > .dr-screen .dr-tray-opp,  .pt-enter > .dr-screen .dr-catalog, .pt-enter > .dr-screen .dr-tray-mine,
+  .pt-enter > .pl-screen .pl-header, .pt-enter > .pl-screen .pl-tray-opp,  .pt-enter > .pl-screen .pl-main,    .pt-enter > .pl-screen .pl-tray-mine,
+  .pt-enter > .bt-screen .bt-header, .pt-enter > .bt-screen .player-panel, .pt-enter > .bt-screen .bt-main {
+    animation: none;
+  }
+}

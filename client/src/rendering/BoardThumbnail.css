@@ -1,20 +1,24 @@
 .board-thumb {
   display: grid;
   gap: 1px;
-  border: 1.5px solid rgba(255,255,255,0.15);
-  border-radius: 3px;
+  border: 2px solid #241708;
+  border-radius: 5px;
   overflow: hidden;
   flex-shrink: 0;
+  background: #241708;
 }
 
 .board-thumb-cell {
-  background: #2a2019;
+  background: #e8ddc0;
 }
 
 .board-thumb-cell.dark {
-  background: #1f1710;
+  background: #cabb95;
 }
 
+/* Deliberately loud (solid red, not a subtle tint) — this needs to read
+   as "you cannot use this cell" at a glance, even shrunk down to a few
+   pixels in the draft header's thumbnail. */
 .board-thumb-cell.blocked {
-  background: #4a2020;
+  background: #d4302f;
 }

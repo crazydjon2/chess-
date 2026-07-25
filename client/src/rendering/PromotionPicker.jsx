@@ -1,4 +1,4 @@
-import { PIECE_GLYPHS } from '../game/economy'
+import { PIECE_ICONS } from './pieceIcons'
 import { PROMOTION_TYPES } from '../game/chess'
 import './PromotionPicker.css'
 
@@ -14,7 +14,7 @@ export default function PromotionPicker({ color, onPick, onCancel }) {
         <div className="promo-options">
           {PROMOTION_TYPES.map(type => (
             <button key={type} className="promo-btn" onClick={() => onPick(type)}>
-              <span className="promo-glyph">{PIECE_GLYPHS[color][type]}</span>
+              <span className="promo-glyph">{PIECE_ICONS[color][type]}</span>
               <span className="promo-label">{LABEL[type]}</span>
             </button>
           ))}

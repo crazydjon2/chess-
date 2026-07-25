@@ -1,7 +1,7 @@
 .promo-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(6,10,7,0.72);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,22 +10,22 @@
 }
 
 .promo-card {
-  background: #1a1410;
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 14px;
-  padding: 20px 22px;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 20px;
+  padding: 22px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 8px 8px 0 0 #241708;
 }
 
 .promo-title {
-  font-family: 'Georgia', serif;
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #e8d5a3;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: #241708;
 }
 
 .promo-options {
@@ -37,44 +37,50 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 70px;
-  background: rgba(255,255,255,0.05);
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 10px;
-  padding: 12px 6px;
+  gap: 6px;
+  width: 74px;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 0 #241708;
+  padding: 12px 6px 9px;
   cursor: pointer;
   color: inherit;
   font: inherit;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .promo-btn:hover {
-  transform: translateY(-2px);
-  border-color: rgba(232,201,106,0.55);
-  background: rgba(232,201,106,0.08);
+  transform: translateY(-3px);
 }
 
 .promo-glyph {
-  font-size: 28px;
-  color: rgba(240,220,180,0.95);
+  height: 34px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
+.promo-glyph svg { width: auto; height: 34px; }
+
 .promo-label {
+  font-family: 'Baloo 2', sans-serif;
   font-size: 11px;
   font-weight: 700;
-  color: rgba(220,200,170,0.85);
+  color: #241708;
 }
 
 .promo-cancel {
   background: none;
   border: none;
-  color: rgba(200,180,140,0.5);
+  color: #8a7658;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
   font-size: 12px;
   cursor: pointer;
   padding: 4px 8px;
 }
 
 .promo-cancel:hover {
-  color: rgba(220,200,170,0.8);
+  color: #241708;
 }

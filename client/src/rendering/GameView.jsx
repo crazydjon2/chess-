@@ -2,7 +2,6 @@ import { useState } from 'react'
 import Board from './Board'
 import CardHand from './CardHand'
 import PlayerPanel from './PlayerPanel'
-import TurnBar from './TurnBar'
 import MatchScoreBoard from './MatchScoreBoard'
 import AnalysisBanner from './AnalysisBanner'
 import BattleLog from './BattleLog'
@@ -23,10 +22,12 @@ const RESULT_TEXT = {
 
 const RESULT_ICON = { checkmate: '♛', elimination: '♛', timeout: '⏱', no_moves: '🔒', surrender: '🏳' }
 
-// Shared board+panels layout. The bottom section always shows a full,
-// interactive CardHand (the local viewer's own hand); the top section is a
-// PlayerPanel with an embedded HUD hand (opponentCards). The viewer always
-// sits at bottom; opponent control is disabled.
+// Shared board+panels layout — v2 "stacked" design: opponent's tray pinned
+// above the board, yours pinned below (see PlayerPanel.jsx), your
+// interactive hand as a vertical rail beside the board instead of a fan
+// underneath it. The board itself (Board.jsx) is untouched by this pass —
+// it's a whole interactive subsystem (drag/drop, animation, its own tilt),
+// this is purely a reskin of the chrome around it.
 export default function GameView({
   gameState, boardMode, dispatch, lastMoveAnim, actionToast, meteorStrikeAnim, mineStrikeAnim,
   boardFlipped = false, boardPlayerColor,
@@ -34,14 +35,37 @@ export default function GameView({
   turnBar, matchScore,
   topPanel, bottomPanel, bottomHand,
   onMove, onPlayCard,
-  gameResult, resultTitle, resultOutcome, restartLabel, onRestart,
+  gameResult, resultTitle, restartLabel, onRestart,
+  // 'modal' (default) — match truly over, nothing left to do but leave;
+  // blocks the board behind a backdrop. 'inline' — round over but the
+  // match continues (see RoundSummary.jsx): the whole point is to let you
+  // calmly inspect the final board/log before moving on, so the result
+  // renders as a banner in normal flow instead of covering anything.
+  resultMode = 'modal',
   onBackgroundClick,
   battleLog, historyIndex, onSelectHistory, onReturnToLive,
+  // Round ← button in the header, before the title — used by the sandbox
+  // (its exit used to be a position:fixed button floating ON TOP of the
+  // "Бой" title). Online mode doesn't pass it (leaving is surrender/menu).
+  onBack,
 }) {
-  // Open by default (docked left — see BattleLog.css's .bl-panel) whenever
-  // there's a log to show at all; the panel's own header button collapses
-  // it, and .bl-toggle (rendered only while collapsed) brings it back.
-  const [logOpen, setLogOpen] = useState(!!battleLog)
+  // Closed by default — the log is a reference you check, not something
+  // that should cover a fifth of the board the instant a battle starts.
+  // Docked left when open (see BattleLog.css's .bl-panel); .bt-log-btn in
+  // the header opens/closes it and doubles as the "viewing history"
+  // indicator so there's no separate floating banner for that too.
+  // Closing goes through a brief `logClosing` beat so the slide-out
+  // animation (see BattleLog.css's .bl-panel.closing) actually plays
+  // before the panel unmounts, whichever of the two close paths (header
+  // toggle or the panel's own ✕) was used.
+  const [logOpen, setLogOpen] = useState(false)
+  const [logClosing, setLogClosing] = useState(false)
+  function toggleLog() {
+    if (!logOpen) { setLogOpen(true); return }
+    if (logClosing) return
+    setLogClosing(true)
+    setTimeout(() => { setLogOpen(false); setLogClosing(false) }, 160)
+  }
   const viewingHistory = battleLog && historyIndex != null
 
   // A pure LOCAL view swap — jumping into history never touches the live
@@ -70,84 +94,97 @@ export default function GameView({
   const hasAnalysisLeft = (color) => gameState.analysisUsed ? !gameState.analysisUsed[color] : false
 
   return (
-    <div className={`app${logOpen && battleLog ? ' bl-open' : ''}`} onClick={onBackgroundClick}>
-      <div className="game-scene" onClick={onBackgroundClick}>
-
-        <div className="player-section">
-          <PlayerPanel
-            {...topPanel}
-            timeSeconds={gameState.timers?.[topPanel.color]}
-            turnStartedAt={gameState.turnStartedAt}
-            ticking={!gameResult && gameState.turn === topPanel.color}
-            analysisSeconds={gameState.analysisSeconds}
-            hasAnalysisLeft={hasAnalysisLeft(topPanel.color)}
-          />
-        </div>
-
-        {matchScore && <MatchScoreBoard {...matchScore} />}
-
-        {turnBar && <TurnBar {...turnBar} />}
-
-        {battleLog && !logOpen && (
-          <button className="bl-toggle" onClick={() => setLogOpen(true)}>
-            📜 Журнал{viewingHistory ? ` · ход ${historyIndex}` : ''}
-          </button>
-        )}
-
-        {viewingHistory && !logOpen && (
-          <div className="bl-history-banner">
-            {isMyLiveTurn ? '⚠ Просмотр истории — сейчас ваш ход' : 'Просмотр истории'}
-            <button onClick={onReturnToLive}>Вернуться в игру</button>
+    <div className="bt-screen" onClick={onBackgroundClick}>
+      <div className="bt-header">
+        <div className="bt-header-left">
+          {onBack && <button className="bt-back" onClick={onBack} title="Выйти">←</button>}
+          <div>
+            <span className="bt-round">Бой</span>
+            {turnBar && <div className="bt-banner-text">{turnBar.sub ?? turnBar.text}</div>}
           </div>
-        )}
-
-        {/* Reserves space the same way .threat-warnings does below —
-           AnalysisBanner mounts/unmounts itself (returns null when
-           inactive) once per color per round, which used to shift the
-           board the same way a meteor/mine warning did. */}
-        <div className="analysis-banner-slot">
+        </div>
+        <div className="bt-header-right">
+          {/* Compact badges, not banners — these used to be full-width
+             lines with a permanently reserved slot for whichever was
+             tallest, which ate real board height even while empty (most
+             of the game) and still needed a jump the one time both fired
+             at once. A badge here never changes the header's height at
+             all, active or not, so the board never shrinks for it. Full
+             wording lives in the title tooltip. */}
           <AnalysisBanner
             turnStartedAt={gameState.turnStartedAt}
             analysisSeconds={gameState.analysisSeconds}
             hasAnalysisLeft={hasAnalysisLeft(gameState.turn)}
           />
-        </div>
-
-        {/* Reserves space for these two regardless of whether either is
-           currently showing — meteors/mines get armed and resolve many
-           times over a match, and this pair used to sit in normal flex flow
-           (see .game-scene), so the board below would visibly jump up/down
-           every single time one popped in or out. */}
-        <div className="threat-warnings">
           {soonestMeteor != null && (
-            <div className="meteor-warning">
-              <span className="meteor-warning-icon">☄</span>
-              {incomingMeteors.length === 1
+            <span
+              className="threat-badge meteor"
+              title={incomingMeteors.length === 1
                 ? `Соперник бросил метеор — упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`
                 : `Метеоры соперника (${incomingMeteors.length}) — ближайший упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`}
-            </div>
+            >
+              ☄ {soonestMeteor}
+            </span>
           )}
-
           {incomingMines.length > 0 && (
-            <div className="mine-warning">
-              <span className="mine-warning-icon">❄</span>
-              {incomingMines.length === 1
+            <span
+              className="threat-badge mine"
+              title={incomingMines.length === 1
                 ? 'Соперник где-то заложил мину заморозки'
                 : `Соперник заложил мины заморозки (${incomingMines.length})`}
-            </div>
+            >
+              ❄{incomingMines.length > 1 ? ` ${incomingMines.length}` : ''}
+            </span>
           )}
+          {battleLog && (
+            <button
+              className={`bt-log-btn${logOpen ? ' open' : ''}${viewingHistory ? ' history' : ''}${viewingHistory && isMyLiveTurn ? ' urgent' : ''}`}
+              onClick={toggleLog}
+            >
+              Журнал{viewingHistory ? ` · ход ${historyIndex}` : ''}
+            </button>
+          )}
+          {/* Round number lives on the scoreboard plate itself (see
+             MatchScoreBoard's own "N раунд" chip) — repeating it here too
+             just fought with it for the same piece of information. */}
+          {matchScore && <MatchScoreBoard {...matchScore} />}
         </div>
+      </div>
 
-        {gameResult && (
-          <div className={`result-banner${resultOutcome ? ` result-banner-${resultOutcome}` : ''}`}>
-            <span className="result-icon">{RESULT_ICON[gameResult.type] ?? '½'}</span>
+      {/* Floating, not in flow (see .result-inline in App.css) — this only
+         ever shows on RoundSummary, never live battle, so if it took flex
+         space here .bt-main would get a different amount of room on the
+         two screens and the board would visibly be a different size
+         between them. Floating keeps the board's own math byte-for-byte
+         identical either way. */}
+      {gameResult && resultMode === 'inline' && (
+        <div className="result-inline">
+          <span className="result-icon small">{RESULT_ICON[gameResult.type] ?? '½'}</span>
+          <div className="result-inline-text">
             <p className="result-title">{resultTitle ?? RESULT_TEXT[gameResult.type]?.(gameResult)}</p>
-            <button className="restart-btn" onClick={onRestart}>{restartLabel ?? 'Новая игра'}</button>
+            {matchScore && (
+              <p className="result-sub">Счёт матча {matchScore.white} : {matchScore.black}</p>
+            )}
           </div>
-        )}
+          <button className="restart-btn" onClick={onRestart}>{restartLabel ?? 'Новая игра'}</button>
+        </div>
+      )}
 
-        <div className="board-area">
+      <PlayerPanel
+        {...topPanel}
+        timeSeconds={gameState.timers?.[topPanel.color]}
+        turnStartedAt={gameState.turnStartedAt}
+        ticking={!gameResult && gameState.turn === topPanel.color}
+        analysisSeconds={gameState.analysisSeconds}
+        hasAnalysisLeft={hasAnalysisLeft(topPanel.color)}
+      />
+
+      <div className="bt-main">
+        <span className="bt-main-spacer" />
+
+        <div className="bt-board-col">
           <Board
+            fluid
             gameState={displayGameState}
             playerColor={effectivePlayerColor}
             skin="default"
@@ -171,7 +208,8 @@ export default function GameView({
               historyIndex={historyIndex}
               onSelect={onSelectHistory}
               onReturnToLive={onReturnToLive}
-              onClose={() => setLogOpen(false)}
+              onClose={toggleLog}
+              closing={logClosing}
               isMyLiveTurn={isMyLiveTurn}
             />
           )}
@@ -190,27 +228,39 @@ export default function GameView({
               </span>
             </div>
           )}
-
         </div>
 
-        <div className="player-section">
-          <CardHand
-            cards={bottomHand.cards}
-            isActive={bottomHand.isActive && !viewingHistory}
-            selectedCardId={bottomHand.selectedCardId}
-            onCardClick={viewingHistory ? undefined : bottomHand.onCardClick}
-          />
-          <PlayerPanel
-            {...bottomPanel}
-            timeSeconds={gameState.timers?.[bottomPanel.color]}
-            turnStartedAt={gameState.turnStartedAt}
-            ticking={!gameResult && gameState.turn === bottomPanel.color}
-            analysisSeconds={gameState.analysisSeconds}
-            hasAnalysisLeft={hasAnalysisLeft(bottomPanel.color)}
-          />
-        </div>
-
+        <CardHand
+          cards={bottomHand.cards}
+          isActive={bottomHand.isActive && !viewingHistory}
+          selectedCardId={bottomHand.selectedCardId}
+          onCardClick={viewingHistory ? undefined : bottomHand.onCardClick}
+        />
       </div>
+
+      <PlayerPanel
+        {...bottomPanel}
+        timeSeconds={gameState.timers?.[bottomPanel.color]}
+        turnStartedAt={gameState.turnStartedAt}
+        ticking={!gameResult && gameState.turn === bottomPanel.color}
+        analysisSeconds={gameState.analysisSeconds}
+        hasAnalysisLeft={hasAnalysisLeft(bottomPanel.color)}
+      />
+
+      {gameResult && resultMode === 'modal' && (
+        <div className="result-overlay">
+          <div className="result-banner">
+            <span className="result-icon">{RESULT_ICON[gameResult.type] ?? '½'}</span>
+            <p className="result-title">{resultTitle ?? RESULT_TEXT[gameResult.type]?.(gameResult)}</p>
+            {matchScore && (
+              <p className="result-sub">
+                Раунд {matchScore.round} — счёт матча {matchScore.white} : {matchScore.black}
+              </p>
+            )}
+            <button className="restart-btn" onClick={onRestart}>{restartLabel ?? 'Новая игра'}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

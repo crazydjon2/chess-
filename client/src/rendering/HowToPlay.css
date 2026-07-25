@@ -1,334 +1,449 @@
+/* Same modal shell as PatchNotes.css (cream card, thick outline, chunky
+   shadow) — this one just holds a lot more content, so header/tabs stay
+   fixed and only .htp-content scrolls. */
 .htp-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  z-index: 400;
+  background: rgba(6,10,7,0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 400;
-  padding: 20px;
+  padding: 24px;
 }
 
 .htp-card {
-  position: relative;
-  width: min(720px, 100%);
-  max-height: 88vh;
-  overflow-y: auto;
-  background: #1a1410;
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  padding: 28px 26px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 640px;
+  max-height: 86vh;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 24px;
+  box-shadow: 10px 10px 0 0 #241708, 0 24px 48px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: htp-modal-pop 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
 
-.htp-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(220,200,170,0.7);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 13px;
+@keyframes htp-modal-pop {
+  from { transform: scale(0.92) rotate(-1deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-.htp-close:hover {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
+.htp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 14px;
+  flex-shrink: 0;
 }
 
 .htp-title {
-  font-family: 'Georgia', serif;
-  font-size: 1.7rem;
-  font-weight: bold;
-  color: #e8d5a3;
-  text-align: center;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #241708;
+  line-height: 1;
 }
 
-.htp-subtitle {
-  font-size: 12px;
-  color: rgba(200,180,140,0.6);
-  text-align: center;
-  margin-top: 4px;
-  margin-bottom: 18px;
+.htp-close {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d4302f;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
 }
+
+.htp-close:hover  { transform: scale(1.08); }
+.htp-close:active { transform: scale(0.96); }
 
 /* ── Tabs ─────────────────────────────────────────────────────────── */
 .htp-tabs {
   display: flex;
-  justify-content: center;
   gap: 8px;
-  margin-bottom: 20px;
+  padding: 0 24px 16px;
+  border-bottom: 3px solid #241708;
+  flex-shrink: 0;
 }
 
 .htp-tab {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(200,180,140,0.6);
-  border-radius: 8px;
-  padding: 7px 16px;
-  font-size: 12px;
-  font-weight: 800;
+  flex: 1;
+  text-align: center;
+  padding: 10px 8px;
+  border: 3px solid #241708;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  background: #efe8d6;
+  color: #8a7658;
+  transition: transform 0.1s ease;
 }
 
-.htp-tab:hover {
-  background: rgba(255,255,255,0.08);
-  color: rgba(230,215,190,0.85);
-}
+.htp-tab:hover:not(.active) { background: #e6ddc8; }
+.htp-tab:active { transform: translateY(1px); }
 
 .htp-tab.active {
-  background: rgba(232,201,106,0.14);
-  border-color: rgba(232,201,106,0.5);
-  color: #e8c96a;
+  background: #f0b429;
+  color: #241708;
+  box-shadow: 0 4px 0 0 #241708;
+  transform: translateY(-2px);
 }
 
+.htp-content {
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.htp-content::-webkit-scrollbar { width: 10px; }
+.htp-content::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.htp-content::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; border: 2px solid #e6ddc8; }
+
+/* ── General tab — numbered steps ────────────────────────────────────── */
 .htp-steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .htp-step {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 14px 12px;
-  text-align: center;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
 }
 
-.htp-diagram {
+.htp-step-icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.htp-step-number {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #241708;
+  color: #fdf6e8;
+  border: 2px solid #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  height: 74px;
   justify-content: center;
 }
 
-/* ── Draft mockup ─────────────────────────────────────────────────── */
-.htp-draft-pool {
+.htp-step-icon {
+  width: 64px;
+  height: 56px;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  position: relative;
+}
+
+.htp-step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.htp-step-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #241708;
+  margin-bottom: 4px;
+}
+
+.htp-step-desc {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #4a3f30;
+  line-height: 1.6;
+}
+
+/* Step 1 — draft: two "cards" + a coin badge. */
+.htp-step-icon-draft {
+  background: #efe8d6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.htp-mini-card {
+  width: 16px;
+  height: 22px;
+  border-radius: 3px;
+  background: #fdf6e8;
+  border: 2.5px solid;
+}
+
+.htp-mini-card.gold { border-color: #f0b429; }
+.htp-mini-card.red  { border-color: #d4302f; }
+
+.htp-mini-coin {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe27a, #f0b429 60%, #b9791a 100%);
+  border: 2px solid #6b4a10;
+}
+
+/* Steps 2 & 3 — a checkerboard "board" background, shared look. */
+.htp-checker {
+  overflow: hidden;
+  background-color: #dcd3b8;
+  background-image: repeating-conic-gradient(#c9bc9c 0% 25%, #dcd3b8 0% 50%);
+  background-size: 14px 14px;
+}
+
+.htp-hidden-half {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  background: rgba(36,23,8,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.htp-piece-dots {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.htp-piece-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #241708;
+}
+
+.htp-battle-piece {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.htp-battle-piece.dark {
+  top: 14px; left: 14px;
+  width: 10px; height: 10px;
+  background: #241708;
+}
+
+.htp-battle-piece.cream {
+  top: 4px; right: 4px;
+  width: 14px; height: 14px;
+  background: #fdf6e8;
+  border: 2px solid #241708;
+}
+
+.htp-battle-move {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(240,180,41,0.85);
+  border: 2px solid #6b4a10;
+}
+
+/* Step 4 — round result: score pips + label. */
+.htp-step-icon-result {
+  background: #efe8d6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.htp-score-pips {
   display: flex;
   gap: 4px;
 }
 
-.htp-draft-tile {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  border-radius: 5px;
-  background: rgba(255,255,255,0.06);
-  border: 1.5px solid rgba(255,255,255,0.14);
-  color: rgba(240,220,180,0.9);
-}
-
-.htp-draft-tile.card {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-/* Just bought by you (gold) / by the opponent (blue) — the draft is now
-   turn-based and fully visible, so the mockup shows both sides picking
-   live instead of the old hidden-ban mechanic. */
-.htp-draft-tile.picked-mine {
-  border-color: rgba(232,201,106,0.7);
-  background: rgba(232,201,106,0.14);
-}
-
-.htp-draft-tile.picked-opp {
-  border-color: rgba(127,160,224,0.7);
-  background: rgba(127,160,224,0.14);
-}
-
-/* ── Placement mockup ─────────────────────────────────────────────── */
-.htp-placement-badge {
-  font-size: 9px;
-  color: rgba(200,180,140,0.6);
-}
-
-.htp-mini-board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
-  width: 96px;
-}
-
-.htp-mini-cell {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
+.htp-score-pips span {
+  width: 14px;
+  height: 14px;
   border-radius: 3px;
-  background: rgba(255,255,255,0.05);
+  background: #e6ddc8;
+  border: 2px solid #b8a888;
 }
 
-.htp-mini-cell.hidden {
-  color: rgba(200,180,140,0.3);
-  background: rgba(0,0,0,0.25);
-  font-size: 10px;
+.htp-score-pips span.filled {
+  background: #f0b429;
+  border-color: #6b4a10;
 }
 
-.htp-mini-cell.mine { color: #e8c96a; background: rgba(232,201,106,0.08); }
-
-/* ── Battle mockup ────────────────────────────────────────────────── */
-.htp-mini-board.battle {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.htp-mini-cell.empty { background: rgba(255,255,255,0.03); }
-.htp-mini-cell.opp   { color: #93aee0; }
-
-.htp-mini-cell.target-capture {
-  color: #93aee0;
-  box-shadow: inset 0 0 0 2px #c0392b;
-}
-
-.htp-mini-cell.target-move {
-  box-shadow: inset 0 0 0 2px #27ae60;
-}
-
-.htp-battle-coin {
-  font-size: 10px;
-  font-weight: 800;
-  color: #e8c96a;
-}
-
-/* ── Round result mockup ──────────────────────────────────────────── */
-.htp-round-trophy { font-size: 22px; }
-
-.htp-round-score {
+.htp-score-label {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
   font-size: 11px;
-  font-weight: 800;
-  color: rgba(220,200,170,0.8);
-}
-
-.htp-round-reset {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-}
-
-.htp-round-reset-icon  { font-size: 12px; }
-.htp-round-reset-label { font-size: 10px; color: rgba(200,180,140,0.6); }
-
-.htp-step-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #e8c96a;
-  margin-bottom: 6px;
+  color: #241708;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.htp-step-desc {
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: rgba(220,205,180,0.8);
-}
-
+/* ── Spells tab ───────────────────────────────────────────────────── */
 .htp-cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .htp-card-chip {
   display: flex;
-  align-items: center;
   gap: 12px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 10px;
-  padding: 8px 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 3px solid #241708;
+  border-radius: 14px;
+  background: #fdf6e8;
 }
 
 .htp-card-glyph {
-  font-size: 20px;
-  color: var(--accent);
-  width: 26px;
-  text-align: center;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
+  border-radius: 50%;
+  border: 3px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
 }
 
 .htp-card-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 3px;
 }
 
 .htp-card-name {
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(230,220,200,0.95);
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #241708;
 }
 
 .htp-card-desc {
-  font-size: 11px;
-  color: rgba(200,185,160,0.6);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: #5a4f40;
+  line-height: 1.55;
 }
 
 .htp-card-cost {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(220,200,170,0.7);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 10px;
+  padding: 4px 9px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  color: #241708;
 }
 
-/* ── Boards tab: every pattern, grouped by round ─────────────────────── */
+.htp-card-coin {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe27a, #f0b429 60%, #b9791a 100%);
+  border: 1.5px solid #6b4a10;
+}
+
+/* ── Boards tab ───────────────────────────────────────────────────── */
 .htp-boards {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .htp-boards-round-title {
-  font-size: 11px;
-  font-weight: 800;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #8a7658;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(200,180,140,0.5);
+  letter-spacing: 1px;
   margin-bottom: 10px;
 }
 
 .htp-boards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 12px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .htp-board-chip {
+  width: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.htp-board-thumb-wrap {
+  width: 72px;
+  height: 72px;
+  border: 3px solid #241708;
   border-radius: 10px;
-  padding: 12px 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dcd3b8;
 }
 
 .htp-board-name {
-  font-size: 11px;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  color: rgba(230,220,200,0.9);
+  font-size: 12.5px;
+  color: #241708;
   text-align: center;
 }
 
 .htp-board-dims {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
   font-size: 10px;
-  color: rgba(200,180,140,0.5);
+  color: #8a7658;
+  background: #efe8d6;
+  border: 2px solid #b8a888;
+  border-radius: 8px;
+  padding: 2px 8px;
 }

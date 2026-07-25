@@ -1,35 +1,26 @@
 .clock {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   flex-shrink: 0;
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(120,190,255,0.25);
-  border-radius: 7px;
-  padding: 5px 9px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
   font-size: 12px;
-  font-weight: 800;
-  color: rgba(195,225,255,0.9);
+  color: #5a4f40;
   font-variant-numeric: tabular-nums;
   cursor: default;
+  margin-top: 1px;
 }
 
-/* Actively counting down (this side's own turn) — a bit brighter so it
-   reads as "the clock that's actually moving" at a glance. */
+/* Actively counting down (this side's own turn). */
 .clock.ticking {
-  border-color: rgba(120,190,255,0.55);
-  color: #bfe0ff;
+  color: #241708;
 }
 
-/* Under 20s remaining — matches the urgency treatment already used for
-   the meteor/mine warnings and the old moves-timeline. */
-.clock.low {
-  border-color: rgba(220,60,50,0.6);
-  color: #ff9a8a;
-  animation: clock-low-pulse 1s ease-in-out infinite alternate;
+/* Under 20s remaining, on the side whose clock is actually running. */
+.clock.ticking.low {
+  color: #d4302f;
+  animation: clock-low-pulse 1s ease-in-out infinite;
 }
 
 @keyframes clock-low-pulse {
-  from { box-shadow: 0 0 0 rgba(220,60,50,0); }
-  to   { box-shadow: 0 0 10px rgba(220,60,50,0.55); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
 }

@@ -1,10 +1,8 @@
-import { useState } from 'react'
-import Board from './Board'
-import BattleLog from './BattleLog'
+import { useEffect, useState } from 'react'
+import GameView from './GameView'
 import { IDLE } from '../game/boardMode'
-import './RoundSummary.css'
-
-const RESULT_ICON = { checkmate: '♛', elimination: '♛', timeout: '⏱', no_moves: '🔒', surrender: '🏳', draw: '½' }
+import { getCaptured } from '../game/economy'
+import { play } from '../sound'
 
 function resultLine(result) {
   if (!result) return ''
@@ -22,77 +20,86 @@ function resultLine(result) {
   }
 }
 
-// win/loss/draw from the viewer's own perspective — drives the banner's
-// color-coding so "did I just win or lose that round" reads instantly,
-// without having to parse the result text.
+// win/loss/draw from the viewer's own perspective — just picks which
+// RESULT_ICON/headline reads right; GameView's own outcome-agnostic
+// styling handles the rest.
 function outcomeFor(result, viewerColor) {
   if (!result) return 'draw'
   if (result.type === 'draw') return 'draw'
   return result.winner === viewerColor ? 'win' : 'loss'
 }
 
-export default function RoundSummary({ match, previousMyColor, onContinue }) {
+// Reuses GameView wholesale (resultMode="inline") instead of a separate
+// bespoke layout — the whole point is that this screen should look and
+// sit exactly like the battle screen it follows (same trays, same board
+// position/size, same battle log), just frozen on the round's final
+// position with a non-blocking "who/how/why won" banner instead of being
+// interactive. See GameView.jsx's resultMode prop.
+export default function RoundSummary({ match, previousMyColor, room, onContinue }) {
+  const [historyIndex, setHistoryIndex] = useState(null)
+
   const result  = match.lastRoundResult
   const outcome = outcomeFor(result, previousMyColor)
-  const outcomeLabel = { win: 'Вы победили в раунде', loss: 'Вы проиграли раунд', draw: 'Ничья' }[outcome]
 
-  const battleLog = match.previousGameState?.actionLog
-  const [logOpen, setLogOpen] = useState(!!battleLog)
-  const [historyIndex, setHistoryIndex] = useState(null)
-  // The round is over — nothing will move again, so "live" here just means
-  // "the final position" (historyIndex === null), and there's no own-turn
-  // clock to warn about while browsing (see BattleLog's isMyLiveTurn).
-  const displayGameState = historyIndex != null
-    ? { ...match.previousGameState, ...battleLog[historyIndex].snapshot }
-    : match.previousGameState
+  // One jingle as the result banner lands — ascending for a win, two soft
+  // falling notes for a loss (see sound.js). Keyed on previousRound so it
+  // can't replay on re-renders within the same summary.
+  useEffect(() => {
+    if (outcome === 'win') play('win')
+    else if (outcome === 'loss') play('lose')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.previousRound])
+  const outcomeLabel = { win: 'Вы победили в раунде', loss: 'Вы проиграли раунд', draw: 'Ничья' }[outcome]
+  const line = resultLine(result)
+
+  const gameState = match.previousGameState
+  if (!gameState) return null
+
+  const oppColor = previousMyColor === 'white' ? 'black' : 'white'
+  const myCaptured  = getCaptured(gameState, previousMyColor)
+  const oppCaptured = getCaptured(gameState, oppColor)
 
   return (
-    <div className={`rs-screen${logOpen && battleLog ? ' bl-open' : ''}`}>
-      {battleLog && !logOpen && (
-        <button className="bl-toggle" onClick={() => setLogOpen(true)}>📜 Журнал</button>
-      )}
-      <div className="rs-card">
-        <div className={`rs-banner rs-banner-${outcome}`}>
-          <span className="rs-banner-icon">{RESULT_ICON[result?.type] ?? '½'}</span>
-          <div className="rs-banner-text">
-            <div className="rs-banner-headline">{outcomeLabel}</div>
-            <div className="rs-banner-sub">{resultLine(result)}</div>
-          </div>
-        </div>
-
-        <div className="rs-meta">
-          <span>Раунд {match.previousRound} завершён</span>
-          <span className="rs-score">Счёт матча {match.scores.white}&nbsp;:&nbsp;{match.scores.black}</span>
-        </div>
-
-        {match.previousGameState && (
-          <div className="rs-board-wrap">
-            <div className="rs-board-label">
-              {historyIndex != null ? `Ход ${historyIndex}` : 'Как закончился раунд'}
-            </div>
-            <Board
-              gameState={displayGameState}
-              playerColor="none"
-              boardMode={IDLE}
-              dispatch={() => {}}
-              flipped={previousMyColor === 'black'}
-            />
-          </div>
-        )}
-
-        <button className="rs-continue-btn" onClick={onContinue}>Продолжить → Раунд {match.round}</button>
-      </div>
-
-      {logOpen && battleLog && (
-        <BattleLog
-          entries={battleLog}
-          historyIndex={historyIndex}
-          onSelect={setHistoryIndex}
-          onReturnToLive={() => setHistoryIndex(null)}
-          onClose={() => setLogOpen(false)}
-          isMyLiveTurn={false}
-        />
-      )}
-    </div>
+    <GameView
+      gameState={gameState}
+      boardMode={IDLE}
+      dispatch={() => {}}
+      boardFlipped={previousMyColor === 'black'}
+      boardPlayerColor="none"
+      battleLog={gameState.actionLog}
+      historyIndex={historyIndex}
+      onSelectHistory={setHistoryIndex}
+      onReturnToLive={() => setHistoryIndex(null)}
+      gameResult={result}
+      resultMode="inline"
+      resultTitle={`${outcomeLabel}${line ? ' — ' + line : ''}`}
+      restartLabel={`Продолжить → Раунд ${match.round}`}
+      onRestart={onContinue}
+      matchScore={{
+        round: match.previousRound,
+        white: match.scores.white,
+        black: match.scores.black,
+        whiteName: room?.players?.white?.name,
+        blackName: room?.players?.black?.name,
+      }}
+      topPanel={{
+        color: oppColor,
+        name: room?.players?.[oppColor]?.name,
+        capturedByMe: oppCaptured,
+        active: false,
+        coins: gameState.coins?.[oppColor],
+        controllable: false,
+      }}
+      bottomPanel={{
+        color: previousMyColor,
+        name: room?.players?.[previousMyColor]?.name,
+        capturedByMe: myCaptured,
+        active: false,
+        isYou: true,
+        coins: gameState.coins?.[previousMyColor],
+        controllable: false,
+      }}
+      bottomHand={{ cards: [], isActive: false, selectedCardId: null, onCardClick: undefined }}
+    />
   )
 }

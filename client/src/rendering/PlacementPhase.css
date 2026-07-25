@@ -1,239 +1,505 @@
-/* Top-anchored, not centered — the "осталось поставить" tray shrinks with
-   every piece placed, and `justify-content: center` would re-center the
-   whole screen (board included) around every single placement instead of
-   only affecting the tray itself. */
-.placement-screen {
-  min-height: 100vh;
+/* Fixed, full-viewport dashboard — same pattern as DraftPhase.css (no
+   page-level scroll on desktop, each region scrolls itself), with the
+   same mobile fallback to a normal scrolling stacked layout below 700px.
+
+   v2 "stacked" layout: both rosters live in slim horizontal trays pinned
+   above/below the board, instead of wide side columns flanking it — the
+   board gets almost the whole screen. */
+.pl-screen {
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  background: #1a1410;
-  padding: 24px 16px;
   gap: 10px;
+  padding: 18px 24px;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 25%, #2f7d55 0%, #1c5c3c 45%, #123d29 80%, #0c2b1d 100%);
+  background-color: #123d29;
+  box-sizing: border-box;
 }
 
-.placement-title {
-  font-family: 'Georgia', serif;
-  font-size: 1.6rem;
-  font-weight: bold;
-  color: #e8d5a3;
-}
+.pl-screen * { box-sizing: border-box; }
 
-.placement-sub {
-  font-size: 11px;
-  color: rgba(200,180,140,0.5);
-  margin-bottom: 10px;
-}
-
-.placement-layout {
+.pl-header {
+  flex-shrink: 0;
   display: flex;
-  gap: 20px;
   align-items: flex-start;
-}
-
-/* ── Tray of unplaced pieces ──────────────────────────────────────── */
-.placement-tray {
-  width: 160px;
-  background: rgba(26,18,12,0.9);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.placement-tray-title {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(200,180,140,0.5);
-  margin-bottom: 10px;
-}
-
-.placement-tray-items {
-  display: flex;
+  justify-content: space-between;
+  /* Clears the global settings gear's top-right corner (MenuLayout.jsx). */
+  padding-right: 52px;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: 6px;
 }
 
-.placement-tray-empty {
+.pl-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 21px;
+  color: #fdf6e8;
+}
+
+.pl-subtitle {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
   font-size: 11px;
-  color: rgba(200,180,140,0.35);
+  color: #c9ddc9;
+  margin-top: 1px;
 }
 
-.placement-tray-piece {
-  width: 48px;
-  height: 48px;
+/* ── Trays (opponent / mine roster strips) ───────────────────────── */
+.pl-tray {
+  position: relative;
+  flex-shrink: 0;
+  /* Same fixed height as the battle screen's .player-panel (see App.css)
+     so the board area below is IDENTICAL on both screens — placement and
+     battle are meant to read as one continuous screen, and any difference
+     in the top/bottom HUD height was directly shrinking/growing the board
+     between them (the "board jumps going into the game" report). */
+  height: 78px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: #f0d9b5;
-  background: rgba(255,255,255,0.05);
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
-}
-
-.placement-tray-piece:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(232,201,106,0.5);
-}
-
-.placement-tray-piece.selected {
-  border-color: #e8c96a;
-  background: rgba(232,201,106,0.15);
-  box-shadow: 0 0 12px rgba(232,201,106,0.35);
-}
-
-.placement-tray-piece:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.placement-tray-title-cards {
-  margin-top: 14px;
-}
-
-/* Read-only, like the opponent tray's pieces — cards aren't placed, just
-   listed for reference, so no hover-lift/selected affordance. Colored by
-   the card's own accent (same var pattern as DraftPhase's roster chips)
-   instead of the plain gold pieces get, so it reads as "a spell" at a
-   glance rather than another army piece. */
-.placement-tray-piece.card {
-  cursor: default;
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.placement-tray-piece.card:hover {
-  transform: none;
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-/* Deliberately NOT styled like the interactive "yours" tray (that one
-   reads gold/actionable throughout the app — see .placement-tray-piece
-   .selected, .draft-roster.mine, .rs-continue-btn) — this is read-only
-   reference info about the OTHER player, so it gets its own cool, muted
-   accent plus an explicit color swatch in the header, so it can't be
-   mistaken for your own pieces at a glance. */
-.placement-opp-tray {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  background: rgba(20,26,34,0.9);
-  border-color: rgba(120,160,210,0.25);
-  opacity: 0.88;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 0 #241708;
+  padding: 9px 14px;
+  overflow: hidden;
 }
 
-.placement-opp-tray .placement-tray-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(150,180,220,0.75);
+/* The "mine" tray is always the actionable one in setup (no turn-taking
+   here, both sides place at once) — it stays highlighted the whole phase,
+   same treatment the draft screen gives whoever's turn it is. Color + an
+   outer glow ring, never a border-width change — a 5px border here next
+   to the opponent tray's 4px made the two trays visibly different sizes,
+   which is exactly the "uneven HUD spacing" look this was causing. */
+.pl-tray-mine.active {
+  border-color: #f0b429;
+  box-shadow: 5px 5px 0 0 #241708, 0 0 0 3px #f0b429;
 }
 
-.placement-opp-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.pl-tray-edge {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 9px;
+  border-right: 2px solid #241708;
+}
+
+.pl-tray-opp .pl-tray-edge  { background: #2b6fd4; }
+.pl-tray-mine .pl-tray-edge { background: #f0b429; }
+
+.pl-tray-label {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+  margin-left: 6px;
   flex-shrink: 0;
 }
 
-.placement-opp-dot.p-white { background: #f0d9b5; }
-.placement-opp-dot.p-black { background: #3a2c1c; border: 1px solid rgba(255,255,255,0.3); }
-
-.placement-opp-tray .placement-tray-piece {
-  cursor: default;
-  font-size: 24px;
-  color: rgba(200,215,235,0.85);
-  background: rgba(120,160,210,0.06);
-  border-color: rgba(120,160,210,0.18);
+.pl-tray-sub {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  color: #a89a7c;
+  flex-shrink: 0;
 }
 
-.placement-opp-tray .placement-tray-piece:hover {
-  transform: none;
-  border-color: rgba(120,160,210,0.18);
+.pl-tray-divider {
+  align-self: stretch;
+  width: 2px;
+  background: #e6ddc8;
+  flex-shrink: 0;
 }
 
-/* ── Board ────────────────────────────────────────────────────────── */
-.placement-board {
-  display: grid;
-  width: min(560px, 78vw);
-  aspect-ratio: 1;
-  border: 2px solid #120b03;
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+.pl-tray-count {
+  flex-shrink: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 10.5px;
+  border: 2px solid #241708;
+  border-radius: 9px;
+  padding: 3px 9px;
 }
 
-.placement-cell {
+.pl-tray-count.opp  { background: #2b6fd4; color: #fdf6e8; }
+.pl-tray-count.mine { background: #f0b429; color: #241708; }
+
+/* Fade-out mask on the right edge of each scrollable strip — signals
+   there's more to scroll to without needing a visible scrollbar hint. */
+.pl-tray-fade {
   position: relative;
-  border: none;
-  padding: 0;
-  background: #f0d9b5;
-  cursor: default;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.pl-tray-fade.shrink { flex: 0 0 auto; max-width: 220px; }
+
+.pl-tray-fade::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 22px;
+  background: linear-gradient(90deg, rgba(253,246,232,0), rgba(253,246,232,0.95));
+  pointer-events: none;
+}
+
+.pl-tray-chips {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 10px 2px 2px;
+}
+
+.pl-tray-chips::-webkit-scrollbar { height: 7px; }
+.pl-tray-chips::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.pl-tray-chips::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; }
+
+.pl-tray-piece {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.placement-cell.dark { background: #b58863; }
+.pl-tray-piece svg { width: auto; height: 21px; }
 
-.placement-cell.home {
+.pl-tray-cardbadge {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid #241708;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fdf6e8;
+}
+
+/* ── Main: board + the big piece rail beside it ──────────────────────── */
+.pl-main {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  gap: 14px;
+}
+
+/* Matches .pl-piece-rail's width so the board sits truly centered in the
+   row (see the comment on the spacer element in PlacementPhase.jsx). */
+.pl-main-spacer {
+  flex-shrink: 0;
+  width: 120px; /* matches .pl-piece-rail below (and the battle rail) */
+}
+
+.pl-board-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Matches the battle board's .board-scene-wrap vertical padding (see
+     Board.css — padding-top:8px, padding-bottom:16px) so the square ends
+     up the exact same size on both screens. Without this the placement
+     board was 24px taller than the battle board even once the HUD rows
+     were equalized above. */
+  padding: 8px 0 16px;
+}
+
+/* The pieces still waiting to be placed — a vertical rail beside the
+   board, same shape as the real CardHand rail in the battle screen (see
+   Card.css's .card), just for pieces instead of spells. Always a fixed
+   width whether or not it has anything left in it, so the board doesn't
+   shift over as the last few pieces get placed. */
+.pl-piece-rail {
+  flex-shrink: 0;
+  width: 120px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 2px;
+}
+
+.pl-piece-rail::-webkit-scrollbar { width: 6px; }
+.pl-piece-rail::-webkit-scrollbar-track { background: transparent; }
+.pl-piece-rail::-webkit-scrollbar-thumb { background: rgba(253,246,232,0.3); border-radius: 8px; }
+
+.pl-piece-card {
+  position: relative;
+  width: 88px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 6px 10px;
+  border-radius: 14px;
+  border: 3px solid #241708;
+  background: #fdf6e8;
+  box-shadow: 3px 3px 0 0 #241708;
   cursor: pointer;
-  box-shadow: inset 0 0 0 2px rgba(46,204,113,0.55);
+  font: inherit;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.placement-cell.home:hover {
-  box-shadow: inset 0 0 0 2px rgba(46,204,113,0.9);
+.pl-piece-card:hover:not(:disabled) { transform: translateY(-3px); }
+
+.pl-piece-card.selected {
+  transform: translateX(-4px);
+  box-shadow: 0 0 0 2px #241708 inset, 3px 3px 0 0 #241708;
+  background: #fdf1d4;
 }
 
-.placement-cell.blocked {
-  background: rgba(0,0,0,0.55);
+.pl-piece-card:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
-.placement-blocked-x {
-  color: rgba(180,50,35,0.75);
-  font-size: 16px;
+.pl-piece-card-icon {
+  height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.placement-piece-glyph {
-  font-size: clamp(22px, 6vw, 38px);
-  color: #1a1410;
-  filter: drop-shadow(0 1px 1px rgba(255,255,255,0.4));
+.pl-piece-card-icon svg { width: auto; height: 44px; }
+
+.pl-piece-card-name {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #241708;
+  text-align: center;
 }
 
-/* ── Ready / waiting ──────────────────────────────────────────────── */
-/* Sticky (page-level scroll here, no card to dock a bar against — see
-   DraftPhase.css's .draft-pass-btn.confirm for the same treatment) so the
-   ready button is always reachable, even with a big board pushing content
-   below the fold on smaller screens. */
-.placement-ready-btn {
-  position: sticky;
-  bottom: 14px;
-  z-index: 40;
-  margin-top: 8px;
-  background: linear-gradient(135deg, #8a6228, #5c3e14);
-  color: #f0d9b5;
-  border: 1px solid rgba(180,130,60,0.35);
-  padding: 10px 32px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 800;
+.pl-board {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  border: 5px solid #241708;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 8px 8px 0 0 #241708;
+  /* Same cream backing as the live battle board's .board-fluid-surface —
+     this is the one place both boards actually share a single frame, so
+     it has to match exactly, not just visually resemble it. */
+  background: #fdf6e8;
+}
+
+.pl-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: default;
+  background: #e8ddc0;
+  /* Belt-and-suspenders with the grid's minmax(0,1fr) (see
+     PlacementPhase.jsx): never let a placed piece's own size push the cell
+     — and therefore its grid row — larger than its equal share. */
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pl-cell.dark { background: #cabb95; }
+
+/* Holes that shape this board pattern (see boardPatterns.js's
+   blockedCells — the squares a pattern like "Крепость" removes are what
+   make it that pattern instead of an open field). Same treatment as the
+   live battle board's blocked-cell overlay (see VisualLayer.jsx): the
+   normal checker square underneath, a dark plate, and a red X — not a
+   transparent gap. A plain hole here used to just show whatever color
+   .pl-board's own background happened to be, which read as an odd, too-
+   bright patch instead of a deliberate "nothing goes here" marker. */
+.pl-cell-gap {
+  position: relative;
+  background: #e8ddc0;
+}
+
+.pl-cell-gap.dark {
+  background: #cabb95;
+}
+
+.pl-cell-gap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.pl-cell-gap-x {
+  position: absolute;
+  inset: 22%;
+  width: 56%;
+  height: 56%;
+}
+
+/* Plain flat checker square by default — same look as the live battle
+   board, no border/texture until there's actually something to signal
+   (a legal drop target, below). A passive dashed outline on every empty
+   square regardless of whether anything was selected didn't match battle,
+   where highlighting only ever appears for an actionable state. */
+.pl-cell.mine {
   cursor: pointer;
-  box-shadow: 0 8px 26px rgba(0,0,0,0.65);
 }
 
-.placement-ready-btn:disabled {
-  opacity: 0.45;
+.pl-cell.mine:hover {
+  filter: brightness(1.05);
+}
+
+/* A piece from the tray is selected and this is a legal, empty square to
+   drop it on — drawn EXACTLY like the battle board's legal-move frame
+   (VisualLayer.jsx's frame(): a green inset rounded outline, same
+   rgba(46,204,113) MOVE_COLOR), so "here's where this piece can go" is
+   one visual language across setup and battle. A soft opacity pulse on
+   top signals it's waiting for a click, without changing the color. */
+.pl-cell.mine.droppable::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 3px solid rgba(46, 204, 113, 0.85);
+  border-radius: 3px;
+  pointer-events: none;
+  animation: pl-droppable-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pl-droppable-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* No opacity dimming — the live battle board never fades any square
+   regardless of what can/can't happen there, so an empty cell has to look
+   pixel-identical (same LIGHT/DARK checker fill) whether it's yours,
+   the opponent's, or neutral. Only cursor feedback distinguishes zones
+   now; the disabled state (see PlacementPhase.jsx) already blocks the
+   click itself. */
+.pl-cell.opp {
+  cursor: not-allowed;
+}
+
+.pl-cell.neutral {
   cursor: default;
 }
 
-.placement-waiting {
-  margin-top: 8px;
+.pl-cell-icon {
+  width: 78%;
+  height: 78%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 3px 2px rgba(36,23,8,0.35));
+}
+
+.pl-cell-icon svg { width: auto; height: 100%; }
+
+/* ── Submit button (4 states, all inline in the mine tray) ──────────── */
+.pl-submit-btn {
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 9px 20px;
+  border-radius: 12px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
   font-size: 13px;
-  color: rgba(200,180,140,0.6);
+  white-space: nowrap;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.pl-submit-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.pl-submit-btn.incomplete {
+  cursor: not-allowed;
+  background: #e6ddc8;
+  border: 3px solid #b8a888;
+  color: #a89a7c;
+}
+
+.pl-submit-btn.ready {
+  background: #f0b429;
+  border: 3px solid #241708;
+  box-shadow: 0 4px 0 0 #241708;
+  color: #241708;
+}
+
+.pl-submit-btn.ready:hover:not(:active) {
+  transform: translateY(-2px);
+}
+
+.pl-submit-btn.waiting {
+  cursor: default;
+  background: #fdf6e8;
+  border: 3px solid #2b6fd4;
+  color: #241708;
+  animation: pl-pulse 1.6s ease-in-out infinite;
+}
+
+.pl-submit-btn.both {
+  cursor: default;
+  background: #f0b429;
+  border: 3px solid #241708;
+  box-shadow: 0 4px 0 0 #241708;
+  color: #241708;
+}
+
+@keyframes pl-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+@media (max-width: 700px) {
+  .pl-screen {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .pl-tray {
+    flex-wrap: wrap;
+    height: auto; /* see .player-panel mobile note in App.css */
+  }
+
+  .pl-main {
+    flex-direction: column;
+  }
+
+  .pl-main-spacer {
+    display: none;
+  }
+
+  .pl-board-wrap {
+    min-height: 320px;
+  }
+
+  .pl-piece-rail {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }

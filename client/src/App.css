@@ -1,402 +1,503 @@
-/* ── Mode select (online vs local sandbox) ───────────────────────────── */
-/* Static content (never resizes while shown), so centering here is safe —
-   unlike the draft/placement/battle screens below, there's no dynamic
-   content whose height could change and force a re-center. */
-.mode-select-screen {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  background: #1a1410;
+/* ── Sandbox chrome ───────────────────────────────────────────────────
+   The exit control lives INSIDE GameView's header now (see .bt-back /
+   GameView.jsx's onBack) — the old dark position:fixed button floated
+   directly on top of the "Бой" title. */
+
+/* See SandboxApp.jsx's handleExit — fades the whole screen locally before
+   the real onExit unmounts it, since App.jsx's PageTransition never
+   snapshots this screen for its own exit animation. */
+.sandbox-leaving {
+  animation: sandbox-fade-out 0.18s ease-in both;
+  pointer-events: none;
 }
 
-.mode-select-title {
-  font-family: 'Georgia', serif;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #e8d5a3;
-  letter-spacing: 0.04em;
-  margin-bottom: 8px;
+@keyframes sandbox-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97); }
 }
 
-.mode-select-btn {
-  width: 280px;
-  background: linear-gradient(135deg, #8a6228, #5c3e14);
-  color: #f0d9b5;
-  border: 1px solid rgba(180,130,60,0.35);
-  padding: 14px 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: filter 0.15s, transform 0.1s;
-}
-
-.mode-select-btn:hover  { filter: brightness(1.15); }
-.mode-select-btn:active { transform: scale(0.98); }
-
-.mode-select-btn.sandbox {
-  background: linear-gradient(135deg, #2d6a3e, #1a4527);
-  border-color: rgba(80,200,120,0.35);
-}
-
-.mode-select-hint {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.7;
-  margin-top: 2px;
-}
-
-/* ── "What's new" — deliberately louder than a quiet footer link, so a
-   fresh patch is something you notice, not something you have to go
-   looking for. Purple rather than the gold/green of the two mode buttons —
-   reads as "info", not as a third way to start playing. ─────────────── */
-.mode-select-patchnotes {
-  position: relative;
-  margin-top: 10px;
-  width: 280px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(168,85,247,0.10);
-  border: 1px solid rgba(168,85,247,0.35);
-  color: rgba(220,205,245,0.85);
-  padding: 9px 20px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-
-.mode-select-patchnotes:hover {
-  background: rgba(168,85,247,0.18);
-  border-color: rgba(168,85,247,0.55);
-}
-
-.mode-select-patchnotes:active {
-  transform: scale(0.98);
-}
-
-.mode-select-patchnotes.unseen {
-  border-color: rgba(168,85,247,0.7);
-  box-shadow: 0 0 0 rgba(168,85,247,0.35);
-  animation: patchnotes-glow 1.8s ease-in-out infinite;
-}
-
-@keyframes patchnotes-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(168,85,247,0.25); }
-  50%      { box-shadow: 0 0 18px rgba(168,85,247,0.55); }
-}
-
-.mode-select-patchnotes-glyph {
-  font-size: 14px;
-}
-
-.mode-select-patchnotes-dot {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #f04545;
-  border: 2px solid #1a1410;
-  animation: patchnotes-dot-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes patchnotes-dot-pulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.25); }
-}
-
-/* ── Sandbox chrome ───────────────────────────────────────────────────── */
-.sandbox-exit-btn {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
-  background: rgba(0,0,0,0.4);
-  color: rgba(220,200,170,0.8);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.sandbox-exit-btn:hover {
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-}
-
+/* Same chunky error card the lobby uses (see .po-error) — was a leftover
+   dark-theme translucent chip that matched nothing else on screen. */
 .sandbox-error {
   position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
-  font-size: 12px;
-  color: #ff8a70;
-  background: rgba(200,40,30,0.15);
-  border: 1px solid rgba(200,40,30,0.35);
-  border-radius: 6px;
-  padding: 6px 12px;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  background: #fdf6e8;
+  border: 3px solid #d4302f;
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+  box-shadow: 4px 4px 0 0 #241708;
 }
 
-/* ── Page ──────────────────────────────────────────────────────────── */
-/* `align-items` (this container is a row, so THAT's the vertical/cross
-   axis, not justify-content) is flex-start, not center, on purpose — the
-   battle screen's content height changes constantly (hand size, captured
-   trays, warnings, action toasts), and centering here would re-anchor the
-   WHOLE page around every single one of those changes instead of only
-   shifting what's below. `justify-content: center` (horizontal) is fine to
-   keep — the single .game-scene child's WIDTH doesn't change. */
-.app {
+/* ── Page ──────────────────────────────────────────────────────────────
+   A definite height (not min-height/auto) — the board is fluid now (see
+   Board.css's .board-scene-wrap.fluid: aspect-ratio + flex:1 + height:100%
+   all the way down), and that chain needs a real ancestor height to
+   resolve against. An auto-height container here made the whole thing
+   circular — flex-grow had nothing definite to grow into, so the board
+   collapsed to almost nothing instead of filling the screen. overflow-y
+   stays auto (not hidden) so an unusually tall board pattern still scrolls
+   into view instead of being hard-clipped. */
+.bt-screen {
+  position: relative;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 24px;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 25%, #2f7d55 0%, #1c5c3c 45%, #123d29 80%, #0c2b1d 100%);
+  background-color: #123d29;
+  background-attachment: fixed;
+  box-sizing: border-box;
+}
+
+.bt-screen * { box-sizing: border-box; }
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.bt-header {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  /* Room for the global settings gear (MenuLayout.jsx) in the top-right
+     corner so the scoreboard/log never slide under it. */
+  padding-right: 52px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bt-round {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 21px;
+  color: #fdf6e8;
+}
+
+.bt-banner-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: #c9ddc9;
+  margin-top: 1px;
+}
+
+.bt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Round ← in the header (sandbox exit) — same language as .po-back, sized
+   to sit next to the title without inflating the header row. */
+.bt-back {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  color: #241708;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  min-height: 100svh;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 46%, #14100a 0%, #0a0704 100%);
-  padding: 12px;
-  overflow: auto;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.game-scene {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-}
+.bt-back:hover:not(:active) { transform: translateY(-2px); }
+.bt-back:active { transform: translateY(3px); box-shadow: none; }
 
-/* warm amber glow behind board */
-.game-scene::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  width: 680px;
-  height: 680px;
-  background: radial-gradient(circle, rgba(180,120,40,0.08) 0%, transparent 68%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── Board area ────────────────────────────────────────────────────── */
-.board-area {
-  position: relative;
-  z-index: 1;
-}
-
-/* ── Player sections (panel + card hand) ──────────────────────────── */
-.player-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  width: 100%;
-  max-width: 560px;
-  z-index: 5;
-  position: relative;
-}
-
-/* ── Player panels ─────────────────────────────────────────────────── */
-.player-panel {
+.bt-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Inline in the header, not a floating fixed corner button — a fixed
+   .bl-toggle used to sit directly over the round title/turn text instead
+   of being part of the page at all. Doubles as the "you're viewing
+   history" indicator (.history/.urgent) instead of a separate banner. */
+.bt-log-btn {
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 9px 16px;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+  white-space: nowrap;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.bt-log-btn:hover:not(:active) {
+  transform: translateY(-2px);
+}
+
+.bt-log-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.bt-log-btn.open {
+  background: #f0b429;
+}
+
+.bt-log-btn.history {
+  border-color: #2b6fd4;
+}
+
+.bt-log-btn.urgent {
+  border-color: #f0b429;
+  animation: pp-glow 1.2s ease-in-out infinite;
+}
+
+/* Compact status pills for analysis/meteor/mine warnings — live inline in
+   the header, not a full-width banner with a permanently reserved slot
+   below the top tray. That slot ate real board height on every turn it
+   sat empty (nearly all of them), which was the actual cause of the board
+   looking shrunken — a badge's presence never changes the header's own
+   height, active or not, so removing/adding one never touches the board's
+   size at all. Full wording lives in the title tooltip. */
+.threat-badge {
+  cursor: default;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fdf6e8;
+  border: 2.5px solid #241708;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #241708;
+  white-space: nowrap;
+}
+
+.threat-badge.analysis { border-color: #7c4fd4; }
+.threat-badge.meteor   { border-color: #d4302f; }
+.threat-badge.mine     { border-color: #2b6fd4; }
+
+/* ── Main: spacer + board + your hand rail ───────────────────────── */
+/* align-items: stretch (not center) — the fluid board (see Board.jsx's
+   `fluid` prop / Board.css's .board-scene-wrap.fluid) needs .bt-board-col
+   to actually carry real height down to it, the same way the placement
+   screen's board fills its column; centering here would just leave it
+   sized to content again, right back to the "board looks shrunken"
+   complaint this was built to fix. */
+.bt-main {
+  flex: 1;
+  min-height: 420px;
   width: 100%;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(255,240,210,0.03);
-  border: 1px solid rgba(180,130,60,0.10);
-  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
-  z-index: 5;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 14px;
+  /* Above BOTH player panels (the bottom one is a later DOM sibling, so
+     it painted over the board by default) — an add_cell cell glued onto
+     the board's top/bottom edge extends into the panels' rows, and it
+     must stay fully visible/clickable there rather than sliding half
+     underneath the HUD. */
   position: relative;
+  z-index: 5;
 }
 
-.player-panel.active {
-  background: rgba(255,240,210,0.055);
-  border-color: rgba(200,155,65,0.35);
-  box-shadow: 0 0 16px rgba(180,130,50,0.12);
+.bt-main-spacer {
+  flex-shrink: 0;
+  width: 120px; /* must match .card-hand (CardHand.css) so the board is centred */
 }
 
-.player-panel.is-you {
-  border-color: rgba(180,130,60,0.22);
-}
-
-.player-panel.in-check {
-  border-color: rgba(220,60,40,0.55);
-  box-shadow: 0 0 20px rgba(200,40,30,0.20);
-  animation: panel-check-flash 0.85s ease-in-out infinite alternate;
-}
-
-@keyframes panel-check-flash {
-  from { box-shadow: 0 0 10px rgba(200,40,30,0.14); }
-  to   { box-shadow: 0 0 28px rgba(200,40,30,0.36); }
-}
-
-/* ── Avatar ────────────────────────────────────────────────────────── */
-.player-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+.bt-board-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 19px;
+}
+
+/* ── Trays (opponent / mine player bars) ─────────────────────────── */
+.player-panel {
+  position: relative;
+  flex-shrink: 0;
+  /* Fixed, and shared verbatim with the placement screen's .pl-tray (see
+     PlacementPhase.css) so the board area is identical on both — see that
+     comment for why. Was content-driven (~76px); pinning it removes the
+     last source of board-size drift between placement and battle. */
+  height: 78px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 0 #241708;
+  padding: 9px 14px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+/* Color + an outer glow ring, never a border-width change — changing
+   border-width shifts the box's own size even with border-box (the
+   content stays put, but neighbouring flex siblings still see a
+   different flex-basis), which was quietly resizing the board a couple
+   px every single turn as active toggled between panels. */
+.player-panel.active {
+  border-color: #f0b429;
+  box-shadow: 5px 5px 0 0 #241708, 0 0 0 3px #f0b429;
+}
+
+.player-panel.in-check {
+  border-color: #d4302f;
+  animation: pp-check-flash 0.85s ease-in-out infinite alternate;
+}
+
+@keyframes pp-check-flash {
+  from { box-shadow: 5px 5px 0 0 #241708; }
+  to   { box-shadow: 5px 5px 0 0 #241708, 0 0 0 3px rgba(212,48,47,0.5); }
+}
+
+.pp-edge {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 9px;
+  border-right: 2px solid #241708;
+}
+
+.player-panel.opp .pp-edge  { background: #33302c; }
+.player-panel.mine .pp-edge { background: #f0b429; }
+
+.pp-turn-badge {
+  flex-shrink: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #241708;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 6px;
+  padding: 2px 7px;
+  margin-left: 6px;
+  animation: pp-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes pp-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* ── Avatar ────────────────────────────────────────────────────────── */
+.player-avatar {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
   flex-shrink: 0;
   line-height: 1;
 }
 
-.player-avatar.p-white {
-  background: radial-gradient(circle at 35% 35%, #f5ead8, #c9b08c);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.35);
-  color: #2e1e09;
-  border: 1px solid rgba(180,130,60,0.3);
+.player-panel.opp .player-avatar  { background: #33302c; color: #fdf6e8; }
+.player-panel.mine .player-avatar { background: #f0b429; color: #241708; }
+
+.pp-turn-dot {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: transparent;
 }
 
-.player-avatar.p-black {
-  background: radial-gradient(circle at 35% 35%, #2c2218, #0e0a06);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
-  color: #c9a870;
-  border: 1px solid rgba(100,70,30,0.4);
+.pp-turn-dot.active {
+  background: #f0b429;
+  border: 2px solid #241708;
+  animation: pp-glow 1.4s ease-in-out infinite;
 }
 
 /* ── Player info ───────────────────────────────────────────────────── */
 .player-body {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .player-name-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .player-character {
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(200,180,140,0.55);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 4px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  color: #8a7658;
+  background: #efe8d6;
+  border: 1.5px solid #b8a888;
+  border-radius: 6px;
   padding: 1px 6px;
 }
 
 .player-color-tag {
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 4px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  border-radius: 6px;
   padding: 1px 6px;
-  border: 1px solid rgba(255,255,255,0.1);
 }
 
 .player-color-tag.p-white {
-  color: #1a1410;
-  background: rgba(240,217,181,0.85);
+  color: #241708;
+  background: #f0b429;
 }
 
 .player-color-tag.p-black {
-  color: rgba(240,217,181,0.85);
-  background: rgba(58,44,28,0.85);
+  color: #fdf6e8;
+  background: #241708;
 }
 
 .player-name {
-  font-size: 14px;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  color: rgba(240,220,180,0.82);
-  letter-spacing: 0.03em;
-}
-
-.you-badge {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.10em;
-  color: #1a1410;
-  background: #c9a850;
-  border-radius: 4px;
-  padding: 1px 6px;
+  font-size: 13px;
+  color: #241708;
 }
 
 .check-badge {
-  font-size: 10px;
+  font-family: 'Nunito', sans-serif;
   font-weight: 800;
-  letter-spacing: 0.10em;
-  color: #ff7060;
-  background: rgba(200,40,30,0.16);
-  border: 1px solid rgba(200,40,30,0.38);
-  border-radius: 4px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #fdf6e8;
+  background: #d4302f;
+  border: 2px solid #241708;
+  border-radius: 6px;
   padding: 1px 6px;
 }
 
 .player-captures {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 1px;
-  min-height: 16px;
+  align-items: center;
+  gap: 2px;
+}
+
+.player-captures::-webkit-scrollbar { height: 6px; }
+.player-captures::-webkit-scrollbar-track { background: transparent; }
+.player-captures::-webkit-scrollbar-thumb { background: #e6ddc8; border-radius: 8px; }
+
+.pp-captures-empty {
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  color: #b8a888;
 }
 
 .cap-glyph {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
-  opacity: 0.65;
+  color: #8a7658;
+  flex-shrink: 0;
+}
+
+.pp-divider {
+  align-self: stretch;
+  width: 2px;
+  background: #e6ddc8;
+  flex-shrink: 0;
 }
 
 /* ── Coin badge (informational — spent in next round's draft) ───────── */
 .coin-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(230,200,100,0.20);
-  border-radius: 7px;
-  padding: 5px 9px;
-  font-size: 12px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 9px;
+  padding: 3px 9px;
+  font-family: 'Nunito', sans-serif;
   font-weight: 800;
-  color: #e8c96a;
+  font-size: 11px;
+  color: #241708;
   font-variant-numeric: tabular-nums;
   cursor: default;
 }
 
+.pp-coin {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffe27a;
+  border: 1.5px solid #6b4a10;
+  flex-shrink: 0;
+}
+
 /* ── Surrender button ─────────────────────────────────────────────── */
 .surrender-btn {
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(200,80,60,0.25);
-  border-radius: 7px;
-  padding: 5px 9px;
-  font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s ease;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #d4302f;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: filter 0.15s ease, transform 0.1s ease;
 }
 
 .surrender-btn:hover {
-  border-color: rgba(220,90,70,0.6);
-  background: rgba(200,60,40,0.15);
-  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.surrender-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
 /* ── Bo3 match scoreboard ─────────────────────────────────────────── */
 .match-scoreboard {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(0,0,0,0.24);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 5px 14px;
+  gap: 10px;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 13px;
+  box-shadow: 4px 4px 0 0 #241708;
+  padding: 6px 14px;
 }
 
 .msb-side {
@@ -406,11 +507,10 @@
 }
 
 .msb-label {
-  font-size: 10px;
+  font-family: 'Nunito', sans-serif;
   font-weight: 800;
-  letter-spacing: 0.03em;
-  color: rgba(200,180,140,0.55);
-  text-transform: uppercase;
+  font-size: 10px;
+  color: #5a4f40;
   max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -426,20 +526,18 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.18);
+  background: #efe8d6;
+  border: 1.5px solid #b8a888;
 }
 
 .msb-white .msb-dot.filled {
-  background: #e8c96a;
-  border-color: #e8c96a;
-  box-shadow: 0 0 6px rgba(232,201,106,0.6);
+  background: #f0b429;
+  border-color: #241708;
 }
 
 .msb-black .msb-dot.filled {
-  background: #7fa0e0;
-  border-color: #7fa0e0;
-  box-shadow: 0 0 6px rgba(127,160,224,0.6);
+  background: #2b6fd4;
+  border-color: #241708;
 }
 
 .msb-center {
@@ -447,92 +545,29 @@
   flex-direction: column;
   align-items: center;
   line-height: 1;
-  padding: 0 6px;
-  border-left: 1px solid rgba(255,255,255,0.1);
-  border-right: 1px solid rgba(255,255,255,0.1);
+  padding: 0 8px;
+  border-left: 2px solid #e6ddc8;
+  border-right: 2px solid #e6ddc8;
 }
 
 .msb-round-num {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
   font-size: 15px;
-  font-weight: 900;
-  color: #e8d5a3;
+  color: #241708;
 }
 
 .msb-round-label {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
   font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(200,180,140,0.5);
+  letter-spacing: 0.5px;
+  color: #8a7658;
   margin-top: 1px;
 }
 
-
-/* ── Turn bar (persistent, unmissable) ───────────────────────────── */
-.turn-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 5px 16px;
-  border-radius: 20px;
-  background: rgba(0,0,0,0.28);
-  border: 1px solid rgba(255,255,255,0.08);
-  z-index: 2;
-}
-
-.turn-bar.urgent {
-  border-color: rgba(230,200,100,0.45);
-  background: rgba(230,200,100,0.08);
-  box-shadow: 0 0 16px rgba(230,200,100,0.18);
-  animation: turn-bar-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes turn-bar-pulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(230,200,100,0.12); }
-  50%      { box-shadow: 0 0 22px rgba(230,200,100,0.30); }
-}
-
-.turn-bar-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.turn-bar-dot.p-white {
-  background: radial-gradient(circle at 35% 35%, #f5ead8, #c9b08c);
-  box-shadow: 0 0 6px rgba(240,220,180,0.5);
-}
-
-.turn-bar-dot.p-black {
-  background: radial-gradient(circle at 35% 35%, #2c2218, #0e0a06);
-  border: 1px solid rgba(255,255,255,0.25);
-}
-
-.turn-bar-text {
-  font-size: 13px;
-  font-weight: 800;
-  color: rgba(240,220,180,0.88);
-  letter-spacing: 0.02em;
-}
-
-.turn-bar-sub {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: rgba(200,180,140,0.55);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.05);
-}
-
-.turn-bar-sub.mine {
-  color: #1a1410;
-  background: #e8c96a;
-}
-
-/* ── Action toast (card played / bought) ─────────────────────────── */
+/* ── Action toast (card played) ──────────────────────────────────── */
 .action-toast {
   position: absolute;
   top: -14px;
@@ -542,13 +577,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(160deg, #241a10 0%, #140d05 100%);
-  border: 1.5px solid var(--accent);
-  border-radius: 10px;
+  background: #fdf6e8;
+  border: 3px solid var(--accent);
+  border-radius: 12px;
   padding: 7px 14px;
-  box-shadow:
-    0 10px 26px rgba(0,0,0,0.7),
-    0 0 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 4px 4px 0 0 #241708;
   pointer-events: none;
   animation: action-toast-anim 2s cubic-bezier(0.22,1,0.36,1) forwards;
   white-space: nowrap;
@@ -564,22 +597,17 @@
 .toast-glyph {
   font-size: 17px;
   color: var(--accent);
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .toast-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
   font-size: 12px;
-  color: rgba(220,200,170,0.90);
+  color: #241708;
 }
 
 .toast-text b {
-  color: rgba(240,220,180,0.98);
-}
-
-.toast-cost {
-  font-size: 11px;
   font-weight: 800;
-  color: #e8c96a;
 }
 
 /* ── Opponent-left banner (online mode) ──────────────────────────── */
@@ -592,62 +620,58 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: linear-gradient(160deg, #2a1c0f 0%, #150d05 100%);
-  border: 1.5px solid rgba(220,60,40,0.45);
-  border-radius: 10px;
+  background: #fdf6e8;
+  border: 3px solid #d4302f;
+  border-radius: 14px;
   padding: 10px 16px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
   font-size: 13px;
-  color: rgba(240,220,180,0.92);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+  color: #241708;
+  box-shadow: 5px 5px 0 0 #241708;
 }
 
 .opponent-left-banner button {
-  background: rgba(220,60,40,0.18);
-  border: 1px solid rgba(220,60,40,0.4);
-  color: #ff8a70;
-  border-radius: 6px;
-  padding: 5px 12px;
+  background: #d4302f;
+  border: 2px solid #241708;
+  color: #fdf6e8;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
 
-/* ── Active turn dot ───────────────────────────────────────────────── */
-.turn-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #c9a850;
-  flex-shrink: 0;
-  animation: dot-pulse 1.3s ease-in-out infinite alternate;
-}
-
-@keyframes dot-pulse {
-  from { opacity: 0.55; box-shadow: 0 0 4px #c9a850; }
-  to   { opacity: 1.00; box-shadow: 0 0 12px #c9a850; }
-}
-
-/* ── Game-over banner ─────────────────────────────────────────────────
-   Sits in normal flow between the turn bar and the board — never covers
-   any board cell, so the final position (pieces, moves-remaining
-   timeline, captured pieces, coins) stays fully visible underneath, e.g.
-   to check exactly what the board looked like when a round ended. */
-.result-banner {
+/* ── Result overlay ────────────────────────────────────────────────
+   A real modal now (fixed, full-screen backdrop) instead of sitting in
+   flow — the final board position is still one click away underneath
+   (Новая игра/leave dismisses it), it just doesn't have to share the
+   screen with the result card at the same time any more. */
+.result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(6,10,7,0.72);
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 12px 18px;
-  max-width: min(92vw, 480px);
-  background: linear-gradient(160deg, rgba(30,22,9,0.97), rgba(16,13,5,0.97));
-  border: 2px solid rgba(180,130,60,0.45);
-  border-radius: 14px;
-  padding: 14px 24px;
+  padding: 16px;
+}
+
+.result-banner {
+  width: 380px;
+  max-width: 100%;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 24px;
+  box-shadow: 10px 10px 0 0 #241708;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   text-align: center;
-  box-shadow:
-    0 12px 40px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(220,180,90,0.08);
   animation: result-banner-in 0.35s ease-out;
 }
 
@@ -656,115 +680,112 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.result-banner-win  { border-color: rgba(80,220,120,0.65); box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(80,220,120,0.25), inset 0 1px 0 rgba(220,180,90,0.08); }
-.result-banner-loss { border-color: rgba(230,90,80,0.65);  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(230,90,80,0.25),  inset 0 1px 0 rgba(220,180,90,0.08); }
-.result-banner-draw { border-color: rgba(220,180,90,0.65); }
-
 .result-icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: #f0b429;
+  border: 4px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 34px;
   line-height: 1;
-  filter: drop-shadow(0 2px 8px rgba(180,120,30,0.4));
 }
 
 .result-title {
   margin: 0;
-  font-size: 16px;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 800;
-  color: rgba(240,220,180,0.95);
-  letter-spacing: 0.02em;
+  font-size: 22px;
+  color: #241708;
+}
+
+.result-sub {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #5a4f40;
+}
+
+/* Round-over (match continues) — see GameView.jsx's resultMode='inline'.
+   Floating, not in normal flow — this only ever renders on RoundSummary,
+   never live battle, so giving it flex space here would make .bt-main (and
+   so the board) a different size on the two screens. Anchored just under
+   the header, over the top of the frozen recap rather than the board
+   itself — the round's already decided, nothing there needs live
+   interaction the way an in-progress meteor/mine warning would. */
+.result-inline {
+  position: absolute;
+  top: 86px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 45;
+  width: min(560px, calc(100% - 48px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 0 #241708;
+  padding: 12px 18px;
+  animation: result-banner-in 0.3s ease-out;
+}
+
+.result-icon.small {
+  width: 46px;
+  height: 46px;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.result-inline-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-inline-text .result-title { font-size: 16px; text-align: left; }
+.result-inline-text .result-sub   { text-align: left; margin-top: 2px; }
+
+.result-inline .restart-btn {
+  margin-top: 0;
+  flex-shrink: 0;
+  padding: 11px 22px;
+  font-size: 13px;
 }
 
 .restart-btn {
-  background: linear-gradient(135deg, #8a6228, #5c3e14);
-  color: #f0d9b5;
-  border: 1px solid rgba(180,130,60,0.35);
-  padding: 7px 18px;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
   cursor: pointer;
-  transition: filter 0.15s, transform 0.1s;
-  white-space: nowrap;
-}
-
-.restart-btn:hover  { filter: brightness(1.20); }
-.restart-btn:active { transform: scale(0.97); }
-
-/* ── Analysis-banner slot (see GameView.jsx) ──────────────────────────
-   Same reserved-height trick as .threat-warnings below, for the same
-   reason: AnalysisBanner mounts/unmounts itself once per color per round. */
-.analysis-banner-slot {
-  min-height: 32px;
-  display: flex;
-  justify-content: center;
-}
-
-/* ── Threat-warnings slot (see GameView.jsx) ──────────────────────────
-   Reserves a stable min-height for the meteor/mine warnings below,
-   whether either is currently showing or not — a meteor/mine gets armed
-   and resolved many times over a match, and without this the board (a
-   sibling further down in .game-scene's flex column) would visibly jump
-   up and down every single time. Sized for one banner's typical height
-   (~34px, from .meteor-warning's own padding/font/border); the rarer
-   case of BOTH showing at once still shifts things a bit — a smaller,
-   less frequent jump than the 0-vs-1 case this primarily targets. */
-.threat-warnings {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-}
-
-/* ── Incoming meteor warning (location unknown — see GameView.jsx) ──── */
-.meteor-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(92vw, 440px);
-  background: linear-gradient(160deg, rgba(120,45,10,0.55), rgba(60,20,5,0.55));
-  border: 1.5px solid rgba(255,140,60,0.5);
-  border-radius: 10px;
-  padding: 7px 16px;
-  font-size: 12px;
+  margin-top: 8px;
+  padding: 13px 30px;
+  background: #f0b429;
+  border: 3px solid #241708;
+  border-radius: 14px;
+  box-shadow: 0 5px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  color: rgba(255,210,180,0.95);
-  text-align: center;
-  animation: meteor-warning-pulse 1.6s ease-in-out infinite alternate;
+  font-size: 15px;
+  color: #241708;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-@keyframes meteor-warning-pulse {
-  from { box-shadow: 0 0 0 rgba(255,140,60,0); }
-  to   { box-shadow: 0 0 16px rgba(255,140,60,0.45); }
+.restart-btn:hover:not(:active) {
+  transform: translateY(-2px);
 }
 
-.meteor-warning-icon {
-  font-size: 16px;
+.restart-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
-/* ── Incoming freeze mine warning (location unknown — see GameView.jsx) ── */
-.mine-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(92vw, 440px);
-  background: linear-gradient(160deg, rgba(20,60,110,0.55), rgba(10,30,60,0.55));
-  border: 1.5px solid rgba(120,190,255,0.5);
-  border-radius: 10px;
-  padding: 7px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(195,225,255,0.95);
-  text-align: center;
-  animation: mine-warning-pulse 1.6s ease-in-out infinite alternate;
-}
-
-@keyframes mine-warning-pulse {
-  from { box-shadow: 0 0 0 rgba(120,190,255,0); }
-  to   { box-shadow: 0 0 16px rgba(120,190,255,0.45); }
-}
-
-.mine-warning-icon {
-  font-size: 16px;
+@media (max-width: 700px) {
+  .bt-header { justify-content: flex-start; }
+  .bt-main { flex-direction: column; }
+  .bt-main-spacer { display: none; }
+  .card-hand { flex-direction: row; width: 100%; height: auto; max-height: 140px; }
+  /* Auto height on mobile — the fixed 78px (which keeps the board the same
+     size as placement on desktop) would clip wrapped panel content here. */
+  .player-panel { flex-wrap: wrap; height: auto; }
 }

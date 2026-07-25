@@ -34,7 +34,7 @@ const CHEAPEST_PIECE_COST = shopPieceCost('pawn')
 // round. Test plan: playtest a few matches: if wide-pawn-wall or
 // stacked-card builds still dominate, raise the step; if pawns feel
 // unaffordable in any real number, lower it.
-const DUPLICATE_STEP = 1
+export const DUPLICATE_STEP = 1
 
 export function targetKey(target) {
   return target.kind === 'piece' ? `piece:${target.pieceType}` : `card:${target.cardId}`

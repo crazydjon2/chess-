@@ -2,6 +2,11 @@ import OpponentHand from './OpponentHand'
 import Clock from './Clock'
 import { PIECE_GLYPHS, CAPTURE_ORDER } from '../game/economy'
 
+// One horizontal tray — opponent pinned above the board, yours pinned
+// below (see GameView.jsx's .bt-tray-opp / .bt-tray-mine). `isYou` drives
+// the "mine vs opponent" gold/dark accent that stays fixed all match even
+// though the actual piece `color` swaps every round (see matchEngine.js) —
+// the same convention the draft/placement trays use for their own bars.
 export default function PlayerPanel({
   color, capturedByMe, active, inCheck, isYou,
   opponentCards, selectedCardId, onCardClick,
@@ -23,50 +28,68 @@ export default function PlayerPanel({
   const sorted = [...capturedByMe].sort((a, b) => CAPTURE_ORDER.indexOf(a) - CAPTURE_ORDER.indexOf(b))
 
   return (
-    <div className={`player-panel ${active ? 'active' : ''} ${inCheck ? 'in-check' : ''} ${isYou ? 'is-you' : ''}`}>
-      <div className={`player-avatar p-${color}`}>
+    <div className={`player-panel ${isYou ? 'mine' : 'opp'}${active ? ' active' : ''}${inCheck ? ' in-check' : ''}`}>
+      <span className="pp-edge" />
+      {active && <span className="pp-turn-badge">ХОДИТ</span>}
+
+      <span className="player-avatar">
         {color === 'white' ? '♔' : '♚'}
-      </div>
+        <span className={`pp-turn-dot${active ? ' active' : ''}`} />
+      </span>
+
       <div className="player-body">
         <div className="player-name-row">
           <span className="player-name">{label}</span>
-          {name && <span className={`player-color-tag p-${color}`}>{colorLabel}</span>}
+          <span className={`player-color-tag p-${color}`}>{colorLabel}</span>
           {characterName && <span className="player-character">{characterName}</span>}
-          {isYou && <span className="you-badge">ВЫ</span>}
           {inCheck && <span className="check-badge">ШАХ</span>}
         </div>
-        <div className="player-captures">
-          {sorted.map((type, i) => (
-            <span key={i} className="cap-glyph">{glyphs[type]}</span>
-          ))}
-        </div>
-      </div>
-      {coins != null && (
-        <span className="coin-badge" title="Стоимость срубленных фигур в этом раунде">
-          🪙 {coins}
-        </span>
-      )}
-      <Clock
-        baseSeconds={timeSeconds}
-        turnStartedAt={turnStartedAt}
-        ticking={ticking}
-        analysisSeconds={analysisSeconds}
-        hasAnalysisLeft={hasAnalysisLeft}
-      />
-      {opponentCards && (
-        <OpponentHand
-          cards={opponentCards}
-          isActive={canControl}
-          selectedCardId={selectedCardId}
-          onCardClick={onCardClick}
+        <Clock
+          baseSeconds={timeSeconds}
+          turnStartedAt={turnStartedAt}
+          ticking={ticking}
+          analysisSeconds={analysisSeconds}
+          hasAnalysisLeft={hasAnalysisLeft}
         />
+      </div>
+
+      {coins != null && (
+        <>
+          <span className="pp-divider" />
+          <span className="coin-badge" title="Неизрасходованный бюджет драфта + стоимость срубленных фигур — пойдёт в бюджет следующего раунда">
+            <span className="pp-coin" />{coins}
+          </span>
+        </>
       )}
+
+      <span className="pp-divider" />
+      <div className="player-captures">
+        {sorted.length === 0 && <span className="pp-captures-empty">—</span>}
+        {sorted.map((type, i) => (
+          <span key={i} className="cap-glyph">{glyphs[type]}</span>
+        ))}
+      </div>
+
+      {opponentCards && (
+        <>
+          <span className="pp-divider" />
+          <OpponentHand
+            cards={opponentCards}
+            isActive={canControl}
+            selectedCardId={selectedCardId}
+            onCardClick={onCardClick}
+          />
+        </>
+      )}
+
       {isYou && onSurrender && (
-        <button className="surrender-btn" onClick={onSurrender} title="Сдаться">
-          🏳
-        </button>
+        <>
+          <span className="pp-divider" />
+          <button className="surrender-btn" onClick={onSurrender} title="Сдаться">
+            🏳
+          </button>
+        </>
       )}
-      {active && <span className="turn-dot" />}
     </div>
   )
 }

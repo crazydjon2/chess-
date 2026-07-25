@@ -32,6 +32,7 @@ export function createRoom(socket, wantedColor, name) {
   const code  = generateCode()
   const room = {
     code,
+    host: color, // the creator — only they can start the match (see handleStartMatch)
     players: {
       [color]: { socketId: socket.id, connected: true, name: sanitizeName(name) },
       [other]: null,
@@ -43,7 +44,7 @@ export function createRoom(socket, wantedColor, name) {
   socket.join(code)
   socket.data.roomCode = code
   socket.data.color = color
-  return { code, color, players: publicPlayers(room) }
+  return { code, color, host: room.host, players: publicPlayers(room) }
 }
 
 export function joinRoom(socket, code, name) {
@@ -55,7 +56,27 @@ export function joinRoom(socket, code, name) {
   socket.join(code)
   socket.data.roomCode = code
   socket.data.color = openColor
-  return { color: openColor, players: publicPlayers(room) }
+  return { color: openColor, host: room.host, players: publicPlayers(room) }
+}
+
+// Tells everyone in the room the current seat state (who's connected, who
+// the host is) WITHOUT starting anything — the lobby uses this to show the
+// "start" button to the host once both seats are filled, instead of the
+// match auto-starting the instant the second player joins (which flashed
+// the waiting screen for a frame before yanking everyone into the draft).
+export function broadcastRoom(io, room) {
+  io.to(room.code).emit('room_update', { code: room.code, host: room.host, players: publicPlayers(room) })
+}
+
+// Only the host, only once both are actually here, only if not already
+// going — the client gates the button the same way, this is the
+// authoritative backstop.
+export function handleStartMatch(io, socket) {
+  const room = getRoom(socket)
+  if (!room || room.match) return
+  if (socket.data.color !== room.host) return
+  if (!bothConnected(room)) return
+  startMatch(io, room)
 }
 
 function getRoom(socket) {
@@ -118,7 +139,11 @@ function redactMines(gameState, viewerColor) {
 // meteor/freeze targets are unconditionally secret from the non-caster,
 // and any other card's target is secret if it falls inside the caster's
 // own fog zone AT THAT TIME (the entry's own snapshot.fogZones, not the
-// current live ones).
+// current live ones). A MOVE entry needs the identical treatment for its
+// own from/to squares — redacting the snapshot's pieces alone still left
+// the move's plain "e2 → e4" text pointing straight at a square smoke_screen
+// was supposed to be hiding, which just told the opponent exactly where the
+// mover's piece was anyway.
 function redactActionLogEntry(entry, viewerColor) {
   const snapshot = {
     ...entry.snapshot,
@@ -126,7 +151,16 @@ function redactActionLogEntry(entry, viewerColor) {
     meteors: redactMeteors(entry.snapshot, viewerColor),
     mines: redactMines(entry.snapshot, viewerColor),
   }
-  if (entry.kind !== 'card' || entry.color === viewerColor) {
+  if (entry.color === viewerColor) {
+    return { ...entry, snapshot }
+  }
+  if (entry.kind === 'move') {
+    const inOwnFog = sq => entry.snapshot.fogZones.some(z => z.owner === entry.color && z.cells.includes(sq))
+    if (!inOwnFog(entry.to) && !inOwnFog(entry.from)) return { ...entry, snapshot }
+    const { from, to, ...rest } = entry
+    return { ...rest, hidden: true, snapshot }
+  }
+  if (entry.kind !== 'card') {
     return { ...entry, snapshot }
   }
   if (entry.cardId === 'meteor' || entry.cardId === 'freeze') {
@@ -143,14 +177,17 @@ function redactActionLog(gameState, viewerColor) {
   return (gameState.actionLog ?? []).map(entry => redactActionLogEntry(entry, viewerColor))
 }
 
-// Same three redactions (pieces/meteors/mines/actionLog) apply to any
-// gameState-shaped object — the live `match.gameState` AND the frozen
-// `match.previousGameState` the round-summary screen shows (see
-// matchEngine.js's applyRoundResult) both carry the exact same secrets and
-// need the exact same treatment; a round having just ended doesn't
-// retroactively make what was hidden during it fair game.
-function redactGameState(gameState, viewerColor) {
-  return gameState && {
+// Same three redactions (pieces/meteors/mines/actionLog) apply to the live
+// `match.gameState`. `match.previousGameState` (the just-finished round the
+// round-summary screen shows — see matchEngine.js's applyRoundResult) gets
+// `revealAll` instead: once a round is over there's no more strategic edge
+// left to protect, and the whole point of the summary is showing "here's
+// what actually happened" — fog-hidden pieces, meteor/mine squares, and
+// battle-log moves/targets all become visible in hindsight.
+function redactGameState(gameState, viewerColor, { revealAll = false } = {}) {
+  if (!gameState) return gameState
+  if (revealAll) return gameState
+  return {
     ...gameState,
     pieces: redactFog(gameState, viewerColor),
     meteors: redactMeteors(gameState, viewerColor),
@@ -184,7 +221,7 @@ function viewFor(room, color) {
   // `other` instead — the color they held when that round's secrets (fog
   // zones, meteors, mines) were actually assigned (mirrors OnlineApp.jsx's
   // `previousMyColor={oppColor}`, the client-side half of this same fix).
-  const previousGameState = redactGameState(match.previousGameState, other)
+  const previousGameState = redactGameState(match.previousGameState, other, { revealAll: true })
   return {
     code: room.code,
     color,
@@ -367,20 +404,47 @@ export function handleSurrender(io, socket) {
   broadcastMatch(io, room, { type: 'surrender', color })
 }
 
+// A player dropping out of a room that has NO match yet (still in the
+// waiting lobby) is not an "opponent left the game" event — it's just the
+// seat opening back up. Emitting 'opponent_left' for those used to latch a
+// banner flag on the other client that only ever RENDERS on the battle
+// screen, so it sat invisible through the whole lobby and then popped
+// "Соперник покинул игру" the instant a (new, present!) opponent started
+// the game. Lobby departures now free the seat, hand host to whoever's
+// still there, and send only room_update; 'opponent_left' fires solely
+// when a real match is in progress.
+function dropFromLobby(io, room, color) {
+  room.players[color] = null
+  if (!room.players.white && !room.players.black) {
+    clearTurnTimer(room)
+    rooms.delete(room.code)
+    return
+  }
+  if (room.host === color) {
+    room.host = color === 'white' ? 'black' : 'white'
+  }
+  broadcastRoom(io, room)
+}
+
 export function leaveRoom(io, socket) {
   const room = getRoom(socket)
   if (!room) return
   const color = socket.data.color
-  room.players[color] = null
   socket.leave(room.code)
   socket.data.roomCode = null
 
+  if (!room.match) {
+    dropFromLobby(io, room, color)
+    return
+  }
+
+  room.players[color] = null
   if (!room.players.white && !room.players.black) {
     clearTurnTimer(room)
     rooms.delete(room.code)
   } else {
     io.to(room.code).emit('opponent_left')
-    io.to(room.code).emit('room_update', { code: room.code, players: publicPlayers(room) })
+    io.to(room.code).emit('room_update', { code: room.code, host: room.host, players: publicPlayers(room) })
   }
 }
 
@@ -388,7 +452,13 @@ export function handleDisconnect(io, socket) {
   const room = getRoom(socket)
   if (!room) return
   const color = socket.data.color
+
+  if (!room.match) {
+    dropFromLobby(io, room, color)
+    return
+  }
+
   if (room.players[color]) room.players[color].connected = false
   io.to(room.code).emit('opponent_left')
-  io.to(room.code).emit('room_update', { code: room.code, players: publicPlayers(room) })
+  io.to(room.code).emit('room_update', { code: room.code, host: room.host, players: publicPlayers(room) })
 }

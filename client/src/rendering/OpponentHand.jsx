@@ -1,65 +1,31 @@
-import { useState } from 'react'
 import './OpponentHand.css'
 
-// Compact HUD chip embedded in the opponent's PlayerPanel.
-// Chips only show accent color (identity hidden, matching how a real
-// remote opponent's hand would render once multiplayer exists).
-// Click to inspect full card info; click a row to play it on your turn.
+// Cards have been public information since the moment they're drafted
+// (see DraftPhase.jsx — both sides watch each other's army form live), so
+// there's nothing to hide here any more — same glyph-badge-plus-hover-
+// tooltip treatment as the placement screen's opponent tray (see
+// PlacementPhase.jsx's .pl-tray-cardbadge). `isActive` layers a click
+// affordance on top for sandbox mode, where the "opponent" is really just
+// the other side you're also controlling; for a real online opponent it's
+// always false, so the row is purely a glance at what they're holding.
 export default function OpponentHand({ cards, isActive, selectedCardId, onCardClick }) {
-  const [open, setOpen] = useState(false)
   if (!cards) return null
-
-  function handleRowClick(card) {
-    if (!isActive) return
-    onCardClick?.(card)
-    setOpen(false)
-  }
+  if (cards.length === 0) return <span className="opp-hand-empty">—</span>
 
   return (
-    <div className="opp-hand-hud">
-      <button
-        className={`opp-hand-trigger${open ? ' open' : ''}${cards.length === 0 ? ' empty' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        title="Карты соперника"
-      >
-        {cards.length === 0
-          ? <span className="opp-hand-dash">—</span>
-          : cards.map((card, i) => (
-              <span key={`${card.id}-${i}`}
-                className={`opp-card-chip${selectedCardId === card.id ? ' chip-selected' : ''}`}
-                style={{ '--accent': card.accent }} />
-            ))}
-      </button>
-
-      {open && (
-        <>
-          <div className="opp-hand-backdrop" onClick={() => setOpen(false)} />
-          <div className="opp-hand-popover">
-            <div className="opp-hand-popover-title">Карты соперника</div>
-            {cards.length === 0 ? (
-              <div className="opp-hand-popover-empty">Рука пуста</div>
-            ) : (
-              cards.map((card, i) => (
-                <div
-                  key={`${card.id}-${i}`}
-                  className={`opp-hand-popover-row${isActive ? ' playable' : ''}${selectedCardId === card.id ? ' selected' : ''}`}
-                  style={{ '--accent': card.accent }}
-                  onClick={() => handleRowClick(card)}
-                >
-                  <span className="opp-hand-popover-glyph">{card.glyph}</span>
-                  <div className="opp-hand-popover-info">
-                    <span className="opp-hand-popover-name">{card.name}</span>
-                    <span className="opp-hand-popover-desc">{card.desc.replace(/\n/g, ' ')}</span>
-                  </div>
-                </div>
-              ))
-            )}
-            {!isActive && cards.length > 0 && (
-              <div className="opp-hand-popover-hint">Доступно на ходу соперника</div>
-            )}
-          </div>
-        </>
-      )}
+    <div className="opp-hand-row">
+      {cards.map((card, i) => (
+        <button
+          key={`${card.id}-${i}`}
+          className={`opp-hand-badge${selectedCardId === card.id ? ' selected' : ''}`}
+          style={{ background: card.accent }}
+          title={card.name}
+          disabled={!isActive}
+          onClick={() => onCardClick?.(card)}
+        >
+          {card.glyph}
+        </button>
+      ))}
     </div>
   )
 }

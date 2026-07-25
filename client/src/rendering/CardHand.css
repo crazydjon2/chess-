@@ -1,31 +1,25 @@
 .card-hand {
+  flex-shrink: 0;
+  /* Wide enough for the shared GameCard's names to sit on one/two natural
+     lines (matches .bt-main-spacer in App.css so the board stays centred). */
+  width: 120px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: -4px;   /* cards slightly overlap */
-  padding: 8px 20px 2px;
-  min-height: 64px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 6px;
   transition: opacity 0.25s ease, filter 0.25s ease;
 }
 
-.card-hand.empty {
-  min-height: 32px;
-}
+.card-hand::-webkit-scrollbar { width: 6px; }
+.card-hand::-webkit-scrollbar-track { background: transparent; }
+.card-hand::-webkit-scrollbar-thumb { background: rgba(253,246,232,0.3); border-radius: 8px; }
 
 .card-hand:not(.active) {
-  opacity: 0.40;
-  filter: grayscale(0.45);
+  opacity: 0.55;
+  filter: grayscale(0.3);
   pointer-events: none;
-}
-
-.card-wrap {
-  transform-origin: center bottom;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s;
-  flex-shrink: 0;
-  margin: 0 -3px;
-}
-
-.card-wrap:hover:not(.raised) {
-  z-index: 15 !important;
 }

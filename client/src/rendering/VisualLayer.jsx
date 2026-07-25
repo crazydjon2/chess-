@@ -3,8 +3,8 @@ import { getRenderer } from './pieces/registry'
 import { PIECE_GLYPHS } from '../game/economy'
 import './VisualLayer.css'
 
-const LIGHT = '#f0d9b5'
-const DARK  = '#b58863'
+const LIGHT = '#e8ddc0'
+const DARK  = '#cabb95'
 
 const BRACKET_COLOR = 'rgba(230,200,100,0.95)'
 const MOVE_COLOR    = 'rgba(46,204,113,0.85)'  // green — plain move, unambiguous
@@ -66,8 +66,15 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
       const square = squareName(row, col, rows)
       const { x, y } = at(col, rank)
 
+      // shapeRendering="crispEdges" on the checker squares only: without
+      // it, scaling the board down leaves hairline seams between adjacent
+      // rects where the backing shows through. It must NOT go on the whole
+      // SVG (it did, briefly) — that kills anti-aliasing for everything
+      // inside, including the pieces, whose chunky rounded outlines turned
+      // into jagged pixel staircases.
       squares.push(
         <rect key={square} x={x} y={y} width={cellSize} height={cellSize}
+          shapeRendering="crispEdges"
           fill={squareDark(col, rank) ? DARK : LIGHT} />
       )
 
@@ -84,6 +91,19 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
           <line key={`blx2-${square}`} x1={x+cellSize-m} y1={y+m} x2={x+m} y2={y+cellSize-m}
             stroke="rgba(180,50,35,0.80)" strokeWidth={3.5} strokeLinecap="round" />
         )
+        // A blocked hole can still be a live card target (add_cell reopens
+        // holes; smoke/meteor anchor on them) — draw the same dashed
+        // highlight every other target gets, ON TOP of the X plate. This
+        // used to sit after the early-out below, so holes never showed any
+        // "you can play it here" cue at all.
+        if (cardTargetSet.has(square)) {
+          overlays.push(
+            <rect key={`ct-${square}`} x={x+2} y={y+2}
+              width={cellSize-4} height={cellSize-4}
+              fill={CARD_FILL} stroke={CARD_STROKE}
+              strokeWidth={1.8} strokeDasharray="5,3" rx={2} />
+          )
+        }
         continue
       }
 
@@ -148,6 +168,7 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
 
     extraElements.push(
       <rect key={`ex-${sq}`} x={x} y={y} width={cellSize} height={cellSize}
+        shapeRendering="crispEdges"
         fill={squareDark(col, rank) ? DARK : LIGHT} />
     )
     if (sq === highlights.selected) {
@@ -480,10 +501,8 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
   return (
     <svg
       className="visual-layer"
-      width={width}
-      height={height}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ position:'absolute', top:0, left:0, pointerEvents:'none', overflow:'visible' }}
+      style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', pointerEvents:'none', overflow:'visible' }}
     >
       <defs><Defs /></defs>
       {squares}

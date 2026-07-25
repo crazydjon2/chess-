@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { CARD_DEFS } from '../game/cards'
-import { PIECE_GLYPHS } from '../game/economy'
 import { BOARD_PATTERNS } from '../game/boardPatterns'
 import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, ANALYSIS_TIME_SECONDS } from '../game/draftPools'
 import BoardThumbnail from './BoardThumbnail'
@@ -11,97 +10,74 @@ import './HowToPlay.css'
 const CLOCK_MINUTES = [1, 2, 3].map(r => Math.round(TIME_LIMIT_BY_ROUND[r] / 60)).join('/')
 const CLOCK_INCREMENT = [1, 2, 3].map(r => TIME_INCREMENT_BY_ROUND[r]).join('/')
 
-// Miniature mockups of each phase's actual screen — small CSS/glyph
-// illustrations rather than plain emoji, so a player can recognize the real
-// UI when they get there instead of just reading a description.
-
-function DraftDiagram() {
+// Generic, hand-drawn step icons (not tied to live game state) — same
+// felt-card visual language as MainMenu/PatchNotes. Real content (card
+// list, board list) still reads straight off the game's own data below;
+// only these four illustrate a fixed idea and never go stale.
+function DraftIcon() {
   return (
-    <div className="htp-diagram htp-diagram-draft">
-      <div className="htp-draft-pool">
-        <span className="htp-draft-tile piece picked-mine">{PIECE_GLYPHS.white.pawn}</span>
-        <span className="htp-draft-tile piece">{PIECE_GLYPHS.white.queen}</span>
-        <span className="htp-draft-tile piece picked-opp">{PIECE_GLYPHS.white.knight}</span>
-        <span className="htp-draft-tile card" style={{ '--accent': '#d35400' }}>☄</span>
-        <span className="htp-draft-tile card picked-mine" style={{ '--accent': '#2980b9' }}>❄</span>
+    <div className="htp-step-icon htp-step-icon-draft">
+      <span className="htp-mini-card gold" />
+      <span className="htp-mini-card red" />
+      <span className="htp-mini-coin" />
+    </div>
+  )
+}
+
+function PlacementIcon() {
+  return (
+    <div className="htp-step-icon htp-checker">
+      <div className="htp-hidden-half">?</div>
+      <div className="htp-piece-dots">
+        <span /><span /><span /><span />
       </div>
     </div>
   )
 }
 
-function PlacementDiagram() {
-  const hiddenRow = Array.from({ length: 4 })
-  const myBack  = ['rook', 'knight', 'bishop', 'king']
-  const myFront = ['pawn', 'pawn', 'pawn', 'pawn']
+function BattleIcon() {
   return (
-    <div className="htp-diagram htp-diagram-placement">
-      <div className="htp-mini-board">
-        {hiddenRow.map((_, i) => <span key={`h1-${i}`} className="htp-mini-cell hidden">?</span>)}
-        {hiddenRow.map((_, i) => <span key={`h2-${i}`} className="htp-mini-cell hidden">?</span>)}
-        {myBack.map((t, i) => <span key={`b-${i}`} className="htp-mini-cell mine">{PIECE_GLYPHS.white[t]}</span>)}
-        {myFront.map((t, i) => <span key={`f-${i}`} className="htp-mini-cell mine">{PIECE_GLYPHS.white[t]}</span>)}
-      </div>
+    <div className="htp-step-icon htp-checker">
+      <span className="htp-battle-piece dark" />
+      <span className="htp-battle-move" style={{ top: 14, left: 36 }} />
+      <span className="htp-battle-move" style={{ top: 32, left: 22 }} />
+      <span className="htp-battle-piece cream" />
     </div>
   )
 }
 
-function BattleDiagram() {
+function RoundResultIcon() {
   return (
-    <div className="htp-diagram htp-diagram-battle">
-      <div className="htp-mini-board battle">
-        <span className="htp-mini-cell opp">{PIECE_GLYPHS.black.knight}</span>
-        <span className="htp-mini-cell empty" />
-        <span className="htp-mini-cell target-capture">{PIECE_GLYPHS.black.pawn}</span>
-        <span className="htp-mini-cell empty" />
-
-        <span className="htp-mini-cell empty" />
-        <span className="htp-mini-cell target-move" />
-        <span className="htp-mini-cell empty" />
-        <span className="htp-mini-cell empty" />
-
-        <span className="htp-mini-cell empty" />
-        <span className="htp-mini-cell empty" />
-        <span className="htp-mini-cell mine">{PIECE_GLYPHS.white.bishop}</span>
-        <span className="htp-mini-cell empty" />
+    <div className="htp-step-icon htp-step-icon-result">
+      <div className="htp-score-pips">
+        <span className="filled" />
+        <span />
       </div>
-      <span className="htp-battle-coin">+3🪙</span>
-    </div>
-  )
-}
-
-function RoundResultDiagram() {
-  return (
-    <div className="htp-diagram htp-diagram-round">
-      <span className="htp-round-trophy">🏆</span>
-      <span className="htp-round-score">Раунд 2 · 1&nbsp;:&nbsp;0</span>
-      <div className="htp-round-reset">
-        <span className="htp-round-reset-icon">🔄</span>
-        <span className="htp-round-reset-label">новый драфт с нуля</span>
-      </div>
+      <span className="htp-score-label">2 победы</span>
     </div>
   )
 }
 
 const STEPS = [
   {
-    title: '1. Драфт',
-    Diagram: DraftDiagram,
-    desc: 'Закупка фигур и карт по очереди, видя выбор соперника — на бюджет, фигур не больше, чем клеток на вашей половине доски.',
+    title: 'Драфт',
+    Icon: DraftIcon,
+    desc: 'Игроки по очереди покупают фигуры и карты. Видно, что берёт соперник. Повторный выбор одного и того же дорожает.',
   },
   {
-    title: '2. Расстановка',
-    Diagram: PlacementDiagram,
-    desc: 'Ставите свои фигуры на первых двух рядах. Соперник вашу расстановку не видит, пока оба не нажмут «Готово».',
+    title: 'Расстановка',
+    Icon: PlacementIcon,
+    desc: 'Расставь купленные фигуры на своих двух рядах. Расстановка соперника скрыта до начала боя.',
   },
   {
-    title: '3. Бой',
-    Diagram: BattleDiagram,
-    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу; свой первый ход в раунде каждый может обдумывать бесплатно ${ANALYSIS_TIME_SECONDS} сек. Можно заранее выбрать ход на чужом ходу — сыграет сам. За срубленную фигуру капают монеты этого раунда.`,
+    title: 'Бой',
+    Icon: BattleIcon,
+    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу; первый ход в раунде каждый может обдумывать бесплатно ${ANALYSIS_TIME_SECONDS} сек. Можно заранее выбрать ход на чужом ходу. Журнал боя хранит историю ходов и карт.`,
   },
   {
-    title: '4. Итог раунда',
-    Diagram: RoundResultDiagram,
-    desc: 'Короля нет — побеждает тот, кто уничтожит армию соперника, у кого кончилось время или не осталось ходов. Матч до 2 побед; каждый раунд — новый драфт с нуля.',
+    title: 'Итог раунда',
+    Icon: RoundResultIcon,
+    desc: 'Короля нет — раунд выигрывает тот, кто уничтожит всю армию соперника, у кого кончилось время или не осталось ходов. Матч идёт до 2 побед; каждый раунд — новый драфт с нуля.',
   },
 ]
 
@@ -114,11 +90,16 @@ const TABS = [
 function GeneralTab() {
   return (
     <div className="htp-steps">
-      {STEPS.map(step => (
+      {STEPS.map((step, i) => (
         <div className="htp-step" key={step.title}>
-          <step.Diagram />
-          <div className="htp-step-title">{step.title}</div>
-          <div className="htp-step-desc">{step.desc}</div>
+          <div className="htp-step-icon-wrap">
+            <step.Icon />
+            <span className="htp-step-number">{i + 1}</span>
+          </div>
+          <div className="htp-step-body">
+            <div className="htp-step-title">{step.title}</div>
+            <div className="htp-step-desc">{step.desc}</div>
+          </div>
         </div>
       ))}
     </div>
@@ -129,13 +110,16 @@ function SpellsTab() {
   return (
     <div className="htp-cards">
       {Object.values(CARD_DEFS).map(card => (
-        <div className="htp-card-chip" key={card.id} style={{ '--accent': card.accent }}>
-          <span className="htp-card-glyph">{card.glyph}</span>
+        <div className="htp-card-chip" key={card.id}>
+          <span className="htp-card-glyph" style={{ background: card.accent }}>{card.glyph}</span>
           <div className="htp-card-info">
             <span className="htp-card-name">{card.name}</span>
             <span className="htp-card-desc">{card.desc.replace(/\n/g, ' ')}</span>
           </div>
-          <span className="htp-card-cost">{card.cost}🪙</span>
+          <span className="htp-card-cost">
+            <span className="htp-card-coin" />
+            {card.cost}
+          </span>
         </div>
       ))}
     </div>
@@ -151,7 +135,9 @@ function BoardsTab() {
           <div className="htp-boards-grid">
             {patterns.map(pattern => (
               <div className="htp-board-chip" key={pattern.name}>
-                <BoardThumbnail boardPattern={pattern} cellSize={10} />
+                <div className="htp-board-thumb-wrap">
+                  <BoardThumbnail boardPattern={pattern} cellSize={8} />
+                </div>
                 <span className="htp-board-name">{pattern.name}</span>
                 <span className="htp-board-dims">{pattern.rows}×{pattern.cols}</span>
               </div>
@@ -169,9 +155,10 @@ export default function HowToPlay({ onClose }) {
   return (
     <div className="htp-overlay" onClick={onClose}>
       <div className="htp-card" onClick={e => e.stopPropagation()}>
-        <button className="htp-close" onClick={onClose} title="Закрыть">✕</button>
-        <div className="htp-title">Как играть</div>
-        <div className="htp-subtitle">Дуэль до 2 побед. Каждый раунд — новый набор фигур и карт.</div>
+        <div className="htp-header">
+          <span className="htp-title">Как играть</span>
+          <button className="htp-close" onClick={onClose} title="Закрыть">✕</button>
+        </div>
 
         <div className="htp-tabs">
           {TABS.map(t => (
@@ -185,9 +172,11 @@ export default function HowToPlay({ onClose }) {
           ))}
         </div>
 
-        {tab === 'general' && <GeneralTab />}
-        {tab === 'spells' && <SpellsTab />}
-        {tab === 'boards' && <BoardsTab />}
+        <div className="htp-content">
+          {tab === 'general' && <GeneralTab />}
+          {tab === 'spells' && <SpellsTab />}
+          {tab === 'boards' && <BoardsTab />}
+        </div>
       </div>
     </div>
   )

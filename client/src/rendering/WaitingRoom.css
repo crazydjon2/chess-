@@ -1,0 +1,438 @@
+/* Same felt-table language as MainMenu/PlayOnlineMenu/PatchNotes. No
+   background of its own — see MainMenu.css's .mm-screen comment, same
+   MenuLayout.css .ml-bg underneath. */
+.wr-screen {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 40px 24px 48px;
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+
+.wr-title {
+  position: relative;
+  z-index: 2;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 32px;
+  color: #fdf6e8;
+  -webkit-text-stroke: 4px #241708;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 rgba(0,0,0,0.3);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.wr-subtitle {
+  position: relative;
+  z-index: 2;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #c9e8d6;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* ── Main panel ───────────────────────────────────────────────────── */
+.wr-panel {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 22px;
+  box-shadow: 0 9px 0 0 #241708, 0 16px 26px rgba(0,0,0,0.4);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.wr-divider {
+  width: 100%;
+  height: 2px;
+  background: #e6ddc8;
+}
+
+/* ── Room code ────────────────────────────────────────────────────── */
+.wr-code-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.wr-code-label {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #8a7658;
+  text-align: center;
+}
+
+.wr-code-box {
+  width: 100%;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 5px 0 0 #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.wr-code-box:hover {
+  transform: translateY(-2px);
+}
+
+.wr-code-box:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.wr-code-value {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: 8px;
+  color: #241708;
+}
+
+.wr-copy-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #f0b429;
+  border: 2.5px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.wr-copy-icon span {
+  width: 11px;
+  height: 13px;
+  border: 2px solid #241708;
+  border-radius: 2px;
+  position: relative;
+}
+
+.wr-copy-icon span::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 11px;
+  height: 13px;
+  border: 2px solid #241708;
+  border-radius: 2px;
+  background: #f0b429;
+}
+
+/* Fixed height (not min-height) around the hint/copied swap — the two
+   states render at different box sizes (one's a bordered badge, the
+   other plain text) and min-height only stopped the slot shrinking below
+   the badge's height, not growing to it: showing the badge still made
+   the slot taller than the hint's resting size, so the panel below
+   (player rows, cancel button) still jumped up/down on every copy. A
+   fixed height that already fits the taller (badge) state absorbs both. */
+.wr-copy-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+}
+
+.wr-copied {
+  animation: wr-pop-in 0.18s ease;
+  background: #5c9a6f;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 10px;
+  border: 2px solid #241708;
+  box-sizing: border-box;
+}
+
+@keyframes wr-pop-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.wr-copy-hint {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: #b8a888;
+}
+
+/* ── Player rows ──────────────────────────────────────────────────── */
+.wr-players {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wr-player-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Fixed — the waiting ("Ждём игрока…") and connected (name + ВЫ badge)
+     states render a few px apart in natural height, which nudged the
+     whole panel every time a seat filled. */
+  height: 62px;
+  padding: 0 14px;
+  border-radius: 14px;
+}
+
+.wr-player-row.connected {
+  border: 3px solid #241708;
+  background: #fdf6e8;
+}
+
+.wr-player-row.is-me {
+  border-color: #f0b429;
+  box-shadow: 0 0 0 2px #241708;
+}
+
+.wr-player-row.waiting {
+  border: 3px dashed #b8a888;
+  background: #f5f0e3;
+}
+
+.wr-player-dot {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 3px solid #241708;
+}
+
+.wr-player-dot.p-white { background: #fdf6e8; }
+.wr-player-dot.p-black { background: #241708; }
+
+.wr-player-row.waiting .wr-player-dot {
+  animation: wr-pulse-ring 1.6s ease-out infinite;
+}
+
+@keyframes wr-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(36,23,8,0.35); }
+  100% { box-shadow: 0 0 0 10px rgba(36,23,8,0); }
+}
+
+.wr-player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wr-player-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #241708;
+}
+
+.wr-you-badge {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #241708;
+  background: #f0b429;
+  border: 2px solid #241708;
+  border-radius: 7px;
+  padding: 1px 7px;
+}
+
+.wr-player-row.waiting .wr-player-name { color: #8a7658; }
+
+.wr-player-sub {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #5c9a6f;
+}
+
+.wr-player-row.waiting .wr-player-sub { color: #a89670; }
+
+.wr-status-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #5c9a6f;
+}
+
+.wr-player-row.waiting .wr-status-dot { background: #c9bca0; }
+
+/* Fixed-height slot the loader / start button / "host will start" line all
+   share, so the panel never resizes when the room fills or the host starts
+   (the "interface must not jump" requirement). Sized to the tallest state
+   (the bobbing-pieces loader). */
+.wr-action {
+  width: 100%;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wr-start-btn {
+  width: 100%;
+  background: #f0b429;
+  color: #241708;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 5px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.wr-start-btn:hover:not(:active):not(:disabled) { transform: translateY(-2px); }
+.wr-start-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+.wr-start-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Loading flavor — bobbing pieces, not cards (this screen is about
+   finding an opponent to play chess against, not about the draft) ────── */
+.wr-deal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.wr-deal-pieces {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.wr-deal-piece {
+  width: 26px;
+  height: 34px;
+  display: block;
+  animation: wr-piece-bob 1.2s ease-in-out infinite;
+}
+
+.wr-deal-piece svg { width: 100%; height: 100%; display: block; }
+
+@keyframes wr-piece-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+
+.wr-deal-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #8a7658;
+}
+
+.wr-cancel-btn {
+  width: 100%;
+  background: #fdf6e8;
+  color: #241708;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  padding: 13px;
+  box-shadow: 0 5px 0 0 #241708;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.wr-cancel-btn:hover {
+  transform: translateY(-2px);
+}
+
+.wr-cancel-btn:active {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+
+/* ── Error ────────────────────────────────────────────────────────── */
+.wr-error-slot {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  min-height: 44px;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wr-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fdf6e8;
+  border: 3px solid #d4302f;
+  border-radius: 12px;
+  padding: 10px 18px;
+  box-shadow: 0 4px 0 0 #241708;
+  animation: wr-shake 0.4s ease;
+}
+
+@keyframes wr-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.wr-error-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d4302f;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wr-error span:last-child {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #241708;
+}
+

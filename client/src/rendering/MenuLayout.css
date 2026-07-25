@@ -1,0 +1,121 @@
+.ml-root {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Fixed behind everything, mounted once — see MenuLayout.jsx. Screens with
+   their own full-viewport background (draft/placement/battle/sandbox)
+   simply paint over this and it stays invisible underneath; it's only
+   ever actually seen behind MainMenu/PlayOnlineMenu/WaitingRoom, which no
+   longer paint their own copy of it. */
+.ml-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 28%, #2f7d55 0%, #1c5c3c 45%, #123d29 80%, #0c2b1d 100%);
+  background-color: #123d29;
+}
+
+.ml-texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.03) 1px, transparent 1px),
+    radial-gradient(circle at 40% 60%, rgba(0,0,0,0.08) 1px, transparent 1px),
+    radial-gradient(circle at 70% 30%, rgba(255,255,255,0.03) 1px, transparent 1px),
+    radial-gradient(circle at 85% 80%, rgba(0,0,0,0.08) 1px, transparent 1px);
+  background-size: 6px 6px, 9px 9px, 7px 7px, 8px 8px;
+}
+
+.ml-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 180px 60px rgba(0,0,0,0.55);
+  pointer-events: none;
+}
+
+/* Straight, constant-speed crossing from just off one edge to just off
+   another. The piece is ANCHORED at its from-point via static left/top and
+   the flight is a composited transform translate in vw/vh units (see
+   MenuLayout.jsx) — animating left/top themselves forced a style recalc +
+   layout every frame, app-wide, forever (measured 60 layouts/sec at
+   idle). Linear timing so it never eases into a pause mid-flight. */
+.ml-piece {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform;
+  animation-name: ml-fly;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* Holds the 0% (off-screen) keyframe during the startup delay — without
+     this a piece sits visible at its from-anchor until its delay elapses,
+     instead of waiting off-screen like every later loop already does. */
+  animation-fill-mode: backwards;
+}
+
+@keyframes ml-fly {
+  0%   { transform: translate(0, 0); }
+  100% { transform: translate(var(--ml-dx), var(--ml-dy)); }
+}
+
+/* Rotation lives on a nested element so it never has to share a single
+   `transform` with the position above — spins continuously (not back and
+   forth) at its own independent, slower pace. */
+.ml-piece-spin {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation-name: ml-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.ml-piece-spin svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes ml-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(var(--ml-spin-to)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-piece, .ml-piece-spin { animation: none; }
+}
+
+/* ── Global settings button ──────────────────────────────────────────
+   Fixed top-right, mounted once (see MenuLayout.jsx) so it's on every
+   screen. z-index sits ABOVE all in-page content and the docked battle
+   log (z 60) but below the blocking modals (result/confirm/settings
+   itself, 300+) — so nothing covers it during normal play, and the game
+   screens reserve its corner via their header padding-right (App.css /
+   DraftPhase.css / PlacementPhase.css) so it covers nothing either. */
+.ml-settings-btn {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 120;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fdf6e8;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  color: #241708;
+  font-size: 17px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ml-settings-btn:hover  { transform: rotate(40deg); }
+.ml-settings-btn:active { transform: translateY(2px); box-shadow: none; }

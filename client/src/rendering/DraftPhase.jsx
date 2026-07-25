@@ -1,14 +1,28 @@
-import { ALL_PIECE_TYPES, ALL_CARD_IDS, targetKey, nextItemCost } from '../game/draftEngine'
+import { ALL_PIECE_TYPES, ALL_CARD_IDS, nextItemCost, DUPLICATE_STEP } from '../game/draftEngine'
 import { CARD_DEFS } from '../game/cards'
-import { PIECE_GLYPHS, PIECE_LABEL } from '../game/economy'
+import { PIECE_LABEL, shopPieceCost } from '../game/economy'
 import BoardThumbnail from './BoardThumbnail'
-import './Card.css' // reuses .card-help-btn / .card-tooltip for card descriptions here too
+import MatchScoreBoard from './MatchScoreBoard'
+import GameCard from './GameCard'
+import { PIECE_ICONS } from './pieceIcons'
 import './DraftPhase.css'
 
-function itemsFor(draft, color) {
+// What each already-purchased item in the roster actually cost — the
+// draft only stores WHAT was bought (`draft.picks[color].pieces`/`.cards`,
+// each just a flat list of ids in purchase order), not what was paid at
+// the time, but that's fully reconstructable: within either list, the Nth
+// copy of a given type always cost exactly base + N*DUPLICATE_STEP (see
+// draftEngine.js's nextItemCost) — no need to store history separately.
+function rosterWithPrices(draft, color) {
+  const seen = {}
+  const priced = (kind, key, baseCost) => {
+    const n = seen[key] ?? 0
+    seen[key] = n + 1
+    return { kind, key, price: baseCost + n * DUPLICATE_STEP }
+  }
   return [
-    ...draft.picks[color].pieces.map(pieceType => ({ kind: 'piece', pieceType })),
-    ...draft.picks[color].cards.map(cardId => ({ kind: 'card', cardId })),
+    ...draft.picks[color].pieces.map(type => ({ ...priced('piece', type, shopPieceCost(type)), pieceType: type })),
+    ...draft.picks[color].cards.map(id => ({ ...priced('card', id, CARD_DEFS[id].cost), cardId: id })),
   ]
 }
 
@@ -18,176 +32,216 @@ function itemsFor(draft, color) {
 // turn it is buys exactly one piece or card, or declares themselves done;
 // a side that's out of budget (or chooses to stop early) is skipped for
 // the rest of the phase rather than ever being waited on.
-export default function DraftPhase({ round, boardPattern, draft, myColor, onPick, onDone }) {
+//
+// Stacked layout (v2): the two rosters live in slim horizontal trays
+// pinned above/below a full-width catalog, each tray carrying its own
+// turn/done indicator — there's no separate turn-bar strip any more, and
+// no wide side columns eating into the catalog's width.
+export default function DraftPhase({ round, boardPattern, draft, myColor, matchScore, onPick, onDone }) {
   const oppColor = myColor === 'white' ? 'black' : 'white'
-  const myTurn   = draft.turn === myColor && !draft.done[myColor]
-  const iAmDone  = draft.done[myColor]
-  const oppDone  = draft.done[oppColor]
+  // "Active" covers both literally-my-turn AND the case where the
+  // opponent has already finished and I'm the only one left picking (see
+  // draftEngine.js's advanceTurn) — draft.turn === myColor already covers
+  // both, since turn only ever leaves me once I'm also done.
+  const myIsActive = draft.turn === myColor && !draft.done[myColor]
+  const iAmDone = draft.done[myColor]
+  const oppDone = draft.done[oppColor]
 
-  const myCart  = itemsFor(draft, myColor)
-  const oppCart = itemsFor(draft, oppColor)
+  const myRoster  = rosterWithPrices(draft, myColor)
+  const oppRoster = rosterWithPrices(draft, oppColor)
   const remaining = draft.budgets[myColor]
   const pieceCount = draft.picks[myColor].pieces.length
+  const boardFull = pieceCount >= draft.maxPieces
 
   const bannerText = iAmDone
-    ? 'Вы закончили закупку — ждём соперника…'
-    : myTurn
-      ? 'Ваш ход — выбирайте фигуру или карту'
+    ? 'Вы закончили — ждём соперника'
+    : myIsActive
+      ? 'Ваш ход — выбирайте'
       : oppDone
         ? 'Соперник закончил — доберите всё, что нужно'
         : 'Ход соперника — смотрите, что он берёт'
 
+  const doneEnabled = myIsActive && pieceCount > 0
+
   return (
-    <div className="draft-screen">
-      <div className="draft-header">
-        <span className="draft-round">Раунд {round}</span>
-      </div>
-
-      <div className="draft-board-card">
-        <span className="draft-board-card-label">Карта этого раунда</span>
-        <BoardThumbnail boardPattern={boardPattern} cellSize={18} />
-        <span className="draft-board-card-name">{boardPattern.name} · {boardPattern.rows}×{boardPattern.cols}</span>
-      </div>
-
-      <div className={`draft-turn-banner ${myTurn ? 'mine' : 'opp'}`}>{bannerText}</div>
-
-      <div className="draft-sides">
-        <SideSummary
-          label="Вы" cart={myCart} budget={remaining} pieceCount={pieceCount}
-          maxPieces={draft.maxPieces} done={iAmDone} active={myTurn} color={myColor} side="mine"
-        />
-        <SideSummary
-          label="Соперник" cart={oppCart} budget={draft.budgets[oppColor]} pieceCount={draft.picks[oppColor].pieces.length}
-          maxPieces={draft.maxPieces} done={oppDone} active={!myTurn && !iAmDone} color={oppColor} side="opp"
-        />
-      </div>
-
-      <div className="draft-pools">
-        <div className="draft-pool-group">
-          <div className="draft-pool-title">Фигуры</div>
-          <div className="draft-pool-items">
-            {ALL_PIECE_TYPES.map(type => {
-              const target = { kind: 'piece', pieceType: type }
-              const price = nextItemCost(draft, myColor, target)
-              const capReached = pieceCount >= draft.maxPieces
-              const affordable = price <= remaining
-              const disabled = !myTurn || capReached || !affordable
-              return (
-                <CatalogTile
-                  key={type}
-                  glyph={PIECE_GLYPHS.white[type]}
-                  label={PIECE_LABEL[type]}
-                  price={price}
-                  state={disabled ? (capReached ? 'capped' : !affordable ? 'unaffordable' : 'waiting') : undefined}
-                  onClick={disabled ? undefined : () => onPick(target)}
-                />
-              )
-            })}
-          </div>
+    <div className="dr-screen">
+      <div className="dr-header">
+        <div>
+          <span className="dr-round">Раунд {round} — Драфт</span>
+          <div className="dr-banner-text">{bannerText}</div>
         </div>
-
-        <div className="draft-pool-group">
-          <div className="draft-pool-title">Карты</div>
-          <div className="draft-pool-items">
-            {ALL_CARD_IDS.map(cardId => {
-              const card = CARD_DEFS[cardId]
-              const target = { kind: 'card', cardId }
-              const price = nextItemCost(draft, myColor, target)
-              const affordable = price <= remaining
-              const disabled = !myTurn || !affordable
-              return (
-                <CatalogTile
-                  key={cardId}
-                  glyph={card.glyph}
-                  label={card.name}
-                  price={price}
-                  accent={card.accent}
-                  desc={card.desc}
-                  state={disabled ? (!affordable ? 'unaffordable' : 'waiting') : undefined}
-                  onClick={disabled ? undefined : () => onPick(target)}
-                />
-              )
-            })}
+        <div className="dr-header-right">
+          <div className="dr-board-card">
+            <div className="dr-board-thumb-wrap">
+              <BoardThumbnail boardPattern={boardPattern} cellSize={Math.floor(60 / Math.max(boardPattern.rows, boardPattern.cols))} />
+            </div>
+            <div className="dr-board-info">
+              <span className="dr-board-name">{boardPattern.name}</span>
+              <span className="dr-board-size">{boardPattern.rows}×{boardPattern.cols}</span>
+            </div>
           </div>
+          {matchScore && <MatchScoreBoard {...matchScore} />}
         </div>
       </div>
 
-      {myTurn && (
+      <Tray
+        side="opp" label="Соперник" active={!myIsActive} done={oppDone}
+        budget={draft.budgets[oppColor]} pieceCount={draft.picks[oppColor].pieces.length} maxPieces={draft.maxPieces}
+        roster={oppRoster} pieceColor={oppColor}
+      />
+
+      <div className="dr-catalog">
+        <div className="dr-catalog-header">
+          <span className="dr-catalog-title">Каталог</span>
+        </div>
+
+        <div className="dr-catalog-scroll">
+          <div className="dr-catalog-section">
+            <div className="dr-section-title">Фигуры</div>
+            <div className="dr-piece-grid">
+              {ALL_PIECE_TYPES.map(type => {
+                const target = { kind: 'piece', pieceType: type }
+                const price = nextItemCost(draft, myColor, target)
+                const state = !myIsActive ? 'notMyTurn' : boardFull ? 'soldOut' : price > remaining ? 'cantAfford' : 'available'
+                return (
+                  <PieceTile
+                    key={type}
+                    icon={PIECE_ICONS[myColor][type]}
+                    label={PIECE_LABEL[type]}
+                    price={price}
+                    state={state}
+                    onClick={state === 'available' ? () => onPick(target) : undefined}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="dr-catalog-section">
+            <div className="dr-section-title">Карты</div>
+            <div className="dr-card-grid">
+              {ALL_CARD_IDS.map(cardId => {
+                const card = CARD_DEFS[cardId]
+                const target = { kind: 'card', cardId }
+                const price = nextItemCost(draft, myColor, target)
+                const state = !myIsActive ? 'notMyTurn' : price > remaining ? 'cantAfford' : 'available'
+                return (
+                  <CatalogTile
+                    key={cardId}
+                    glyph={card.glyph}
+                    accent={card.accent}
+                    label={card.name}
+                    desc={card.desc}
+                    price={price}
+                    state={state}
+                    onClick={state === 'available' ? () => onPick(target) : undefined}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Tray
+        side="mine" label="Вы" active={myIsActive} done={iAmDone}
+        budget={remaining} pieceCount={pieceCount} maxPieces={draft.maxPieces}
+        roster={myRoster} pieceColor={myColor}
+      >
         <button
-          className="draft-pass-btn confirm"
-          disabled={pieceCount === 0}
+          className="dr-tray-done-btn"
+          disabled={!doneEnabled}
           onClick={onDone}
           title={pieceCount === 0 ? 'Нужна хотя бы одна фигура' : undefined}
         >
-          {pieceCount === 0 ? 'Нужна хотя бы одна фигура' : 'Готово, я закончил'}
+          Готово, я закончил
         </button>
-      )}
+      </Tray>
     </div>
   )
 }
 
-// A catalog tile — clickable only on your own turn, when affordable and
-// (for pieces) there's still home-rank room. Cards get the same "?"
-// tooltip as an in-hand Card during battle, since a purchase decision
-// needs the full rules text, not just a glyph and a price.
-function CatalogTile({ glyph, label, price, accent, desc, state, onClick }) {
+// Both draft catalog entries are now the same shared Balatro card (see
+// GameCard.jsx) — a spell variant for cards, a piece variant for pieces.
+// `state` still drives the "why can't I buy this" line and the dimmed,
+// non-clickable disabled look. Cost is the gold top-right badge; the "?"
+// (spells only) sits top-left.
+function statusTag(state) {
+  if (state === 'cantAfford') return { text: 'нет монет', tone: 'red' }
+  if (state === 'soldOut')    return { text: 'нет места', tone: 'neutral' }
+  return null
+}
+
+function CatalogTile({ glyph, accent, label, desc, price, state, onClick }) {
+  const tag = statusTag(state)
   return (
-    <button
-      className={`draft-pick-btn${accent ? ' card' : ''}${state ? ` ${state}` : ''}`}
-      style={accent ? { '--accent': accent } : undefined}
+    <GameCard
+      variant="spell"
+      accent={accent}
+      icon={glyph}
+      name={label}
+      desc={desc}
+      cost={price}
+      status={tag?.text}
+      statusTone={tag?.tone}
       disabled={!onClick}
       onClick={onClick}
-    >
-      {desc && (
-        <span
-          role="button"
-          tabIndex={0}
-          className="card-help-btn"
-          onClick={e => e.stopPropagation()}
-          aria-label={`Описание карты: ${label}`}
-        >
-          ?
-          <span className="card-tooltip">
-            <span className="card-tooltip-name">{label}</span>
-            {desc}
-          </span>
-        </span>
-      )}
-      <span className="draft-pick-glyph">{glyph}</span>
-      <span className="draft-pick-label">{label}</span>
-      <span className="draft-pick-price">🪙 {price}</span>
-    </button>
+    />
   )
 }
 
-// One side's live status: budget left, piece count, and a running roster
-// of everything bought so far — shown for BOTH players at once, since
-// open information (watching the opponent's army take shape) is the
-// whole point of the new draft.
-function SideSummary({ label, cart, budget, pieceCount, maxPieces, done, active, color, side }) {
+function PieceTile({ icon, label, price, state, onClick }) {
+  const tag = statusTag(state)
   return (
-    <div className={`draft-side ${side}${active ? ' active' : ''}`}>
-      <div className="draft-side-header">
-        <span className="draft-side-label">{label}</span>
-        {done && <span className="draft-side-done">готово</span>}
-      </div>
-      <div className="draft-side-stats">
-        <span className="draft-side-stat">🪙 {budget}</span>
-        <span className="draft-side-stat">{pieceCount} / {maxPieces} фигур</span>
-      </div>
-      <div className="draft-roster-items">
-        {cart.length === 0 && <span className="draft-roster-empty">пока пусто</span>}
-        {cart.map((t, i) => (
-          <span
-            key={`${targetKey(t)}-${i}`}
-            className={`draft-roster-chip${t.kind === 'card' ? ' card' : ''}`}
-            style={t.kind === 'card' ? { '--accent': CARD_DEFS[t.cardId].accent } : undefined}
-            title={t.kind === 'piece' ? PIECE_LABEL[t.pieceType] : CARD_DEFS[t.cardId].name}
-          >
-            {t.kind === 'piece' ? PIECE_GLYPHS[color][t.pieceType] : CARD_DEFS[t.cardId].glyph}
+    <GameCard
+      variant="piece"
+      icon={icon}
+      name={label}
+      cost={price}
+      status={tag?.text}
+      statusTone={tag?.tone}
+      disabled={!onClick}
+      onClick={onClick}
+    />
+  )
+}
+
+// A side's live status as one slim horizontal strip: turn indicator, done
+// badge, budget, piece count, and every purchased item as a small icon-only
+// chip you can scroll through — both sides visible at once, since open
+// information is the whole point of the new draft. `children` (the done
+// button) is only ever passed for the "mine" tray.
+function Tray({ side, label, active, done, budget, pieceCount, maxPieces, roster, pieceColor, children }) {
+  return (
+    <div className={`dr-tray dr-tray-${side}${active ? ' active' : ''}`}>
+      <span className="dr-tray-edge" />
+      <span className={`dr-tray-dot${active ? ' active' : ''}`} />
+      <span className="dr-tray-label">{label}</span>
+      {done && <span className="dr-tray-done-badge">✓ Готово</span>}
+      <span className="dr-tray-divider" />
+      <span className="dr-tray-budget"><span className="dr-coin" />{budget}</span>
+      <span className="dr-tray-count">{pieceCount} / {maxPieces} фигур</span>
+      <span className="dr-tray-divider" />
+      <div className="dr-tray-chips">
+        {roster.length === 0 && <span className="dr-tray-empty">пока пусто</span>}
+        {roster.map((it, i) => (
+          <span className="dr-chip" key={`${it.key}-${i}`} title={it.kind === 'piece' ? PIECE_LABEL[it.pieceType] : CARD_DEFS[it.cardId].name}>
+            {it.kind === 'piece' ? (
+              PIECE_ICONS[pieceColor][it.pieceType]
+            ) : (
+              <span className="dr-chip-card" style={{ background: CARD_DEFS[it.cardId].accent }}>
+                {CARD_DEFS[it.cardId].glyph}
+              </span>
+            )}
           </span>
         ))}
       </div>
+      {children && (
+        <>
+          <span className="dr-tray-divider" />
+          {children}
+        </>
+      )}
     </div>
   )
 }

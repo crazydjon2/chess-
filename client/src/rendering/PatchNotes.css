@@ -1,91 +1,128 @@
+/* Same card-hand visual language as MainMenu.css (chunky cream cards,
+   thick dark outline, Baloo 2 + Nunito) — this modal opens ON TOP of the
+   felt-table menu, so it doesn't need its own background, just a dim
+   backdrop over whatever's underneath. */
 .pn-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  z-index: 400;
+  background: rgba(6,10,7,0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 400;
-  padding: 20px;
+  padding: 24px;
 }
 
 .pn-card {
-  position: relative;
-  width: min(560px, 100%);
-  max-height: 84vh;
-  overflow-y: auto;
-  background: #1a1410;
-  border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  padding: 28px 26px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 460px;
+  max-height: 82vh;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 24px;
+  box-shadow: 10px 10px 0 0 #241708, 0 24px 48px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: pn-modal-pop 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
 
-.pn-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(220,200,170,0.7);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 13px;
+@keyframes pn-modal-pop {
+  from { transform: scale(0.92) rotate(-1deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-.pn-close:hover {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
+.pn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 24px;
+  border-bottom: 3px solid #241708;
+  flex-shrink: 0;
 }
 
 .pn-title {
-  font-family: 'Georgia', serif;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #e8d5a3;
-  text-align: center;
-  margin-bottom: 20px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #241708;
+  line-height: 1;
 }
 
-.pn-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-/* Each entry reads as its own card: a left accent stripe + glyph badge in
-   the entry's own color, same "--accent"-driven treatment card chips use
-   elsewhere (see HowToPlay.css) — so every patch feels like a distinct,
-   named event rather than another paragraph in a long scroll. */
-.pn-entry {
-  display: flex;
-  gap: 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-left: 3px solid var(--accent);
-  border-radius: 10px;
-  padding: 14px 16px;
-}
-
-.pn-entry-glyph {
+.pn-close {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
   border-radius: 50%;
+  background: #d4302f;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  color: var(--accent);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.pn-close:hover  { transform: scale(1.08); }
+.pn-close:active { transform: scale(0.96); }
+
+.pn-list {
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pn-list::-webkit-scrollbar { width: 10px; }
+.pn-list::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.pn-list::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; border: 2px solid #e6ddc8; }
+
+/* ── Entries — fade tier by tier the further back they are (see
+   PatchNotes.jsx's tierFor). Only card background/opacity/text-and-icon
+   color change per tier; layout stays identical. ──────────────────────── */
+.pn-entry {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 3px solid #241708;
+  border-radius: 16px;
+}
+
+.pn-entry-fresh,
+.pn-entry-recent { background: #fdf6e8; }
+.pn-entry-recent { opacity: 0.85; }
+.pn-entry-aging  { background: #e2dcc9; opacity: 0.68; }
+.pn-entry-old    { background: #d6d0bd; opacity: 0.52; }
+
+.pn-entry-glyph {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 3px solid #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: var(--accent);
+}
+
+.pn-entry-aging .pn-entry-glyph,
+.pn-entry-old .pn-entry-glyph {
+  background: #8a8378;
 }
 
 .pn-entry-body {
-  min-width: 0;
   flex: 1;
+  min-width: 0;
+  padding-top: 2px;
 }
 
 .pn-entry-head {
@@ -96,45 +133,59 @@
   margin-bottom: 8px;
 }
 
-.pn-entry-latest {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #1a1410;
-  background: var(--accent);
-  border-radius: 4px;
-  padding: 2px 7px;
+.pn-entry-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #241708;
 }
 
-.pn-entry-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: rgba(240,225,195,0.95);
-}
+.pn-entry-aging .pn-entry-title { color: #4a3f30; }
+.pn-entry-old .pn-entry-title   { color: #6a5f50; }
 
 .pn-entry-version {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(200,180,140,0.5);
-  flex-shrink: 0;
+  background: #241708;
+  color: #fdf6e8;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 8px;
 }
+
+.pn-entry-aging .pn-entry-version { background: #4a3f30; }
+.pn-entry-old .pn-entry-version   { background: #6a5f50; }
 
 .pn-changes {
   margin: 0;
   padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #4a3f30;
 }
 
-.pn-changes li {
-  font-size: 12px;
-  line-height: 1.5;
-  color: rgba(220,205,180,0.82);
+.pn-entry-aging .pn-changes { color: #6a5f50; }
+.pn-entry-old .pn-changes   { color: #7a6f60; }
+
+.pn-entry-new {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  background: #d4302f;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 3px solid #241708;
+  animation: pn-new-wobble 1.6s ease-in-out infinite;
 }
 
-.pn-changes li::marker {
-  color: var(--accent);
+@keyframes pn-new-wobble {
+  0%, 100% { transform: rotate(-6deg) scale(1); }
+  50%      { transform: rotate(-6deg) scale(1.12); }
 }

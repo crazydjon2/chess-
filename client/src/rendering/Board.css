@@ -1,8 +1,16 @@
 /* ── Perspective scene ─────────────────────────────────────────────── */
+/* transform-origin is dead center, not a low pivot (used to be 70% down)
+   — rotating around an off-center point doesn't just tilt the board, it
+   also shifts its whole rendered position toward whichever side the pivot
+   sits closer to. With the pivot near the bottom, the top of the board
+   visually receded upward far more than the bottom moved, leaving a big
+   uneven gap above it relative to the top tray and almost none below. */
 .board-scene-wrap {
   position: relative;
-  transform: perspective(1000px) rotateX(14deg);
-  transform-origin: center 70%;
+  /* transform: perspective(1000px) rotateX(14deg); */
+  padding-bottom: 16px;
+  padding-top: 8px;
+  transform-origin: center center;
   transition: transform 0.3s ease;
 }
 
@@ -19,18 +27,13 @@
   pointer-events: none;
 }
 
-/* ── Wooden frame ──────────────────────────────────────────────────── */
+/* ── Frame ─────────────────────────────────────────────────────────── */
 .board-frame {
-  background:
-    linear-gradient(160deg, #251809 0%, #180f05 50%, #120b03 100%);
+  background: #fdf6e8;
   padding: 12px;
-  border-radius: 4px;
-  box-shadow:
-    inset 0 0 0 1px rgba(180,130,60,0.15),
-    inset 0 0 20px rgba(0,0,0,0.5),
-    0 0 0 1px #0a0604,
-    0 40px 100px rgba(0,0,0,0.9),
-    0  8px 28px rgba(0,0,0,0.7);
+  border-radius: 16px;
+  border: 5px solid #241708;
+  box-shadow: 8px 8px 0 0 #241708;
 }
 
 /* ── Layout inside the frame ───────────────────────────────────────── */
@@ -63,8 +66,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font: 700 10px/1 'Courier New', monospace;
-  color: rgba(180,130,60,0.50);
+  font: 800 11px/1 'Baloo 2', sans-serif;
+  color: #8a7658;
   user-select: none;
 }
 
@@ -79,15 +82,16 @@
 .coords-files li {
   flex: 1;
   text-align: center;
-  font: 700 10px/1 'Courier New', monospace;
-  color: rgba(180,130,60,0.50);
+  font: 800 11px/1 'Baloo 2', sans-serif;
+  color: #8a7658;
   user-select: none;
 }
 
 /* ── Board root ─────────────────────────────────────────────────────── */
 .board-root {
   position: relative;
-  outline: 1px solid rgba(0,0,0,0.8);
+  outline: 3px solid #241708;
+  border-radius: 4px;
   overflow: visible;
   transition: outline-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -95,4 +99,102 @@
 .board-root.card-mode {
   outline-color: color-mix(in srgb, var(--card-accent, #888) 55%, transparent);
   box-shadow: 0 0 22px color-mix(in srgb, var(--card-accent, #888) 28%, transparent);
+}
+
+/* ── Fluid sizing (see Board.jsx's `fluid` prop) ─────────────────────
+   A completely separate, flat structure — not the fixed-pixel tree above
+   with overrides bolted on. That's what broke it last time: an
+   aspect-ratio box nested inside a shrink-to-fit row-then-column flex
+   chain has no reliable width to resolve against and collapses to a
+   sliver. This is the exact same shape as the placement screen's board
+   (.pl-board-wrap/.pl-board) — one centering flex box, one aspect-ratio
+   square directly inside it, nothing in between — the one pattern
+   already proven to size correctly. */
+.board-scene-wrap.fluid {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-root.fluid {
+  position: relative;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  outline: none;
+}
+
+/* The actual bordered/clipped square — separated from .board-root.fluid
+   itself so the coordinate overlays (positioned just outside this box)
+   aren't clipped by the border-radius overflow:hidden this needs for the
+   board layers underneath. Same border/shadow as .pl-board, on purpose —
+   this should look identical to the placement screen's board. */
+.board-fluid-surface {
+  position: absolute;
+  inset: 0;
+  border: 5px solid #241708;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 8px 8px 0 0 #241708;
+  background: #fdf6e8;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.board-root.fluid.card-mode .board-fluid-surface {
+  border-color: color-mix(in srgb, var(--card-accent, #888) 55%, #241708);
+  box-shadow: 8px 8px 0 0 #241708, 0 0 22px color-mix(in srgb, var(--card-accent, #888) 45%, transparent);
+  /* While targeting a card, ghost targets can sit OUTSIDE the board
+     square (add_cell offers brand-new cells past every edge — see
+     VisualLayer.jsx's borderElements / Board.jsx's cardBorderTargets).
+     The overflow:hidden above (needed for the rounded-corner clip in
+     normal play) was silently clipping those ghosts out of sight AND out
+     of click reach, which read as "add_cell can't target outside the
+     board any more". Targeting mode is transient, so trading the corner
+     clip for visible/clickable outside targets while it's active is
+     strictly better. */
+  overflow: visible;
+}
+
+/* And once an add_cell has actually LANDED outside the rectangle, the
+   clip has to stay off for the rest of the round (see Board.jsx's
+   hasOutsideCells) — reverting to overflow:hidden the moment targeting
+   ended was swallowing the freshly added cell: still in the game state,
+   but invisible and unclickable. */
+.board-root.fluid.has-outside-cells .board-fluid-surface {
+  overflow: visible;
+}
+
+.coords-overlay-ranks,
+.coords-overlay-files {
+  position: absolute;
+  display: flex;
+  pointer-events: none;
+  user-select: none;
+}
+
+.coords-overlay-ranks span,
+.coords-overlay-files span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 10px/1 'Baloo 2', sans-serif;
+  color: #c9ddc9;
+}
+
+.coords-overlay-ranks {
+  top: 0;
+  left: -18px;
+  height: 100%;
+  width: 14px;
+  flex-direction: column;
+}
+
+.coords-overlay-files {
+  left: 0;
+  bottom: -18px;
+  width: 100%;
+  height: 14px;
 }
