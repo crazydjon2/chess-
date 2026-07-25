@@ -3,7 +3,7 @@ import { CARD_DEFS } from '../game/cards'
 import { PIECE_LABEL, shopPieceCost } from '../game/economy'
 import BoardThumbnail from './BoardThumbnail'
 import MatchScoreBoard from './MatchScoreBoard'
-import CardHelp from './CardHelp'
+import GameCard from './GameCard'
 import { PIECE_ICONS } from './pieceIcons'
 import './DraftPhase.css'
 
@@ -128,10 +128,8 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
                 return (
                   <CatalogTile
                     key={cardId}
-                    icon={card.glyph}
-                    iconBg={card.accent}
-                    iconRadius="50%"
-                    band={card.accent}
+                    glyph={card.glyph}
+                    accent={card.accent}
                     label={card.name}
                     desc={card.desc}
                     price={price}
@@ -163,48 +161,48 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
   )
 }
 
-// One card catalog tile. `state` drives both the visuals and the "why
-// can't I buy this" tag — see the legend in the catalog header, which is
-// the single source of truth these four states map onto. Cards (unlike
-// pieces, see PieceTile) keep the full card-frame treatment — they ARE
-// cards, that's the whole point of the "?" tooltip living on the frame.
-// No native `title` here: the "?" button's own .card-tooltip already
-// shows the full description on hover, a second browser tooltip on top
-// of it was just visual noise repeating the same text.
-function CatalogTile({ icon, iconBg, iconRadius, band, label, desc, price, state, onClick }) {
-  const tag = state === 'cantAfford' ? 'нет монет' : state === 'soldOut' ? 'нет места' : null
+// Both draft catalog entries are now the same shared Balatro card (see
+// GameCard.jsx) — a spell variant for cards, a piece variant for pieces.
+// `state` still drives the "why can't I buy this" line and the dimmed,
+// non-clickable disabled look. Cost is the gold top-right badge; the "?"
+// (spells only) sits top-left.
+function statusTag(state) {
+  if (state === 'cantAfford') return { text: 'нет монет', tone: 'red' }
+  if (state === 'soldOut')    return { text: 'нет места', tone: 'neutral' }
+  return null
+}
+
+function CatalogTile({ glyph, accent, label, desc, price, state, onClick }) {
+  const tag = statusTag(state)
   return (
-    <button
-      className={`dr-tile dr-tile-${state}${band ? ' has-band' : ''}`}
-      style={band ? { '--accent': band } : undefined}
+    <GameCard
+      variant="spell"
+      accent={accent}
+      icon={glyph}
+      name={label}
+      desc={desc}
+      cost={price}
+      status={tag?.text}
+      statusTone={tag?.tone}
       disabled={!onClick}
       onClick={onClick}
-    >
-      {band && <span className="dr-tile-band" style={{ background: band }} />}
-      <span className="dr-tile-cost">{price}</span>
-      {desc && <CardHelp name={label} desc={desc} className="dr-tile-help" />}
-      <span className="dr-tile-icon" style={{ background: iconBg, borderRadius: iconRadius }}>{icon}</span>
-      <span className="dr-tile-label">{label}</span>
-      {tag && <span className={`dr-tile-tag ${state}`}>{tag}</span>}
-    </button>
+    />
   )
 }
 
-// A piece in the catalog — deliberately NOT a card: no frame, no
-// background, no border, just the (large) Balatro-style artwork floating
-// with a price tag and a name underneath. Pieces are a fixed set of 5, not
-// an open-ended collectible pool, so dressing them up as "cards" (like the
-// spell catalog below) would misrepresent what they are — and at this
-// size the frame had no room to show anything but the icon anyway.
 function PieceTile({ icon, label, price, state, onClick }) {
-  const tag = state === 'cantAfford' ? 'нет монет' : state === 'soldOut' ? 'нет места' : null
+  const tag = statusTag(state)
   return (
-    <button className={`dr-piece-tile dr-piece-tile-${state}`} disabled={!onClick} onClick={onClick}>
-      <span className="dr-piece-cost">{price}</span>
-      <span className="dr-piece-icon">{icon}</span>
-      <span className="dr-piece-label">{label}</span>
-      {tag && <span className={`dr-tile-tag ${state}`}>{tag}</span>}
-    </button>
+    <GameCard
+      variant="piece"
+      icon={icon}
+      name={label}
+      cost={price}
+      status={tag?.text}
+      statusTone={tag?.tone}
+      disabled={!onClick}
+      onClick={onClick}
+    />
   )
 }
 

@@ -4,6 +4,7 @@ import VisualLayer from './VisualLayer'
 import EffectLayer from './EffectLayer'
 import { getHighlights } from '../game/highlights'
 import { getLegalMoves, getFogCaptureSquares, isKingInCheck } from '../game/chess'
+import { play } from '../sound'
 import './Board.css'
 
 const CELL = 54
@@ -98,6 +99,9 @@ export default function Board({
       ? [...getLegalMoves(gameState, square), ...getFogCaptureSquares(gameState, square)]
       : []
 
+    // Tiny pick-up tick when selecting one of your own pieces — the
+    // move/capture that may follow has its own, bigger sound.
+    if (piece && piece.color === playerColor) play('select')
     dispatch({ type: 'CLICK_SQUARE', square, piece, playerColor, legalMoves })
   }, [boardMode, gameState, playerColor, onMove, onPlayCard, dispatch, isMyTurn, premove, onSetPremove, onClearPremove])
 

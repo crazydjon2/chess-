@@ -22,7 +22,7 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
   function handleStart() {
     if (starting) return
     setStarting(true)
-    onStart?.()
+    onStart?.() // 'click' comes from the global button listener (sound.js)
   }
   const rowFor = (color) => {
     const p = players[color]

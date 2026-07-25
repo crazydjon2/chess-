@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GameView from './GameView'
 import { IDLE } from '../game/boardMode'
 import { getCaptured } from '../game/economy'
+import { play } from '../sound'
 
 function resultLine(result) {
   if (!result) return ''
@@ -39,6 +40,15 @@ export default function RoundSummary({ match, previousMyColor, room, onContinue 
 
   const result  = match.lastRoundResult
   const outcome = outcomeFor(result, previousMyColor)
+
+  // One jingle as the result banner lands — ascending for a win, two soft
+  // falling notes for a loss (see sound.js). Keyed on previousRound so it
+  // can't replay on re-renders within the same summary.
+  useEffect(() => {
+    if (outcome === 'win') play('win')
+    else if (outcome === 'loss') play('lose')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.previousRound])
   const outcomeLabel = { win: 'Вы победили в раунде', loss: 'Вы проиграли раунд', draw: 'Ничья' }[outcome]
   const line = resultLine(result)
 

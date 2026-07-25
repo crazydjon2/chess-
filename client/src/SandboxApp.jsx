@@ -8,6 +8,7 @@ import { isKingInCheck, needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
 import { getCaptured } from './game/economy'
 import { tryMove, tryPlayCard } from './game/sandboxEngine'
+import { play } from './sound'
 
 const other = color => (color === 'white' ? 'black' : 'white')
 
@@ -94,10 +95,14 @@ export default function SandboxApp({ onExit }) {
     if (lastAction) {
       if (['move', 'capture', 'bounce'].includes(lastAction.type)) {
         setLastMoveAnim({ type: lastAction.type, from: lastAction.from, to: lastAction.to, ts: Date.now() })
+        // Hot-seat: whoever moves IS "you" this turn, so a capture is
+        // always "get" (you took a piece); plain moves are "move".
+        play(lastAction.type === 'capture' ? 'get' : 'move')
       } else if (lastAction.type === 'card') {
         const card = CARD_DEFS[lastAction.cardId]
         setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
         setTimeout(() => setActionToast(null), 2000)
+        play('card')
       }
     }
     if (res.meteorStrikes && res.meteorStrikes.length > 0) {
@@ -154,6 +159,7 @@ export default function SandboxApp({ onExit }) {
 
   function handleCardSelect(card) {
     if (gameOver || cardsLocked) return
+    play('select')
     if (card.id === 'necromancy') {
       const options = getValidTargets('necromancy', gameState, myColor)
       setPendingNecromancy({ card, options })

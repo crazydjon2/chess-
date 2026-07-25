@@ -35,6 +35,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  /* Clears the global settings gear's top-right corner (MenuLayout.jsx). */
+  padding-right: 52px;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -383,10 +385,15 @@
   margin-bottom: 8px;
 }
 
-.dr-piece-grid {
+/* Both catalog grids now hold the shared Balatro card (GameCard) — the
+   same fixed 116:162 shape whether piece or spell, so both grids use the
+   same track sizing. */
+.dr-piece-grid,
+.dr-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 14px;
+  justify-content: start;
 }
 
 /* Pieces are NOT cards — no frame, no background, no border. Just the
@@ -458,11 +465,6 @@
   text-align: center;
 }
 
-.dr-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 7px;
-}
 
 /* ── Tiles ────────────────────────────────────────────────────────── */
 .dr-tile {

@@ -4,6 +4,8 @@ import { PIECE_LABEL } from '../game/economy'
 import { CARD_DEFS } from '../game/cards'
 import { PIECE_ICONS } from './pieceIcons'
 import MatchScoreBoard from './MatchScoreBoard'
+import GameCard from './GameCard'
+import { play } from '../sound'
 import './PlacementPhase.css'
 
 function zoneFor(rank, myRange, oppRange) {
@@ -54,18 +56,20 @@ export default function PlacementPhase({
       const next = { ...placement }
       delete next[sq]
       setPlacement(next)
+      play('select')
       return
     }
     if (selectedType) {
       setPlacement({ ...placement, [sq]: selectedType })
       setSelectedType(null)
+      play('move')
     }
   }
 
   function handleReady() {
     if (remaining.length > 0 || submitted) return
     setSubmitted(true)
-    onSubmit(placement)
+    onSubmit(placement) // the submit button's 'click' comes from the global listener (sound.js)
   }
 
   const ranks = Array.from({ length: rows }, (_, i) => rows - i) // top..bottom
@@ -190,15 +194,15 @@ export default function PlacementPhase({
            in the actual battle screen, not a small icon-only lot. */}
         <div className="pl-piece-rail">
           {remaining.map((type, i) => (
-            <button
+            <GameCard
               key={`${type}-${i}`}
-              className={`pl-piece-card${selectedType === type ? ' selected' : ''}`}
+              variant="piece"
+              icon={PIECE_ICONS[myColor][type]}
+              name={PIECE_LABEL[type]}
+              selected={selectedType === type}
               disabled={submitted}
-              onClick={() => setSelectedType(cur => (cur === type ? null : type))}
-            >
-              <span className="pl-piece-card-icon">{PIECE_ICONS[myColor][type]}</span>
-              <span className="pl-piece-card-name">{PIECE_LABEL[type]}</span>
-            </button>
+              onClick={() => { play('select'); setSelectedType(cur => (cur === type ? null : type)) }}
+            />
           ))}
         </div>
       </div>

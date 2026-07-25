@@ -26,6 +26,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  /* Clears the global settings gear's top-right corner (MenuLayout.jsx). */
+  padding-right: 52px;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -197,7 +199,7 @@
    row (see the comment on the spacer element in PlacementPhase.jsx). */
 .pl-main-spacer {
   flex-shrink: 0;
-  width: 100px;
+  width: 120px; /* matches .pl-piece-rail below (and the battle rail) */
 }
 
 .pl-board-wrap {
@@ -222,7 +224,7 @@
    shift over as the last few pieces get placed. */
 .pl-piece-rail {
   flex-shrink: 0;
-  width: 100px;
+  width: 120px;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;

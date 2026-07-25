@@ -89,45 +89,33 @@
   .ml-piece, .ml-piece-spin { animation: none; }
 }
 
-/* ── Global utility row (settings) ───────────────────────────────────
-   Fixed, not absolute — has to stay put regardless of which screen's own
-   scroll position is under it, the same way .ml-bg does. Sits above every
-   screen (z-index higher than any in-page content needs) since it's
-   meant to read as chrome around the app, not part of any one page. */
-.ml-utility {
+/* ── Global settings button ──────────────────────────────────────────
+   Fixed top-right, mounted once (see MenuLayout.jsx) so it's on every
+   screen. z-index sits ABOVE all in-page content and the docked battle
+   log (z 60) but below the blocking modals (result/confirm/settings
+   itself, 300+) — so nothing covers it during normal play, and the game
+   screens reserve its corner via their header padding-right (App.css /
+   DraftPhase.css / PlacementPhase.css) so it covers nothing either. */
+.ml-settings-btn {
   position: fixed;
   top: 20px;
   right: 24px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Menu chrome only — every game screen (draft/placement/battle, and
-   sandbox which also renders .bt-screen) has a real header/HUD across the
-   top edge, and the fixed gear was landing right on top of the scoreboard
-   and opponent panel there. */
-.ml-root:has(.dr-screen) .ml-utility,
-.ml-root:has(.pl-screen) .ml-utility,
-.ml-root:has(.bt-screen) .ml-utility {
-  display: none;
-}
-
-.ml-round-btn {
-  width: 36px;
-  height: 36px;
+  z-index: 120;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #fdf6e8;
   border: 3px solid #241708;
   box-shadow: 0 3px 0 0 #241708;
+  color: #241708;
+  font-size: 17px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  cursor: default;
-  transition: transform 0.12s ease;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-.ml-round-btn:hover  { transform: translateY(-3px); }
-.ml-round-btn:active { transform: translateY(0); }
+.ml-settings-btn:hover  { transform: rotate(40deg); }
+.ml-settings-btn:active { transform: translateY(2px); box-shadow: none; }

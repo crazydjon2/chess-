@@ -14,6 +14,7 @@ import { getValidTargets, CARD_DEFS } from './game/cards'
 import { isKingInCheck, needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
 import { getCaptured } from './game/economy'
+import { play } from './sound'
 
 const other = color => (color === 'white' ? 'black' : 'white')
 
@@ -50,6 +51,18 @@ export default function OnlineApp({ onExit }) {
   // round's snapshot.
   const [historyIndex, setHistoryIndex] = useState(null)
   useEffect(() => { setHistoryIndex(null) }, [match?.round])
+
+  // Match-over jingle: win/lose from my perspective, once, when the whole
+  // best-of-N finishes. (Per-ROUND win/lose is played by RoundSummary; the
+  // final round never shows a RoundSummary — it goes straight to the
+  // match-over screen — so that ending is covered here instead.) Keyed on
+  // phase so it fires exactly on the transition into match_over.
+  useEffect(() => {
+    if (match?.phase !== 'match_over' || !room?.color) return
+    const opp = room.color === 'white' ? 'black' : 'white'
+    play(match.scores[room.color] > match.scores[opp] ? 'win' : 'lose')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match?.phase])
 
   function handleNicknameChange(name) {
     setNickname(name)
@@ -103,10 +116,20 @@ export default function OnlineApp({ onExit }) {
       if (lastAction) {
         if (['move', 'capture', 'bounce'].includes(lastAction.type)) {
           setLastMoveAnim({ type: lastAction.type, from: lastAction.from, to: lastAction.to, ts: Date.now() })
+          // A capture is "get" if I was the one capturing, "lost" if it was
+          // MY piece that just got taken. Plain moves/bounces are "move".
+          if (lastAction.type === 'capture') play(lastAction.color === roomInfo.color ? 'get' : 'lost')
+          else play('move')
         } else if (lastAction.type === 'card') {
           const card = CARD_DEFS[lastAction.cardId]
           setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
           setTimeout(() => setActionToast(null), 2000)
+          play('card')
+        }
+        // The opponent just acted and the turn passed to us — one gentle
+        // "you're up" chime layered after their action's own sound.
+        if (m.phase === 'battle' && m.gameState.turn === roomInfo.color && lastAction.color !== roomInfo.color) {
+          setTimeout(() => play('yourTurn'), 220)
         }
       }
       // Meteor impacts are never secret (unlike the target square while
@@ -247,7 +270,7 @@ export default function OnlineApp({ onExit }) {
             whiteName: room.players?.white?.name,
             blackName: room.players?.black?.name,
           }}
-          onPick={(item) => getSocket().emit('draft_pick', item)}
+          onPick={(item) => { play('buy'); getSocket().emit('draft_pick', item) }}
           onDone={() => getSocket().emit('draft_done')}
         />
       </PageTransition>
@@ -318,6 +341,9 @@ export default function OnlineApp({ onExit }) {
 
   function handleCardSelect(card) {
     if (match.phase !== 'battle' || !myTurn || cardsLocked) return
+    // Same pick/unpick tick a board piece gets (see Board.jsx) — selecting
+    // a card to aim it, or clicking it again to cancel, both play 'select'.
+    play('select')
     // Necromancy's real choice is WHICH captured piece to revive, not a
     // board square (where it reappears is random) — so it skips the normal
     // click-a-square flow entirely and opens its own picker instead.

@@ -70,6 +70,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  /* Room for the global settings gear (MenuLayout.jsx) in the top-right
+     corner so the scoreboard/log never slide under it. */
+  padding-right: 52px;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -220,7 +223,7 @@
 
 .bt-main-spacer {
   flex-shrink: 0;
-  width: 96px;
+  width: 120px; /* must match .card-hand (CardHand.css) so the board is centred */
 }
 
 .bt-board-col {

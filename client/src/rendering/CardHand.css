@@ -1,6 +1,8 @@
 .card-hand {
   flex-shrink: 0;
-  width: 96px;
+  /* Wide enough for the shared GameCard's names to sit on one/two natural
+     lines (matches .bt-main-spacer in App.css so the board stays centred). */
+  width: 120px;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
@@ -8,7 +10,7 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 8px 2px;
+  padding: 8px 6px;
   transition: opacity 0.25s ease, filter 0.25s ease;
 }
 

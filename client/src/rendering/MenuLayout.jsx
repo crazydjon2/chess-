@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { PIECE_ICONS } from './pieceIcons'
+import Settings from './Settings'
 import './MenuLayout.css'
 
 const PIECE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
@@ -94,6 +95,7 @@ function generateFloatingPieces(count = 5) {
 // composited, off the main thread (see the fromX/dx comment above).
 export default function MenuLayout({ children }) {
   const pieces = useMemo(() => generateFloatingPieces(), [])
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <div className="ml-root">
@@ -125,18 +127,21 @@ export default function MenuLayout({ children }) {
         <div className="ml-vignette" />
       </div>
 
-      {/* Settings — truly global chrome, not any one screen's content, so
-         it lives here instead of being duplicated into (and animated along
-         with) every menu screen. Decorative for now — no settings system
-         exists yet to back the button. Hidden on the game screens (see
-         MenuLayout.css) where the in-game header owns the top edge — it
-         was colliding with the scoreboard/opponent panel there. The
-         version badge that used to sit next to it is gone entirely: it
-         fought with in-game HUD for the same corner and patch notes
-         already carry the version. */}
-      <div className="ml-utility">
-        <span className="ml-round-btn" title="Настройки (пока не работает)">⚙</span>
-      </div>
+      {/* Settings — truly global chrome, mounted once here so it's on EVERY
+         screen. Fixed top-right at a z-index above all in-page content, and
+         the game screens reserve room for it via their header's padding-
+         right (see App.css / DraftPhase.css / PlacementPhase.css), so it
+         neither covers anything nor gets covered during normal play. */}
+      <button
+        className="ml-settings-btn"
+        onClick={() => setSettingsOpen(true)}
+        title="Настройки"
+        aria-label="Настройки"
+      >
+        ⚙
+      </button>
+
+      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
 
       {children}
     </div>
