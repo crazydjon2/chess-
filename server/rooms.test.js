@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createRoom, joinRoom, getRoomByCode, handlePlayCard, handlePlacement, handleDraftPick, handleDraftDone, handleMove, handleSurrender } from './rooms.js'
+import { createRoom, joinRoom, rejoinRoom, leaveRoom, handleDisconnect, ABANDONED_ROOM_MS, getRoomByCode, handlePlayCard, handlePlacement, handleUpdatePlacement, handleDraftPick, handleDraftDone, handleMove, handleSurrender, handleOfferDraw, handleAnswerDraw } from './rooms.js'
 import { getCaptured } from '../client/src/game/economy.js'
+import { createDraftState } from '../client/src/game/draftEngine.js'
+import { DRAFT_TIME_BY_ROUND } from '../client/src/game/draftPools.js'
 
 function makeSocket(id) {
   return { id, data: {}, join() {}, leave() {}, emit() {} }
@@ -53,7 +55,6 @@ describe('smoke_screen fog redaction (viewFor)', () => {
           white: { hand: [{ id: 'smoke_screen' }], used: [] },
           black: { hand: [], used: [] },
         },
-        coins: { white: 0, black: 0 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -107,7 +108,6 @@ describe('meteor redaction (viewFor + lastAction)', () => {
           white: { hand: [{ id: 'meteor' }], used: [] },
           black: { hand: [], used: [] },
         },
-        coins: { white: 0, black: 0 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -179,7 +179,6 @@ describe('freeze mine redaction (viewFor + lastAction)', () => {
           white: { hand: [{ id: 'freeze' }], used: [] },
           black: { hand: [], used: [] },
         },
-        coins: { white: 0, black: 0 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -247,7 +246,6 @@ describe('actionLog redaction (viewFor)', () => {
           white: { hand: [{ id: cardId }], used: [] },
           black: { hand: [], used: [] },
         },
-        coins: { white: 0, black: 0 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -381,7 +379,6 @@ describe('battle actions are rejected once the match is over', () => {
       board: { size: { rows: 6, cols: 6 }, blockedCells: [], extraCells: [] },
       pieces: { b1: { type: 'pawn', color: 'white', hp: 1 } },
       cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 20, black: 20 },
       turn: 'white',
       cardPlayedThisTurn: false,
       halfMoveClock: 0,
@@ -411,7 +408,6 @@ describe('side-swap between rounds', () => {
       gameState: {
         pieces: { a1: { type: 'rook', color: 'white', hp: 1 } },
         cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-        coins: { white: 0, black: 0 },
         turn: 'white',
       },
     }
@@ -441,7 +437,6 @@ describe('side-swap between rounds', () => {
       gameState: {
         pieces: {},
         cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-        coins: { white: 0, black: 0 },
         turn: 'white',
       },
     }
@@ -453,7 +448,7 @@ describe('side-swap between rounds', () => {
     expect(socketBlack.data.color).toBe('black')
   })
 
-  it('rejects a surrender attempted outside the surrendering player\'s own turn', () => {
+  it('allows surrendering on the opponent\'s turn too', () => {
     const { io, socketWhite, room } = makeRoom()
     room.match = {
       phase: 'battle',
@@ -463,14 +458,61 @@ describe('side-swap between rounds', () => {
       gameState: {
         pieces: { a1: { type: 'rook', color: 'white', hp: 1 } },
         cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-        coins: { white: 0, black: 0 },
         turn: 'black', // not white's turn
       },
     }
 
     handleSurrender(io, socketWhite)
 
-    // Nothing happened — still battle, no round transition.
+    expect(room.match.phase).toBe('draft') // round over, next one started
+    expect(room.match.lastRoundResult).toMatchObject({ type: 'surrender', winner: 'black' })
+  })
+})
+
+describe('draw offers', () => {
+  function battleRoom() {
+    const ctx = makeRoom()
+    ctx.room.match = {
+      phase: 'battle',
+      round: 1,
+      scores: { white: 0, black: 0 },
+      draft: { firstColor: 'white' },
+      gameState: {
+        pieces: { a1: { type: 'king', color: 'white', hp: 1 }, f6: { type: 'king', color: 'black', hp: 1 } },
+        cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
+        turn: 'white',
+        moveHistory: [],
+        drawOffer: null,
+        drawOfferedAt: { white: -1, black: -1 },
+      },
+    }
+    return ctx
+  }
+
+  it('accepting ends the round as a draw with no score change', () => {
+    const { io, socketWhite, socketBlack, room } = battleRoom()
+    handleOfferDraw(io, socketWhite)
+    expect(room.match.gameState.drawOffer).toBe('white')
+    handleAnswerDraw(io, socketBlack, { accept: true })
+    expect(room.match.phase).toBe('draft')
+    expect(room.match.lastRoundResult).toEqual({ type: 'draw', reason: 'agreement' })
+    expect(room.match.scores).toEqual({ white: 0, black: 0 })
+  })
+
+  it('declining withdraws the offer, and the same side cannot re-offer until a move is made', () => {
+    const { io, emits, socketWhite, socketBlack, room } = battleRoom()
+    handleOfferDraw(io, socketWhite)
+    handleAnswerDraw(io, socketBlack, { accept: false })
+    expect(room.match.gameState.drawOffer).toBeNull()
+    expect(emits['sock-white'].at(-1).payload.lastAction).toEqual({ type: 'draw_declined', color: 'black' })
+    handleOfferDraw(io, socketWhite)
+    expect(room.match.gameState.drawOffer).toBeNull() // rejected: once per move
+  })
+
+  it('the offerer cannot answer their own offer', () => {
+    const { io, socketWhite, room } = battleRoom()
+    handleOfferDraw(io, socketWhite)
+    handleAnswerDraw(io, socketWhite, { accept: true })
     expect(room.match.phase).toBe('battle')
   })
 })
@@ -487,7 +529,6 @@ describe('lastAction redaction for fog-hidden actions', () => {
           f6: { type: 'pawn', color: 'black', hp: 1 },
         },
         cards: { white: { hand: [{ id: 'barricade' }], used: [] }, black: { hand: [], used: [] } },
-        coins: { white: 20, black: 20 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -517,7 +558,6 @@ describe('lastAction redaction for fog-hidden actions', () => {
           f6: { type: 'pawn', color: 'black', hp: 1 },
         },
         cards: { white: { hand: [{ id: 'barricade' }], used: [] }, black: { hand: [], used: [] } },
-        coins: { white: 20, black: 20 },
         turn: 'white',
         cardPlayedThisTurn: false,
         halfMoveClock: 0,
@@ -533,24 +573,62 @@ describe('lastAction redaction for fog-hidden actions', () => {
   })
 })
 
-describe('placement-phase redaction', () => {
-  it('hides the opponent\'s placement map until both are ready', () => {
-    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
-    room.match = {
+describe('open placement', () => {
+  function placementMatch() {
+    return {
       phase: 'placement',
+      round: 1,
       boardPattern: { rows: 6, cols: 6, blockedCells: [] },
-      draft: { picks: { white: { pieces: ['pawn'], cards: [] }, black: { pieces: ['pawn'], cards: [] } } },
+      draft: { picks: { white: { pieces: ['pawn', 'rook'], cards: [] }, black: { pieces: ['pawn'], cards: [] } } },
       placement: {
-        white: { ready: false, map: null },
-        black: { ready: false, map: null },
+        white: { ready: false, map: {} },
+        black: { ready: false, map: {} },
       },
     }
+  }
 
-    handlePlacement(io, socketWhite, { b1: 'pawn' })
+  it('shows each side\'s in-progress placement to the opponent live', () => {
+    const { io, emits, socketWhite, room } = makeRoom()
+    room.match = placementMatch()
+
+    handleUpdatePlacement(io, socketWhite, { b1: 'pawn' })
     const blackSees = lastView(emits, 'sock-black').placement
-    expect(blackSees.white).toEqual({ ready: true, map: null }) // ready flag visible, map hidden
-    const whiteSees = lastView(emits, 'sock-white').placement
-    expect(whiteSees.white.map).toEqual({ b1: 'pawn' }) // you always see your own placement
+    expect(blackSees.white).toEqual({ ready: false, map: { b1: 'pawn' } })
+  })
+
+  it('rejects a live update placing more of a type than was drafted', () => {
+    const { io, socketWhite, room } = makeRoom()
+    room.match = placementMatch()
+    handleUpdatePlacement(io, socketWhite, { b1: 'pawn', c1: 'pawn' })
+    expect(room.match.placement.white.map).toEqual({})
+  })
+
+  it('locks a side in once ready — no further live updates', () => {
+    const { io, socketWhite, room } = makeRoom()
+    room.match = placementMatch()
+    handlePlacement(io, socketWhite, { b1: 'pawn', a1: 'rook' })
+    handleUpdatePlacement(io, socketWhite, { b2: 'pawn', a1: 'rook' })
+    expect(room.match.placement.white).toEqual({ ready: true, map: { b1: 'pawn', a1: 'rook' } })
+  })
+
+  it('starts the battle at the deadline, keeping placed pieces and auto-placing the rest', () => {
+    vi.useFakeTimers()
+    try {
+      const { io, socketWhite, room } = makeRoom()
+      room.match = { ...placementMatch(), placementDeadline: Date.now() + 30_000 }
+      handleUpdatePlacement(io, socketWhite, { b1: 'pawn' }) // rook still unplaced; black placed nothing
+
+      vi.advanceTimersByTime(30_000)
+
+      expect(room.match.phase).toBe('battle')
+      const pieces = room.match.gameState.pieces
+      expect(pieces.b1).toEqual({ type: 'pawn', color: 'white', hp: 1 })
+      const types = color => Object.values(pieces).filter(p => p.color === color).map(p => p.type).sort()
+      expect(types('white')).toEqual(['pawn', 'rook'])
+      expect(types('black')).toEqual(['pawn'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
@@ -572,7 +650,6 @@ describe('AFK turn timeout', () => {
             a6: { type: 'pawn', color: 'black', hp: 1 },
           },
           cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-          coins: { white: 0, black: 0 },
           turn: 'white',
           cardPlayedThisTurn: false,
           halfMoveClock: 0,
@@ -621,7 +698,6 @@ describe('AFK turn timeout', () => {
             a6: { type: 'pawn', color: 'black', hp: 1 },
           },
           cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-          coins: { white: 0, black: 0 },
           turn: 'white',
           cardPlayedThisTurn: false,
           halfMoveClock: 0,
@@ -648,5 +724,134 @@ describe('AFK turn timeout', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('createRoom color choice', () => {
+  it('resolves "random" to a real color on creation', () => {
+    const seen = new Set()
+    for (let i = 0; i < 40; i++) {
+      const res = createRoom(makeSocket(`sock-rand-${i}`), 'random')
+      expect(['white', 'black']).toContain(res.color)
+      expect(res.host).toBe(res.color)
+      seen.add(res.color)
+    }
+    expect(seen.size).toBe(2)
+  })
+})
+
+describe('draft time bank (server timer)', () => {
+  it('ends the draft for whoever runs out of time on their turn', () => {
+    vi.useFakeTimers()
+    try {
+      const { io, socketWhite, room } = makeRoom()
+      room.match = { phase: 'draft', round: 1, draft: createDraftState(1, 'white', Date.now()) }
+      handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'pawn' }) // starts black's clock
+      vi.advanceTimersByTime(DRAFT_TIME_BY_ROUND[1] * 1000 + 50)
+      expect(room.match.draft.done.black).toBe(true)
+      expect(room.match.draft.turn).toBe('white')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('rejoin (reload / dropped connection)', () => {
+  function startedRoom() {
+    const ctx = makeRoom()
+    ctx.room.match = { phase: 'draft', round: 1, draft: createDraftState(1, 'white', Date.now()) }
+    return ctx
+  }
+
+  it('reclaims the seat by token from a new socket, without leaking tokens publicly', () => {
+    const { io, room, socketWhite } = startedRoom()
+    const token = room.players.white.token
+    handleDisconnect(io, socketWhite)
+    expect(room.players.white.connected).toBe(false)
+
+    const fresh = makeSocket('sock-white-2')
+    const res = rejoinRoom(fresh, room.code.toLowerCase(), token)
+    expect(res.color).toBe('white')
+    expect(room.players.white).toMatchObject({ socketId: 'sock-white-2', connected: true })
+    expect(JSON.stringify(res.players)).not.toContain(token)
+  })
+
+  it('rejects a wrong token', () => {
+    const { room } = startedRoom()
+    expect(() => rejoinRoom(makeSocket('x'), room.code, 'nope')).toThrow()
+  })
+
+  it('a stale socket disconnecting late does not kick the player who already came back', () => {
+    const { io, room, socketWhite } = startedRoom()
+    rejoinRoom(makeSocket('sock-white-2'), room.code, room.players.white.token)
+    handleDisconnect(io, socketWhite) // the old socket's disconnect only arrives now
+    expect(room.players.white.connected).toBe(true)
+  })
+
+  it('throws the room away once both players stay gone long enough', () => {
+    vi.useFakeTimers()
+    try {
+      const { io, room, socketWhite, socketBlack } = startedRoom()
+      handleDisconnect(io, socketWhite)
+      handleDisconnect(io, socketBlack)
+      vi.advanceTimersByTime(ABANDONED_ROOM_MS + 1)
+      expect(getRoomByCode(room.code)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the room if someone comes back in time', () => {
+    vi.useFakeTimers()
+    try {
+      const { io, room, socketWhite, socketBlack } = startedRoom()
+      handleDisconnect(io, socketWhite)
+      handleDisconnect(io, socketBlack)
+      rejoinRoom(makeSocket('sock-white-2'), room.code, room.players.white.token)
+      vi.advanceTimersByTime(ABANDONED_ROOM_MS + 1)
+      expect(getRoomByCode(room.code)).toBe(room)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('seat ownership', () => {
+  it('rejoin reports the socket it replaced, so it can be evicted', () => {
+    const { room } = makeRoom()
+    const res = rejoinRoom(makeSocket('sock-white-tab2'), room.code, room.players.white.token)
+    expect(res.replacedSocketId).toBe('sock-white')
+  })
+
+  it('an evicted socket leaving does not free the seat its replacement now owns', () => {
+    const { io, room, socketWhite } = makeRoom()
+    rejoinRoom(makeSocket('sock-white-tab2'), room.code, room.players.white.token)
+    leaveRoom(io, socketWhite)
+    expect(room.players.white?.socketId).toBe('sock-white-tab2')
+  })
+})
+
+describe('rooms against the AI', () => {
+  it('seats the bot, starts the match at once, and keeps the room private', async () => {
+    const { createBotRoom } = await import('./bot.js')
+    const sockets = new Map()
+    const { io } = makeIo(sockets)
+    const human = makeSocket('sock-human'); sockets.set('sock-human', human)
+    const res = createBotRoom(io, human, { level: 'weak', color: 'white', name: 'Я' })
+    const room = getRoomByCode(res.code)
+    expect(room.players.black).toMatchObject({ bot: true, connected: true })
+    expect(room.match.phase).toBe('draft')
+    expect(room.visibility).toBe('private')
+    expect(res.players.black.name).toMatch(/ИИ/)
+  })
+
+  it('throws the room away when the human leaves — the bot never keeps it alive', async () => {
+    const { createBotRoom } = await import('./bot.js')
+    const sockets = new Map()
+    const { io } = makeIo(sockets)
+    const human = makeSocket('sock-human2'); sockets.set('sock-human2', human)
+    const res = createBotRoom(io, human, { level: 'normal', color: 'black' })
+    leaveRoom(io, human)
+    expect(getRoomByCode(res.code)).toBeNull()
   })
 })

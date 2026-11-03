@@ -8,6 +8,7 @@
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -318,8 +319,43 @@
 }
 
 @media (max-width: 720px) {
-  .mm-row {
-    flex-direction: column;
-    align-items: stretch;
+  /* Compact everything so the whole menu fits the viewport without a page
+     scroll (the app is no-scroll now). overflow-y:auto stays as a safety
+     net — after this compaction the content is shorter than the screen on
+     real phones, so no scrollbar actually appears. 100dvh so the phone URL
+     bar isn't counted as extra height. */
+  .mm-screen { min-height: 100dvh; padding: 14px 16px; }
+  .mm-logo { font-size: 40px; }
+  .mm-hero {
+    margin-top: 20px;
+    padding: 16px 18px;
+    gap: 14px;
+    max-width: 420px;
   }
+  .mm-hero-badge { width: 62px; height: 62px; }
+  .mm-hero-piece { width: 28px; height: 36px; }
+  .mm-hero-title { font-size: 20px; }
+  /* Keep the three secondary cards as a ROW (a compact grid) instead of a
+     tall stack — stacked, they were the main source of the overflow. */
+  .mm-row {
+    margin-top: 14px;
+    gap: 10px;
+  }
+  .mm-card {
+    min-width: 0;
+    padding: 14px 8px;
+    gap: 8px;
+  }
+  .mm-card-icon { width: 44px; height: 44px; }
+  .mm-card-title { font-size: 13px; }
+  .mm-skins-banner { margin-top: 12px; padding: 10px 14px; gap: 10px; }
+  .mm-skins-label { font-size: 13px; }
+}
+
+/* Very short screens: reclaim the last bit by dropping the non-essential
+   "skins coming soon" teaser entirely. */
+@media (max-width: 720px) and (max-height: 680px) {
+  .mm-skins-banner { display: none; }
+  .mm-logo { font-size: 34px; }
+  .mm-hero { margin-top: 14px; }
 }

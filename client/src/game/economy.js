@@ -1,12 +1,10 @@
-// Coin reward for capturing a piece, keyed to classical chess values.
-export const PIECE_VALUE = { pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9 }
-
-// Shop no longer sells cards — only reinforcement pieces, at double their
-// capture value (buying a fresh queen mid-battle should cost real money).
+// Draft prices of the pieces. Tuned with the balance lab (tools/balance) —
+// not derived from classical chess values: when taking the king wins, long-
+// range pieces are worth far more than their chess value on these boards.
 export const SHOP_PIECE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
-export const SHOP_PRICE_MULTIPLIER = 2
+export const SHOP_PRICES = { pawn: 4, knight: 9, bishop: 9, rook: 17, queen: 28 }
 export function shopPieceCost(type) {
-  return (PIECE_VALUE[type] || 0) * SHOP_PRICE_MULTIPLIER
+  return SHOP_PRICES[type] ?? 0
 }
 
 export const PIECE_GLYPHS = {
@@ -14,7 +12,7 @@ export const PIECE_GLYPHS = {
   black: { king: '♚', pawn: '♟', rook: '♜', knight: '♞', bishop: '♝', queen: '♛' },
 }
 
-export const PIECE_LABEL = { pawn: 'Пешка', knight: 'Конь', bishop: 'Слон', rook: 'Ладья', queen: 'Ферзь' }
+export const PIECE_LABEL = { pawn: 'Пешка', knight: 'Конь', bishop: 'Слон', rook: 'Ладья', queen: 'Ферзь', king: 'Король' }
 
 // King is last/rarest to lose in classical mode (can't happen there at
 // all), but draft mode's elimination ruleset lets kings be captured like
@@ -30,13 +28,8 @@ export const CAPTURE_ORDER = ['queen', 'rook', 'bishop', 'knight', 'pawn', 'king
 // too (see chess.js's applyMove, which folds tickMeteors' strikes in here
 // alongside the move's own capture) — a piece is just as gone whether a
 // meteor or a direct move ended it.
-//
-// A capture marked `revived` (see cardEffects.js's necromancy) is excluded
-// — that piece is back on the board, not a casualty any more, so it
-// shouldn't linger in a "captured" tray or stay offered as something left
-// to revive.
 export function getCaptured(gameState, color) {
   return (gameState.moveHistory ?? [])
-    .filter(m => m.captured && m.captured.color === color && !m.captured.revived)
+    .filter(m => m.captured && m.captured.color === color)
     .map(m => m.captured.type)
 }

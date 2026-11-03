@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { PIECE_GLYPHS, PIECE_LABEL } from '../game/economy'
 import { CARD_DEFS } from '../game/cards'
 import './BattleLog.css'
@@ -39,7 +40,14 @@ export default function BattleLog({ entries, historyIndex, onSelect, onReturnToL
   const liveIndex = entries.length - 1
   const viewingIndex = historyIndex ?? liveIndex
 
-  return (
+  // Portaled to <body> so it sits in the ROOT stacking context. Docked
+  // inside the board column, it lived deep inside the PageTransition
+  // subtree, which is painted UNDERNEATH the global settings gear (a direct
+  // z-indexed child of .ml-root) — no z-index on the panel could win against
+  // that from inside the subtree. On a phone the near-full-width panel's
+  // close ✕ sat right under that gear and was unclickable. At the top level
+  // it competes with the gear directly (see BattleLog.css's z-index).
+  return createPortal(
     <div className={`bl-panel${closing ? ' closing' : ''}`}>
       <div className="bl-header">
         <span className="bl-title">Журнал боя</span>
@@ -73,6 +81,7 @@ export default function BattleLog({ entries, historyIndex, onSelect, onReturnToL
           )
         })}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

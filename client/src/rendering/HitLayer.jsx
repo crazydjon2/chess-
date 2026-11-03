@@ -20,6 +20,8 @@ export default function HitLayer({ rows, cols, cellSize, pieces, borderTargets =
           width={cellSize}
           height={cellSize}
           fill="transparent"
+          data-square={square}
+          data-piece={hasPiece ? `${pieces[square].color}-${pieces[square].type}` : undefined}
           draggable={hasPiece}
           onClick={() => onSquareClick(square)}
           onDragStart={(e) => {
@@ -56,6 +58,7 @@ export default function HitLayer({ rows, cols, cellSize, pieces, borderTargets =
         width={cellSize}
         height={cellSize}
         fill="transparent"
+        data-square={square}
         draggable={hasPiece}
         onClick={() => onSquareClick(square)}
         onDragStart={hasPiece ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(square) } : undefined}

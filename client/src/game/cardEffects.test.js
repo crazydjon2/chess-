@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { applyCardEffect } from './cardEffects.js'
 import { createDraftRoundState } from './initialState.js'
+import { applyMove, getGameResult } from './chess.js'
 
 const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
 
@@ -10,7 +11,7 @@ describe('smoke_screen', () => {
       boardPattern,
       { c3: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('smoke_screen', gs, 'c3', 'white')
     expect(next.fogZones).toHaveLength(1)
@@ -24,7 +25,7 @@ describe('smoke_screen', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('smoke_screen', gs, 'a1', 'white')
     expect(next.fogZones[0].cells.sort()).toEqual(['a1', 'a2', 'b1', 'b2'].sort())
@@ -35,7 +36,7 @@ describe('smoke_screen', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 }, f1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     gs = applyCardEffect('smoke_screen', gs, 'a1', 'white')
     gs = applyCardEffect('smoke_screen', gs, 'f1', 'white')
@@ -49,7 +50,7 @@ describe('freeze (mine placement)', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('freeze', gs, 'c3', 'white')
     expect(next.mines).toEqual([{ owner: 'white', square: 'c3' }])
@@ -61,7 +62,7 @@ describe('freeze (mine placement)', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     gs = applyCardEffect('freeze', gs, 'c3', 'white')
     gs = applyCardEffect('freeze', gs, 'd4', 'black')
@@ -73,66 +74,11 @@ describe('freeze (mine placement)', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('freeze', gs, 'f6', 'white')
     expect(next.mines ?? []).toHaveLength(0)
     expect(next.pieces).toEqual(gs.pieces)
-  })
-})
-
-describe('necromancy', () => {
-  // Captured piece belongs to BLACK (the opponent) and was cut down by a
-  // WHITE piece's move — a trophy white can now revive to fight for them,
-  // not a piece white lost.
-  function stateWithCapture(capturedType = 'knight') {
-    const gs0 = createDraftRoundState(
-      boardPattern,
-      { a1: { type: 'pawn', color: 'white', hp: 1 } },
-      { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
-    )
-    const captured = { type: capturedType, color: 'black', hp: 1 }
-    const moveHistory = [{ from: 'b5', to: 'a6', piece: { type: 'pawn', color: 'white', hp: 1 }, captured }]
-    return { ...gs0, moveHistory }
-  }
-
-  it('revives the captured piece onto an empty home-rank square', () => {
-    const gs = stateWithCapture('knight')
-    const next = applyCardEffect('necromancy', gs, 'knight', 'white')
-
-    const revivedSquares = Object.entries(next.pieces)
-      .filter(([sq, p]) => p.type === 'knight' && p.color === 'white' && sq !== 'a1')
-    expect(revivedSquares).toHaveLength(1)
-    const [square] = revivedSquares[0]
-    expect(['1', '2']).toContain(square.slice(1)) // white's home ranks
-    expect(next.moveHistory[0].captured.revived).toBe(true)
-  })
-
-  it('does nothing if that piece type was never captured', () => {
-    const gs = stateWithCapture('knight')
-    const next = applyCardEffect('necromancy', gs, 'queen', 'white')
-    expect(next).toBe(gs)
-  })
-
-  it('does not offer the same capture twice — a revived piece can\'t be revived again', () => {
-    const gs = stateWithCapture('knight')
-    const once = applyCardEffect('necromancy', gs, 'knight', 'white')
-    const twice = applyCardEffect('necromancy', once, 'knight', 'white')
-    expect(twice).toBe(once) // no second knight materializes
-  })
-
-  it('does nothing if there is no empty home-rank square left', () => {
-    const gs0 = stateWithCapture('knight')
-    // Fill every white home square (ranks 1-2 on a 6-wide board).
-    const pieces = { ...gs0.pieces }
-    for (const col of ['a', 'b', 'c', 'd', 'e', 'f']) {
-      pieces[`${col}1`] = { type: 'pawn', color: 'white', hp: 1 }
-      pieces[`${col}2`] = { type: 'pawn', color: 'white', hp: 1 }
-    }
-    const gs = { ...gs0, pieces }
-    const next = applyCardEffect('necromancy', gs, 'knight', 'white')
-    expect(next).toBe(gs)
   })
 })
 
@@ -142,7 +88,7 @@ describe('meteor', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('meteor', gs, 'f6', 'white')
     expect(next.meteors).toEqual([{ owner: 'white', square: 'f6', turnsLeft: 2 }])
@@ -154,7 +100,7 @@ describe('meteor', () => {
       boardPattern,
       { a1: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     gs = applyCardEffect('meteor', gs, 'f6', 'white')
     gs = applyCardEffect('meteor', gs, 'a1', 'black')
@@ -167,16 +113,27 @@ describe('unstable', () => {
     const gs = createDraftRoundState(
       boardPattern,
       { a1: { type: 'rook', color: 'white', hp: 1 } },
-      { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      { f6: { type: 'knight', color: 'black', hp: 1 } },
+      [], [], null,
     )
     const next = applyCardEffect('unstable', gs, 'f6', 'white')
-    expect(next.pieces.f6.type).toBe('pawn') // unchanged yet — see chess.js's tickUnstablePieces
-    expect(next.pieces.f6.unstable.originalType).toBe('pawn')
+    expect(next.pieces.f6.type).toBe('knight') // unchanged yet — see chess.js's tickUnstablePieces
+    expect(next.pieces.f6.unstable.originalType).toBe('knight')
     expect(next.pieces.f6.unstable.turnsLeft).toBe(6)
     // Telegraphed from the moment of casting — never a blind first shift.
-    expect(next.pieces.f6.unstable.nextType).not.toBe('pawn')
-    expect(['pawn', 'knight', 'bishop', 'rook', 'queen']).toContain(next.pieces.f6.unstable.nextType)
+    expect(next.pieces.f6.unstable.nextType).not.toBe('knight')
+    expect(['bishop', 'rook', 'queen']).toContain(next.pieces.f6.unstable.nextType)
+  })
+
+  it('never shifts anything into a pawn — no temporary effect may end in a promotion', () => {
+    let pieces = { a1: { type: 'rook', color: 'white', hp: 1 } }
+    let gs = createDraftRoundState(boardPattern, pieces, { f6: { type: 'king', color: 'black', hp: 1 } }, [], [], null)
+    for (let i = 0; i < 50; i++) {
+      const next = applyCardEffect('unstable', gs, 'a1', 'white')
+      expect(next.pieces.a1.unstable.nextType).not.toBe('pawn')
+    }
+    gs = { ...gs, pieces: { ...gs.pieces, b2: { type: 'pawn', color: 'white', hp: 1 } } }
+    expect(applyCardEffect('unstable', gs, 'b2', 'white')).toBe(gs) // pawns can't be made unstable at all
   })
 
   it('can target the caster\'s own piece', () => {
@@ -184,7 +141,7 @@ describe('unstable', () => {
       boardPattern,
       { a1: { type: 'rook', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('unstable', gs, 'a1', 'white')
     expect(next.pieces.a1.unstable.originalType).toBe('rook')
@@ -197,7 +154,7 @@ describe('unstable', () => {
       boardPattern,
       { a1: { type: 'king', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyCardEffect('unstable', gs, 'a1', 'white')
     expect(next).toBe(gs)
@@ -208,10 +165,39 @@ describe('unstable', () => {
       boardPattern,
       { a1: { type: 'rook', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     gs = applyCardEffect('unstable', gs, 'a1', 'white')
     const again = applyCardEffect('unstable', gs, 'a1', 'white')
     expect(again).toBe(gs)
+  })
+})
+
+describe('shield', () => {
+  const board = { rows: 6, cols: 6, blockedCells: [] }
+
+  it('gives an own piece — the king too — a second HP', () => {
+    const gs = createDraftRoundState(board, { a1: { type: 'king', color: 'white', hp: 1 } }, { f6: { type: 'king', color: 'black', hp: 1 } }, [], [], null)
+    const next = applyCardEffect('shield', gs, 'a1', 'white')
+    expect(next.pieces.a1.hp).toBe(2)
+  })
+
+  it('never stacks and never touches enemy pieces', () => {
+    const gs = createDraftRoundState(board, { a1: { type: 'rook', color: 'white', hp: 2 } }, { f6: { type: 'rook', color: 'black', hp: 1 } }, [], [], null)
+    expect(applyCardEffect('shield', gs, 'a1', 'white')).toBe(gs)
+    expect(applyCardEffect('shield', gs, 'f6', 'white')).toBe(gs)
+  })
+
+  it('a shielded piece bounces the first attack and dies to the second', () => {
+    let gs = createDraftRoundState(board, { a1: { type: 'rook', color: 'white', hp: 1 } }, { a6: { type: 'king', color: 'black', hp: 1 }, f6: { type: 'pawn', color: 'black', hp: 1 } }, [], [], null)
+    gs = applyCardEffect('shield', { ...gs, turn: 'black' }, 'a6', 'black')
+    gs = { ...gs, turn: 'white' }
+    gs = applyMove(gs, 'a1', 'a6')
+    expect(gs.pieces.a1.type).toBe('rook')            // attacker bounced back
+    expect(gs.pieces.a6).toMatchObject({ type: 'king', hp: 1 })
+    gs = applyMove(gs, 'f6', 'f5')
+    gs = applyMove(gs, 'a1', 'a6')
+    expect(gs.pieces.a6.type).toBe('rook')
+    expect(getGameResult(gs)).toEqual({ type: 'king_captured', winner: 'white' })
   })
 })

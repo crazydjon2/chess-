@@ -1,19 +1,51 @@
 import { useState } from 'react'
 import './PlayOnlineMenu.css'
 
-// "Играть онлайн" — create/join a room. Same felt-table card language as
-// MainMenu.jsx/PatchNotes.jsx. `onExit` returns all the way out to the
-// main menu (App.jsx's mode-select screen).
+// "Игра по сети" — the lobby browser. Three ways in, all on one screen:
+//   • the live list of open lobbies (public rooms waiting for a second
+//     player — pushed from the server, see rooms.js's broadcastLobbyList)
+//   • create your own (public = listed here for anyone, private = code/link
+//     only)
+//   • join by code, for a private room someone sent you
+//   • play against the AI (see server/bot.js), at one of three levels
+// An invite link (see WaitingRoom) drops straight into a room and never
+// touches this screen at all.
 //
-// Back just calls onExit directly — it used to fade the screen out over a
-// timeout first (to fake an exit animation, since App.jsx's
-// noExitSnapshotFor stops OnlineApp from being snapshot-animated), but that
-// self-fade read as a dead pause: nothing obvious happened for ~260ms and
-// only THEN did the main menu appear. Going straight to onExit lets the
-// main menu's own entrance animation start immediately — snappy, no pause.
-export default function PlayOnlineMenu({ busy, errorMsg, onCreate, onJoin, onExit, nickname, onNicknameChange }) {
+// `onExit` returns all the way out to the main menu. Back calls it directly
+// rather than fading out first — the main menu's own entrance animation
+// starts immediately that way, with no dead pause.
+const BOT_LEVELS = [
+  { id: 'weak', name: 'Слабый', hint: 'для разминки' },
+  { id: 'normal', name: 'Средний', hint: 'думает на 2 хода' },
+  { id: 'strong', name: 'Сильный', hint: 'думает на 3 хода' },
+]
+const COLORS = [
+  { id: 'white', name: 'Белые' },
+  { id: 'black', name: 'Чёрные' },
+  { id: 'random', name: 'Случайно' },
+]
+
+export default function PlayOnlineMenu({
+  busy, errorMsg, onCreate, onJoin, onPlayBot, onExit, nickname, onNicknameChange,
+  rooms = [], roomsLoading,
+}) {
   const [joinCode, setJoinCode] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
   const [hostColor, setHostColor] = useState('white')
+  const [visibility, setVisibility] = useState('public')
+  const [botOpen, setBotOpen] = useState(false)
+  const [botLevel, setBotLevel] = useState('normal')
+  const [botColor, setBotColor] = useState('random')
+
+  function submitCreate() {
+    onCreate(hostColor, visibility)
+    setCreateOpen(false)
+  }
+
+  function submitBot() {
+    onPlayBot?.(botLevel, botColor)
+    setBotOpen(false)
+  }
 
   return (
     <div className="po-screen">
@@ -33,69 +65,66 @@ export default function PlayOnlineMenu({ busy, errorMsg, onCreate, onJoin, onExi
         />
       </div>
 
-      <div className="po-cards">
-        <div className="po-card po-card-create">
-          <span className="po-card-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5V19M5 12H19" stroke="#241708" strokeWidth="3.2" strokeLinecap="round" />
-            </svg>
-          </span>
-          <div className="po-card-head">
-            <span className="po-card-title">Создать комнату</span>
-          </div>
-
-          <div className="po-color-field">
-            <span className="po-sublabel">Твой цвет</span>
-            <div className="po-color-row">
-              <button
-                type="button"
-                className={`po-color-opt${hostColor === 'white' ? ' selected' : ''} white`}
-                onClick={() => setHostColor('white')}
-              >
-                <span className="po-color-dot white" /> Белые
-                {hostColor === 'white' && <span className="po-color-check">✓</span>}
-              </button>
-              <button
-                type="button"
-                className={`po-color-opt${hostColor === 'black' ? ' selected' : ''} black`}
-                onClick={() => setHostColor('black')}
-              >
-                <span className="po-color-dot black" /> Чёрные
-                {hostColor === 'black' && <span className="po-color-check">✓</span>}
-              </button>
-            </div>
-          </div>
-
-          <button className="po-btn" disabled={busy} onClick={() => onCreate(hostColor)}>Создать</button>
+      {/* The list is the one flexible region — it scrolls inside itself so
+         the screen stays a fixed-viewport dashboard on mobile (no page
+         scroll), same pattern as the draft catalog. */}
+      <div className="po-list-panel">
+        <div className="po-list-head">
+          <span className="po-list-title">Открытые лобби</span>
+          <span className="po-list-count">{rooms.length}</span>
         </div>
 
-        <div className="po-card po-card-join">
-          <span className="po-card-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <path d="M4 8C4 5.79 5.79 4 8 4H10" stroke="#241708" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M4 16C4 18.21 5.79 20 8 20H10" stroke="#241708" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M13 8L18 12L13 16" stroke="#241708" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M8 12H18" stroke="#241708" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </span>
-          <div className="po-card-head">
-            <span className="po-card-title">Присоединиться</span>
-          </div>
+        <div className="po-list">
+          {rooms.length === 0 && (
+            <div className="po-list-empty">
+              {roomsLoading ? 'Ищем игры…' : 'Пока никто не ждёт — создайте своё лобби'}
+            </div>
+          )}
+          {rooms.map(r => (
+            <div className="po-room" key={r.code}>
+              <span className={`po-room-dot p-${r.hostColor}`} />
+              <div className="po-room-body">
+                <span className="po-room-name">{r.hostName || 'Игрок'}</span>
+                <span className="po-room-sub">
+                  играет за {r.hostColor === 'white' ? 'белых' : 'чёрных'} · {r.code}
+                </span>
+              </div>
+              <button
+                className="po-room-join"
+                disabled={busy}
+                onClick={() => onJoin(r.code)}
+              >
+                Войти
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="po-color-field">
-            <span className="po-sublabel">Код комнаты</span>
-            <input
-              className="po-input po-code-input"
-              type="text"
-              placeholder="Например, KX92F"
-              value={joinCode}
-              maxLength={6}
-              onChange={e => setJoinCode(e.target.value.toUpperCase())}
-              onKeyDown={e => { if (e.key === 'Enter' && joinCode.trim()) onJoin(joinCode.trim()) }}
-            />
-          </div>
-
-          <button className="po-btn" disabled={busy || !joinCode.trim()} onClick={() => onJoin(joinCode.trim())}>Войти</button>
+      <div className="po-actions">
+        <button className="po-create-btn" disabled={busy} onClick={() => setCreateOpen(true)}>
+          + Создать лобби
+        </button>
+        <button className="po-create-btn po-bot-btn" disabled={busy} onClick={() => setBotOpen(true)}>
+          Играть с ИИ
+        </button>
+        <div className="po-code-join">
+          <input
+            className="po-input po-code-input"
+            type="text"
+            placeholder="КОД"
+            value={joinCode}
+            maxLength={6}
+            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+            onKeyDown={e => { if (e.key === 'Enter' && joinCode.trim()) onJoin(joinCode.trim()) }}
+          />
+          <button
+            className="po-code-btn"
+            disabled={busy || !joinCode.trim()}
+            onClick={() => onJoin(joinCode.trim())}
+          >
+            Войти
+          </button>
         </div>
       </div>
 
@@ -107,6 +136,125 @@ export default function PlayOnlineMenu({ busy, errorMsg, onCreate, onJoin, onExi
           </div>
         )}
       </div>
+
+      {createOpen && (
+        <div className="po-modal-overlay" onClick={() => setCreateOpen(false)}>
+          <div className="po-modal" onClick={e => e.stopPropagation()}>
+            <div className="po-modal-head">
+              <span className="po-modal-title">Новое лобби</span>
+              <button className="po-modal-close" onClick={() => setCreateOpen(false)} title="Закрыть">✕</button>
+            </div>
+
+            <div className="po-modal-field">
+              <span className="po-modal-label">Кто может зайти</span>
+              <div className="po-opt-row">
+                <button
+                  type="button"
+                  className={`po-opt${visibility === 'public' ? ' selected' : ''}`}
+                  onClick={() => setVisibility('public')}
+                >
+                  <span className="po-opt-name">Открытое</span>
+                  <span className="po-opt-hint">видно в списке</span>
+                  {visibility === 'public' && <span className="po-opt-check">✓</span>}
+                </button>
+                <button
+                  type="button"
+                  className={`po-opt${visibility === 'private' ? ' selected' : ''}`}
+                  onClick={() => setVisibility('private')}
+                >
+                  <span className="po-opt-name">Приватное</span>
+                  <span className="po-opt-hint">только по коду</span>
+                  {visibility === 'private' && <span className="po-opt-check">✓</span>}
+                </button>
+              </div>
+            </div>
+
+            <div className="po-modal-field">
+              <span className="po-modal-label">Ваш цвет</span>
+              <div className="po-opt-row">
+                <button
+                  type="button"
+                  className={`po-color-opt${hostColor === 'white' ? ' selected' : ''} white`}
+                  onClick={() => setHostColor('white')}
+                >
+                  <span className="po-color-dot white" /> Белые
+                  {hostColor === 'white' && <span className="po-color-check">✓</span>}
+                </button>
+                <button
+                  type="button"
+                  className={`po-color-opt${hostColor === 'black' ? ' selected' : ''} black`}
+                  onClick={() => setHostColor('black')}
+                >
+                  <span className="po-color-dot black" /> Чёрные
+                  {hostColor === 'black' && <span className="po-color-check">✓</span>}
+                </button>
+                <button
+                  type="button"
+                  className={`po-color-opt${hostColor === 'random' ? ' selected' : ''} random`}
+                  onClick={() => setHostColor('random')}
+                >
+                  <span className="po-color-dot random" /> Случайно
+                  {hostColor === 'random' && <span className="po-color-check">✓</span>}
+                </button>
+              </div>
+            </div>
+
+            <button className="po-btn po-modal-submit" disabled={busy} onClick={submitCreate}>
+              Создать
+            </button>
+          </div>
+        </div>
+      )}
+
+      {botOpen && (
+        <div className="po-modal-overlay" onClick={() => setBotOpen(false)}>
+          <div className="po-modal" onClick={e => e.stopPropagation()}>
+            <div className="po-modal-head">
+              <span className="po-modal-title">Игра с ИИ</span>
+              <button className="po-modal-close" onClick={() => setBotOpen(false)} title="Закрыть">✕</button>
+            </div>
+
+            <div className="po-modal-field">
+              <span className="po-modal-label">Уровень</span>
+              <div className="po-opt-row">
+                {BOT_LEVELS.map(l => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    className={`po-opt${botLevel === l.id ? ' selected' : ''}`}
+                    onClick={() => setBotLevel(l.id)}
+                  >
+                    <span className="po-opt-name">{l.name}</span>
+                    <span className="po-opt-hint">{l.hint}</span>
+                    {botLevel === l.id && <span className="po-opt-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="po-modal-field">
+              <span className="po-modal-label">Ваш цвет</span>
+              <div className="po-opt-row">
+                {COLORS.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`po-color-opt${botColor === c.id ? ' selected' : ''} ${c.id}`}
+                    onClick={() => setBotColor(c.id)}
+                  >
+                    <span className={`po-color-dot ${c.id}`} /> {c.name}
+                    {botColor === c.id && <span className="po-color-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button className="po-btn po-modal-submit" disabled={busy} onClick={submitBot}>
+              Начать
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

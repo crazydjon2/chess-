@@ -18,7 +18,7 @@
 
 /* Same chunky error card the lobby uses (see .po-error) — was a leftover
    dark-theme translucent chip that matched nothing else on screen. */
-.sandbox-error {
+.game-toast {
   position: fixed;
   top: 14px;
   left: 50%;
@@ -49,6 +49,7 @@
 .bt-screen {
   position: relative;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -169,7 +170,7 @@
   animation: pp-glow 1.2s ease-in-out infinite;
 }
 
-/* Compact status pills for analysis/meteor/mine warnings — live inline in
+/* Compact status pills for meteor/mine warnings — live inline in
    the header, not a full-width banner with a permanently reserved slot
    below the top tray. That slot ate real board height on every turn it
    sat empty (nearly all of them), which was the actual cause of the board
@@ -193,7 +194,6 @@
   white-space: nowrap;
 }
 
-.threat-badge.analysis { border-color: #7c4fd4; }
 .threat-badge.meteor   { border-color: #d4302f; }
 .threat-badge.mine     { border-color: #2b6fd4; }
 
@@ -434,33 +434,6 @@
   flex-shrink: 0;
 }
 
-/* ── Coin badge (informational — spent in next round's draft) ───────── */
-.coin-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  background: #f0b429;
-  border: 2px solid #241708;
-  border-radius: 9px;
-  padding: 3px 9px;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 11px;
-  color: #241708;
-  font-variant-numeric: tabular-nums;
-  cursor: default;
-}
-
-.pp-coin {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #ffe27a;
-  border: 1.5px solid #6b4a10;
-  flex-shrink: 0;
-}
-
 /* ── Surrender button ─────────────────────────────────────────────── */
 .surrender-btn {
   cursor: pointer;
@@ -486,6 +459,30 @@
   transform: translateY(2px);
   box-shadow: none;
 }
+
+/* Draw offer — same round chip as surrender, neutral gold instead of red. */
+.draw-btn {
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f0b429;
+  border: 3px solid #241708;
+  box-shadow: 0 3px 0 0 #241708;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  color: #241708;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.draw-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.draw-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.draw-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Bo3 match scoreboard ─────────────────────────────────────────── */
 .match-scoreboard {
@@ -780,12 +777,120 @@
   box-shadow: none;
 }
 
+/* ── Result banners on phones ──────────────────────────────────────────
+   The round-summary inline banner was a horizontal row (icon · text ·
+   button) with a fixed min-width and a nowrap button that ate the width, so
+   the title collapsed to one word per line and the button overlapped it —
+   the "плашка победы кошмар" report. On a phone it becomes a compact
+   centred card, stacked vertically, full-width button, board still visible
+   below it. The full match-over modal just gets tighter padding. */
 @media (max-width: 700px) {
-  .bt-header { justify-content: flex-start; }
-  .bt-main { flex-direction: column; }
+  .result-inline {
+    top: 62px;
+    width: min(330px, calc(100% - 28px));
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    padding: 16px 16px;
+  }
+  .result-inline .result-icon.small { width: 50px; height: 50px; font-size: 24px; }
+  .result-inline-text { width: 100%; }
+  .result-inline-text .result-title { text-align: center; font-size: 16px; }
+  .result-inline-text .result-sub { text-align: center; margin-top: 4px; }
+  .result-inline .restart-btn { width: 100%; margin-top: 0; }
+
+  .result-banner { padding: 24px 20px; border-radius: 20px; }
+  .result-title { font-size: 19px; }
+  .result-icon { width: 60px; height: 60px; font-size: 28px; }
+}
+
+/* Covers phones AND portrait tablets (up to iPad-Pro-portrait's 1024).
+   Keyed on orientation, not just width, so the desktop side-rail layout is
+   kept for landscape (a landscape phone/tablet is wide enough that the
+   height-driven board sizes correctly there). In portrait the side-rail
+   layout made the board's own container taller than wide, and a
+   height-driven square clamped by max-width came out as a squished
+   rectangle — the stacked fit-both layout below is square at any aspect. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  /* Portrait battle stays a FIXED-VIEWPORT dashboard (no page scroll) —
+     the whole point of the mobile pass. The column is exactly the viewport
+     tall (100dvh so the phone URL bar doesn't cause a scroll), overflow
+     clipped, and every region except the board is flex-shrink:0. Only the
+     board flexes; it's sized as a square that fits BOTH the width and the
+     leftover height (see Board.css's mobile min() rule), so it never pushes
+     the panels or hand off-screen. */
+  .bt-screen {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    gap: 6px;
+    padding: 10px 10px;
+  }
+  /* One compact row — the board is the star, so the header gives up as much
+     height as it can. Title shrinks, the scoreboard drops its player names
+     (those already show in the panels) down to just round + win-dots, and
+     the Журнал/threat controls stay inline. FIXED height, matched to the
+     placement header, so (a) a badge appearing/disappearing can never nudge
+     the board and (b) the board is the same size in placement and battle. */
+  .bt-header {
+    height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    /* Clears the fixed settings gear (right:12 + 40 wide = 52px) PLUS the
+       scoreboard's 4px offset shadow, so neither the gear nor the shadow
+       overlaps the header content. */
+    padding-right: 60px;
+    gap: 8px;
+  }
+  .bt-header-left { flex-shrink: 1; min-width: 0; }
+  .bt-round { font-size: 17px; }
+  .bt-banner-text { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bt-header-right { flex-wrap: nowrap; gap: 6px; }
+  .bt-log-btn { padding: 7px 11px; font-size: 12px; box-shadow: 2px 2px 0 0 #241708; }
+  .match-scoreboard { padding: 5px 9px; gap: 7px; }
+  .msb-label { display: none; }
+  .msb-center { padding: 0 5px; }
+  .msb-round-num { font-size: 13px; }
+  .threat-badge { padding: 6px 9px; font-size: 11px; }
+  .bt-main {
+    flex-direction: column;
+    align-items: center;
+    min-height: 0;
+    gap: 6px;
+  }
   .bt-main-spacer { display: none; }
-  .card-hand { flex-direction: row; width: 100%; height: auto; max-height: 140px; }
-  /* Auto height on mobile — the fixed 78px (which keeps the board the same
-     size as placement on desktop) would clip wrapped panel content here. */
-  .player-panel { flex-wrap: wrap; height: auto; }
+  .bt-board-col { flex: 1; min-height: 0; width: 100%; }
+  /* Hand becomes one horizontal strip under the board — no wrap (that made
+     the chrome an unpredictable height and could clip cards under
+     overflow:hidden); it scrolls sideways instead, with a deterministic
+     height the board's fit-math can subtract. */
+  /* Cards no longer sit under the board on mobile — the always-visible rail
+     is hidden and replaced by SideDrawer's thin trigger bar + slide-out
+     panel, so the board gets the height back and never jumps as the hand
+     changes (the panel is portaled, out of flow). */
+  .card-hand { display: none; }
+  .sd-bar { display: flex; }
+  /* Compact fixed-height panels (no wrap) so the chrome height is
+     deterministic. At 360px a full-width single row of every field
+     (turn badge · avatar · name · color/character tags · captures ·
+     surrender) is wider than the screen, and the panel's overflow:hidden
+     was clipping the LAST items — including the surrender ✕, making it
+     unreachable on a phone. Drop the non-essential fields here (captures,
+     character/color tags, dividers) and tighten the spacing so what stays
+     — turn state, name, surrender — always fits. */
+  .player-panel { height: 52px; flex-wrap: nowrap; gap: 8px; padding: 6px 10px; border-width: 3px; }
+  .player-avatar { width: 30px; height: 30px; font-size: 13px; }
+  .player-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-captures,
+  .pp-captures-empty,
+  .player-character,
+  .player-color-tag,
+  .pp-divider { display: none; }
+  /* Name column no longer needs to share the row with captures — let it take
+     the slack so surrender pins to the right edge. */
+  .player-body { flex: 1; min-width: 0; }
+  .surrender-btn, .draw-btn { width: 30px; height: 30px; font-size: 12px; }
+  .pp-edge { width: 7px; }
 }

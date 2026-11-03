@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router'
 import './index.css'
 import App from './App.jsx'
 
@@ -9,4 +10,8 @@ import App from './App.jsx'
 // first frames and the card entrances visibly stuttered. Production
 // builds never ran the doubles anyway, so this only changes (improves)
 // how dev feels.
-createRoot(document.getElementById('root')).render(<App />)
+createRoot(document.getElementById('root')).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
+)

@@ -6,7 +6,10 @@
    never pushes out a scrollbar. */
 .pt-stack {
   display: grid;
+  /* dvh so the mobile URL bar doesn't add scrollable height (see
+     MenuLayout.css's .ml-root); vh fallback for old browsers. */
   min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
 }
 

@@ -1,6 +1,11 @@
 .ml-root {
   position: relative;
+  /* dvh (not vh) so the mobile browser's collapsing URL bar isn't counted
+     as extra height — a 100vh wrapper is taller than the visible area while
+     the bar is showing, which by itself makes the page scrollable even when
+     the content fits. vh kept as a fallback for browsers without dvh. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Fixed behind everything, mounted once — see MenuLayout.jsx. Screens with
@@ -89,6 +94,14 @@
   .ml-piece, .ml-piece-spin { animation: none; }
 }
 
+/* On phones/tablets the content panels fill most of the width, so the dark
+   floating decoration pieces crowd the panel corners and read as broken
+   shapes poking out ("лобби кривое"). Drop them to a faint background
+   texture there instead of solid silhouettes fighting the content. */
+@media (max-width: 820px) {
+  .ml-piece { opacity: 0.1; }
+}
+
 /* ── Global settings button ──────────────────────────────────────────
    Fixed top-right, mounted once (see MenuLayout.jsx) so it's on every
    screen. z-index sits ABOVE all in-page content and the docked battle
@@ -119,3 +132,11 @@
 
 .ml-settings-btn:hover  { transform: rotate(40deg); }
 .ml-settings-btn:active { transform: translateY(2px); box-shadow: none; }
+
+/* On phones/tablets pull the gear tight into the corner so the game
+   headers need to reserve less width for it (they clear it via
+   padding-right — see App/Draft/PlacementPhase.css). Aligned with the 42px
+   header that starts at the 10px screen padding. */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .ml-settings-btn { top: 12px; right: 12px; }
+}

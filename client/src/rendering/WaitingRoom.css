@@ -5,6 +5,7 @@
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,6 +71,14 @@
   gap: 8px;
 }
 
+.wr-code-labelrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .wr-code-label {
   font-family: 'Nunito', sans-serif;
   font-weight: 800;
@@ -79,6 +88,43 @@
   color: #8a7658;
   text-align: center;
 }
+
+/* Who can walk in — the one thing about a room that isn't obvious from
+   looking at it (see rooms.js's visibility / listOpenRooms). */
+.wr-vis-badge {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border: 2px solid #241708;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+.wr-vis-badge.public  { background: #d7ecdd; color: #1c5c3c; }
+.wr-vis-badge.private { background: #efe8d6; color: #5a4f40; }
+
+/* Secondary to the big code box above it — same chunky language, quieter
+   fill, so the two copy actions read as a pair without competing. */
+.wr-link-btn {
+  width: 100%;
+  background: #f7f0de;
+  color: #241708;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 0 #241708;
+  padding: 10px 12px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.wr-link-btn:hover:not(:active) { transform: translateY(-2px); }
+.wr-link-btn:active { transform: translateY(4px); box-shadow: none; }
 
 .wr-code-box {
   width: 100%;
@@ -434,5 +480,35 @@
   font-weight: 700;
   font-size: 13px;
   color: #241708;
+}
+
+@media (max-width: 700px) {
+  /* Compact so the room (title · code · two player rows · action button)
+     fits the viewport without a page scroll. Uses 100dvh and tighter
+     spacing; the code stays big enough to read/share. */
+  .wr-screen {
+    min-height: 100dvh;
+    padding: 56px 16px 16px;
+  }
+  .wr-title { font-size: 24px; }
+  .wr-subtitle { margin-bottom: 16px; }
+  .wr-panel { padding: 18px 16px; gap: 16px; }
+  .wr-code-value { font-size: 26px; letter-spacing: 6px; }
+  .wr-player-row { height: 54px; }
+  .wr-action { min-height: 56px; }
+  .wr-error-slot { margin-top: 10px; min-height: 0; }
+}
+
+/* Very short screens: tighten further so the room still fits. */
+@media (max-width: 700px) and (max-height: 700px) {
+  .wr-screen { padding-top: 42px; }
+  .wr-title { font-size: 20px; margin-bottom: 4px; }
+  .wr-subtitle { margin-bottom: 8px; font-size: 12px; }
+  .wr-panel { padding: 12px 14px; gap: 10px; }
+  .wr-code-box { padding: 10px 14px; }
+  .wr-code-value { font-size: 23px; letter-spacing: 5px; }
+  .wr-players { gap: 8px; }
+  .wr-player-row { height: 46px; }
+  .wr-action { min-height: 48px; }
 }
 

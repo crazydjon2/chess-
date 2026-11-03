@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import Board from './Board'
 import CardHand from './CardHand'
+import Card from './Card'
+import SideDrawer from './SideDrawer'
 import PlayerPanel from './PlayerPanel'
 import MatchScoreBoard from './MatchScoreBoard'
-import AnalysisBanner from './AnalysisBanner'
 import BattleLog from './BattleLog'
 
 const RESULT_TEXT = {
   checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
+  king_captured: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — король соперника взят`,
   elimination: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — армия соперника уничтожена`,
   timeout:     r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника закончилось время`,
   no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника нет ходов`,
@@ -16,11 +18,13 @@ const RESULT_TEXT = {
   draw:        r   => {
     if (r.reason === '50_move_rule') return 'Ничья — правило 50 ходов'
     if (r.reason === 'mutual_elimination') return 'Ничья — обе армии уничтожены'
+    if (r.reason === 'mutual_king') return 'Ничья — оба короля пали'
+    if (r.reason === 'agreement') return 'Ничья по соглашению'
     return 'Ничья — недостаточно материала'
   },
 }
 
-const RESULT_ICON = { checkmate: '♛', elimination: '♛', timeout: '⏱', no_moves: '🔒', surrender: '🏳' }
+const RESULT_ICON = { checkmate: '♛', king_captured: '♚', elimination: '♛', timeout: '⏱', no_moves: '🔒', surrender: '🏳' }
 
 // Shared board+panels layout — v2 "stacked" design: opponent's tray pinned
 // above the board, yours pinned below (see PlayerPanel.jsx), your
@@ -60,6 +64,8 @@ export default function GameView({
   // toggle or the panel's own ✕) was used.
   const [logOpen, setLogOpen] = useState(false)
   const [logClosing, setLogClosing] = useState(false)
+  // Mobile card deck (see SideDrawer) — desktop keeps the always-visible rail.
+  const [deckOpen, setDeckOpen] = useState(false)
   function toggleLog() {
     if (!logOpen) { setLogOpen(true); return }
     if (logClosing) return
@@ -91,17 +97,16 @@ export default function GameView({
   // countdown (a mine has no timer, it's armed until someone steps on it).
   const incomingMines = (gameState.mines ?? []).filter(m => m.hidden)
 
-  const hasAnalysisLeft = (color) => gameState.analysisUsed ? !gameState.analysisUsed[color] : false
-
   return (
     <div className="bt-screen" onClick={onBackgroundClick}>
+      {/* No "Бой" / "ваш ход" caption — you can see it's a battle, and whose
+         turn it is shows on the player panels (the glowing ХОДИТ one). The
+         header carries only the match score and the functional controls
+         (threat status, the journal). */}
       <div className="bt-header">
         <div className="bt-header-left">
           {onBack && <button className="bt-back" onClick={onBack} title="Выйти">←</button>}
-          <div>
-            <span className="bt-round">Бой</span>
-            {turnBar && <div className="bt-banner-text">{turnBar.sub ?? turnBar.text}</div>}
-          </div>
+          {matchScore && <MatchScoreBoard {...matchScore} />}
         </div>
         <div className="bt-header-right">
           {/* Compact badges, not banners — these used to be full-width
@@ -111,11 +116,6 @@ export default function GameView({
              at once. A badge here never changes the header's height at
              all, active or not, so the board never shrinks for it. Full
              wording lives in the title tooltip. */}
-          <AnalysisBanner
-            turnStartedAt={gameState.turnStartedAt}
-            analysisSeconds={gameState.analysisSeconds}
-            hasAnalysisLeft={hasAnalysisLeft(gameState.turn)}
-          />
           {soonestMeteor != null && (
             <span
               className="threat-badge meteor"
@@ -144,10 +144,6 @@ export default function GameView({
               Журнал{viewingHistory ? ` · ход ${historyIndex}` : ''}
             </button>
           )}
-          {/* Round number lives on the scoreboard plate itself (see
-             MatchScoreBoard's own "N раунд" chip) — repeating it here too
-             just fought with it for the same piece of information. */}
-          {matchScore && <MatchScoreBoard {...matchScore} />}
         </div>
       </div>
 
@@ -175,8 +171,6 @@ export default function GameView({
         timeSeconds={gameState.timers?.[topPanel.color]}
         turnStartedAt={gameState.turnStartedAt}
         ticking={!gameResult && gameState.turn === topPanel.color}
-        analysisSeconds={gameState.analysisSeconds}
-        hasAnalysisLeft={hasAnalysisLeft(topPanel.color)}
       />
 
       <div className="bt-main">
@@ -230,12 +224,39 @@ export default function GameView({
           )}
         </div>
 
+        {/* Desktop: always-visible rail beside the board. */}
         <CardHand
           cards={bottomHand.cards}
           isActive={bottomHand.isActive && !viewingHistory}
           selectedCardId={bottomHand.selectedCardId}
           onCardClick={viewingHistory ? undefined : bottomHand.onCardClick}
         />
+
+        {/* Mobile: a slide-out side panel opened from a thin trigger bar, so
+           the cards never sit under the board eating its height. */}
+        <SideDrawer
+          icon="🃠"
+          label="Карты"
+          count={bottomHand.cards.length}
+          title="Твои карты"
+          armed={boardMode.type === 'card_targeting'}
+          armedLabel="Отменить карту"
+          onCancel={() => dispatch({ type: 'CANCEL' })}
+          open={deckOpen}
+          onOpenChange={setDeckOpen}
+          disabled={viewingHistory || !bottomHand.isActive || bottomHand.cards.length === 0}
+          emptyText="Карт нет"
+        >
+          {bottomHand.cards.map((card, i) => (
+            <Card
+              key={`${card.id}-${i}`}
+              card={card}
+              selected={bottomHand.selectedCardId === card.id}
+              disabled={!bottomHand.isActive || viewingHistory}
+              onClick={() => { bottomHand.onCardClick(card); setDeckOpen(false) }}
+            />
+          ))}
+        </SideDrawer>
       </div>
 
       <PlayerPanel
@@ -243,8 +264,6 @@ export default function GameView({
         timeSeconds={gameState.timers?.[bottomPanel.color]}
         turnStartedAt={gameState.turnStartedAt}
         ticking={!gameResult && gameState.turn === bottomPanel.color}
-        analysisSeconds={gameState.analysisSeconds}
-        hasAnalysisLeft={hasAnalysisLeft(bottomPanel.color)}
       />
 
       {gameResult && resultMode === 'modal' && (

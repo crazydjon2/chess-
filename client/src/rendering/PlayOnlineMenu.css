@@ -1,22 +1,25 @@
-/* Same felt-table language as MainMenu.css/PatchNotes.css. Centered, same
-   as MainMenu — everything here is static (the error slot reserves its
-   own height whether or not it's showing, the two cards' color-toggle
-   state doesn't resize anything), so there's no risk of the "whole screen
-   re-centers under you" bug elsewhere. No background of its own — see
-   MainMenu.css's .mm-screen comment, same MenuLayout.css .ml-bg
-   underneath. */
+/* Lobby browser — same felt-table language as MainMenu.css/PatchNotes.css.
+   A fixed-viewport dashboard (no page scroll at any size): header, nickname
+   and the action row are fixed, and the lobby LIST is the single flexible
+   region that scrolls inside itself — the same shape as the draft catalog.
+   No background of its own — see MainMenu.css's .mm-screen comment, same
+   MenuLayout.css .ml-bg underneath. */
 .po-screen {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
-  overflow-y: auto;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
+  padding: 26px 24px 22px;
+  gap: 12px;
   font-family: 'Nunito', system-ui, sans-serif;
 }
+
+.po-screen > * { flex-shrink: 0; }
+.po-screen * { box-sizing: border-box; }
 
 /* ── Back button ──────────────────────────────────────────────────── */
 .po-back {
@@ -40,27 +43,20 @@
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.po-back:hover:not(:active) {
-  transform: translateY(-2px);
-}
-
-.po-back:active {
-  transform: translateY(4px);
-  box-shadow: none;
-}
+.po-back:hover:not(:active) { transform: translateY(-2px); }
+.po-back:active { transform: translateY(4px); box-shadow: none; }
 
 .po-title {
   position: relative;
   z-index: 2;
   font-family: 'Baloo 2', sans-serif;
   font-weight: 800;
-  font-size: 38px;
+  font-size: 32px;
   color: #fdf6e8;
   -webkit-text-stroke: 4px #241708;
   paint-order: stroke fill;
   text-shadow: 0 6px 0 rgba(0,0,0,0.3);
   text-align: center;
-  margin-bottom: 26px;
 }
 
 /* ── Nickname field ───────────────────────────────────────────────── */
@@ -69,7 +65,6 @@
   z-index: 2;
   width: 100%;
   max-width: 640px;
-  margin-bottom: 22px;
 }
 
 .po-label {
@@ -80,7 +75,7 @@
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: #c9e8d6;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-align: left;
 }
 
@@ -92,137 +87,350 @@
   background: #fdf6e8;
   border: 3px solid #241708;
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 11px 16px;
   outline: none;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .po-input::placeholder { color: #b8a888; font-weight: 600; }
 .po-input:focus { box-shadow: 0 0 0 3px rgba(240,180,41,0.5); }
 
-/* ── Cards ────────────────────────────────────────────────────────── */
-.po-cards {
+/* ── Lobby list ───────────────────────────────────────────────────── */
+.po-list-panel {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 20px;
+  box-shadow: 0 8px 0 0 #241708, 0 14px 22px rgba(0,0,0,0.35);
+  padding: 14px;
+}
+
+.po-list-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e6ddc8;
+}
+
+.po-list-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  color: #241708;
+}
+
+.po-list-count {
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0b429;
+  border: 2px solid #241708;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  color: #241708;
+  text-align: center;
+}
+
+.po-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.po-list::-webkit-scrollbar { width: 8px; }
+.po-list::-webkit-scrollbar-track { background: #e6ddc8; border-radius: 8px; }
+.po-list::-webkit-scrollbar-thumb { background: #241708; border-radius: 8px; border: 1px solid #e6ddc8; }
+
+.po-list-empty {
+  margin: auto;
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #a89a7c;
+  padding: 24px 12px;
+}
+
+/* One joinable room. Same chunky row language as the waiting room's player
+   rows (see WaitingRoom.css's .wr-player-row). */
+.po-room {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f7f0de;
+  border: 3px solid #241708;
+  border-radius: 14px;
+  padding: 9px 10px 9px 12px;
+  transition: transform 0.1s ease;
+}
+
+.po-room:hover { transform: translateX(2px); }
+
+.po-room-dot {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 3px solid #241708;
+}
+
+.po-room-dot.p-white { background: #fdf6e8; }
+.po-room-dot.p-black { background: #241708; }
+
+.po-room-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.po-room-name {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #241708;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.po-room-sub {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #a89a7c;
+}
+
+.po-room-join {
+  flex-shrink: 0;
+  background: #f0b429;
+  color: #241708;
+  border: 3px solid #241708;
+  border-radius: 11px;
+  box-shadow: 0 4px 0 0 #241708;
+  padding: 9px 18px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.po-room-join:hover:not(:active):not(:disabled) { transform: translateY(-2px); }
+.po-room-join:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+.po-room-join:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Action row: create + join-by-code ────────────────────────────── */
+.po-actions {
   position: relative;
   z-index: 2;
   width: 100%;
   max-width: 640px;
   display: flex;
-  gap: 18px;
+  gap: 10px;
   align-items: stretch;
 }
 
-.po-card {
+.po-create-btn {
   flex: 1;
-  border: 5px solid #241708;
-  border-radius: 22px;
-  box-shadow: 0 9px 0 0 #241708, 0 16px 24px rgba(0,0,0,0.4);
-  padding: 24px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  text-align: center;
-  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+  background: #d4302f;
+  color: #fdf6e8;
+  border: 4px solid #241708;
+  border-radius: 14px;
+  box-shadow: 0 6px 0 0 #241708;
+  padding: 14px 18px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-.po-card:hover { transform: translateY(-6px); }
+.po-create-btn:hover:not(:active):not(:disabled) { transform: translateY(-3px); }
+.po-create-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+.po-create-btn:disabled { opacity: 0.6; cursor: default; }
+.po-bot-btn { background: #2b6fd4; }
 
-.po-card-create { background: #d4302f; }
-.po-card-join   { background: #2b6fd4; }
+.po-code-join {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+}
 
-.po-card-icon {
-  width: 60px;
-  height: 60px;
+.po-code-input {
+  text-align: center;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  min-width: 0;
+}
+
+.po-code-btn {
   flex-shrink: 0;
-  border-radius: 50%;
-  background: #fdf6e8;
+  background: #2b6fd4;
+  color: #fdf6e8;
   border: 3px solid #241708;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 0 #241708;
+  padding: 0 18px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.po-code-btn:hover:not(:active):not(:disabled) { transform: translateY(-2px); }
+.po-code-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+.po-code-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Create-lobby modal ───────────────────────────────────────────── */
+.po-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(6,10,7,0.66);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 18px;
+  animation: po-fade-in 0.16s ease both;
 }
 
-.po-card-head {
+@keyframes po-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.po-modal {
+  width: min(420px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: #fdf6e8;
+  border: 5px solid #241708;
+  border-radius: 22px;
+  box-shadow: 0 10px 0 0 #241708, 0 18px 28px rgba(0,0,0,0.45);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
+  animation: po-modal-in 0.22s cubic-bezier(0.34,1.4,0.64,1) both;
 }
 
-.po-card-title {
+@keyframes po-modal-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.po-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.po-modal-title {
   font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 19px;
-  color: #fdf6e8;
+  font-weight: 800;
+  font-size: 20px;
+  color: #241708;
 }
 
-.po-sublabel {
-  display: block;
+.po-modal-close {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d4302f;
+  border: 3px solid #241708;
+  color: #fdf6e8;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.po-modal-close:hover  { transform: scale(1.08); }
+.po-modal-close:active { transform: scale(0.95); }
+
+.po-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-modal-label {
   font-family: 'Nunito', sans-serif;
   font-weight: 800;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  text-align: left;
+  color: #8a7658;
 }
 
-.po-card-create .po-sublabel { color: #ffd9d6; }
-.po-card-join   .po-sublabel { color: #dbe8fb; }
-
-.po-color-field {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.po-color-row {
+.po-opt-row {
   display: flex;
   gap: 8px;
 }
 
-.po-color-opt {
+/* Visibility options — same "selected = raised + check badge, unselected =
+   dimmed" language the color picker uses below. */
+.po-opt {
   position: relative;
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 8px;
+  gap: 2px;
+  padding: 11px 8px;
+  background: #f7f0de;
   border: 3px solid #241708;
   border-radius: 12px;
+  cursor: pointer;
+  color: #241708;
+  transition: transform 0.1s ease;
+}
+
+.po-opt:hover:not(:active) { transform: translateY(-2px); }
+.po-opt:active { transform: translateY(2px); }
+
+.po-opt:not(.selected) { opacity: 0.45; box-shadow: none; }
+.po-opt.selected { opacity: 1; background: #fdf1d4; box-shadow: 0 3px 0 0 #241708; }
+
+.po-opt-name {
   font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-  color: inherit;
+  font-size: 14px;
 }
 
-.po-color-opt:hover:not(:active) { transform: translateY(-2px); }
-.po-color-opt:active { transform: translateY(2px); }
-
-/* Selected = raised chunky shadow + full opacity + a check badge in the
-   corner (same "status in a circle" language as other confirmation dots
-   in the app); unselected is deliberately dimmed (not just flat) — both
-   options used to render at full strength all the time with only a
-   subtle shadow telling them apart, which read as "pick either" rather
-   than "here's your current choice". A gold ring around the whole button
-   said the same thing louder than it needed to; the badge is enough. */
-.po-color-opt.white { background: #fdf6e8; color: #241708; }
-.po-color-opt.black { background: #241708; color: #fdf6e8; }
-
-.po-color-opt:not(.selected) {
-  opacity: 0.45;
-  box-shadow: none;
+.po-opt-hint {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #8a7658;
 }
 
-.po-color-opt.selected {
-  opacity: 1;
-  box-shadow: 0 3px 0 0 #241708;
-}
-.po-color-opt.black.selected { box-shadow: 0 3px 0 0 rgba(18,9,2,0.5); }
-
+.po-opt-check,
 .po-color-check {
   position: absolute;
   top: -8px;
@@ -246,6 +454,36 @@
   to   { transform: scale(1); opacity: 1; }
 }
 
+/* ── Color picker (shared with the modal) ─────────────────────────── */
+.po-color-opt {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 8px;
+  border: 3px solid #241708;
+  border-radius: 12px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  color: inherit;
+}
+
+.po-color-opt:hover:not(:active) { transform: translateY(-2px); }
+.po-color-opt:active { transform: translateY(2px); }
+
+.po-color-opt.white { background: #fdf6e8; color: #241708; }
+.po-color-opt.black { background: #241708; color: #fdf6e8; }
+.po-color-opt.random { background: #f0b429; color: #241708; }
+
+.po-color-opt:not(.selected) { opacity: 0.45; box-shadow: none; }
+.po-color-opt.selected { opacity: 1; box-shadow: 0 3px 0 0 #241708; }
+.po-color-opt.black.selected { box-shadow: 0 3px 0 0 rgba(18,9,2,0.5); }
+
 .po-color-dot {
   width: 14px;
   height: 14px;
@@ -255,16 +493,11 @@
 
 .po-color-dot.white { background: #fdf6e8; border: 2px solid #241708; }
 .po-color-dot.black { background: #241708; border: 2px solid #fdf6e8; }
-
-.po-code-input {
-  text-align: center;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-}
+.po-color-dot.random { background: linear-gradient(90deg, #fdf6e8 50%, #241708 50%); border: 2px solid #241708; }
 
 .po-btn {
   width: 100%;
-  background: #fdf6e8;
+  background: #f0b429;
   color: #241708;
   border: 3px solid #241708;
   border-radius: 12px;
@@ -272,24 +505,14 @@
   box-shadow: 0 5px 0 0 #241708;
   font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.po-btn:hover:not(:active):not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.po-btn:active:not(:disabled) {
-  transform: translateY(5px);
-  box-shadow: none;
-}
-
-.po-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+.po-btn:hover:not(:active):not(:disabled) { transform: translateY(-2px); }
+.po-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+.po-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ── Error ────────────────────────────────────────────────────────── */
 .po-error-slot {
@@ -297,8 +520,7 @@
   z-index: 2;
   width: 100%;
   max-width: 640px;
-  min-height: 44px;
-  margin-top: 18px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -311,7 +533,7 @@
   background: #fdf6e8;
   border: 3px solid #d4302f;
   border-radius: 12px;
-  padding: 10px 18px;
+  padding: 9px 16px;
   box-shadow: 0 4px 0 0 #241708;
   animation: po-shake 0.4s ease;
 }
@@ -346,7 +568,31 @@
   color: #241708;
 }
 
+/* ── Phones ───────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
-  .po-cards { flex-direction: column; }
-  .po-cards > .po-card { width: 100%; max-width: 360px; margin: 0 auto; }
+  /* Clear the fixed back button (top-left) and settings gear (top-right). */
+  .po-screen { padding: 62px 14px 14px; gap: 10px; }
+  .po-title { font-size: 23px; }
+  .po-label { font-size: 11px; margin-bottom: 4px; }
+  .po-input { padding: 10px 14px; font-size: 15px; }
+
+  .po-list-panel { padding: 11px; border-radius: 16px; }
+  .po-list-title { font-size: 15px; }
+  .po-room { padding: 8px 8px 8px 10px; gap: 8px; }
+  .po-room-name { font-size: 14px; }
+  .po-room-join { padding: 8px 14px; font-size: 13px; }
+
+  /* Stack the two actions so neither the create button nor the code field
+     gets squeezed to an unusable width. */
+  .po-actions { flex-direction: column; gap: 8px; }
+  .po-create-btn { padding: 12px 16px; font-size: 15px; }
+  .po-code-btn { padding: 0 16px; }
+  .po-error-slot { min-height: 0; }
+  /* Three color options share one row — tighten so "Случайно" fits at 360px. */
+  .po-color-opt { gap: 6px; padding: 10px 4px; font-size: 13px; }
+}
+
+@media (max-width: 700px) and (max-height: 720px) {
+  .po-screen { padding-top: 54px; }
+  .po-title { font-size: 20px; }
 }

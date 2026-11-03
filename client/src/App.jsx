@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import OnlineApp from './OnlineApp'
 import SandboxApp from './SandboxApp'
 import PatchNotes from './rendering/PatchNotes'
@@ -30,9 +31,30 @@ function markPatchSeen() {
   }
 }
 
+// Top-level screen from the URL: / menu, /online room browser, /room/:code
+// a room, /sandbox. /online and /room/:code are both the SAME 'online'
+// screen — OnlineApp stays mounted (socket and all) while moving between
+// browser and room, and does its own inner page transitions there. Any
+// unknown path falls back to the menu.
+function modeFor(pathname) {
+  if (pathname === '/online' || pathname.startsWith('/room/')) return 'online'
+  if (pathname === '/sandbox') return 'sandbox'
+  return null
+}
+
 export default function App() {
-  const [mode, setMode] = useState(null) // null | 'online' | 'sandbox'
+  const location = useLocation()
+  const navigate = useNavigate()
+  const mode = modeFor(location.pathname) // null | 'online' | 'sandbox'
   const [patchNotesOpen, setPatchNotesOpen] = useState(false)
+
+  // Old-style invite links (…/?room=KX92F) still work — forwarded to the
+  // room's own address.
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('room')
+    if (code) navigate(`/room/${code.trim().toUpperCase()}`, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [unseenPatch, setUnseenPatch] = useState(hasUnseenPatch)
 
   function openPatchNotes() {
@@ -49,14 +71,14 @@ export default function App() {
   return (
     <MenuLayout>
       <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['online', 'sandbox']}>
-        {mode === 'online' && <OnlineApp onExit={() => setMode(null)} />}
-        {mode === 'sandbox' && <SandboxApp onExit={() => setMode(null)} />}
+        {mode === 'online' && <OnlineApp onExit={() => navigate('/')} />}
+        {mode === 'sandbox' && <SandboxApp onExit={() => navigate('/')} />}
         {mode === null && (
           <>
             {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
             <MainMenu
-              onPlayOnline={() => setMode('online')}
-              onSandbox={() => setMode('sandbox')}
+              onPlayOnline={() => navigate('/online')}
+              onSandbox={() => navigate('/sandbox')}
               onOpenPatchNotes={openPatchNotes}
               unseenPatch={unseenPatch}
             />

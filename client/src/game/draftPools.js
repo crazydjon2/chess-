@@ -27,8 +27,16 @@ export const TIME_LIMIT_BY_ROUND = { 1: 120, 2: 180, 3: 240 } // 2 / 3 / 4 minut
 // cards worth lingering over) don't get proportionally stingier per move.
 export const TIME_INCREMENT_BY_ROUND = { 1: 3, 2: 4, 3: 5 }
 
-// Free look at the board before the clock starts — only the round's very
-// first move gets this (see initialState.js's createDraftRoundState, which
-// offsets turnStartedAt by this much; every move after that resets
-// turnStartedAt to the real clock, so it can never recur mid-round).
-export const ANALYSIS_TIME_SECONDS = 10
+// Shared countdown for the open, simultaneous placement phase (see
+// matchEngine.js's forcePlacement): both sides see each other's board live
+// and can rearrange freely until it hits zero, so waiting out the opponent
+// buys nothing — it only caps how long the phase can last. At zero, whatever
+// is on the board locks in and any unplaced pieces drop onto random free
+// home squares. Grows with the round, same as the army it has to fit.
+export const PLACEMENT_TIME_BY_ROUND = { 1: 30, 2: 40, 3: 50 }
+
+// Each player's own time bank for the WHOLE draft, in seconds — a chess
+// clock, not a per-pick timer: it only runs on that player's turn (see
+// draftEngine.js). Running out simply ends that player's draft with
+// whatever they've bought so far (see timeoutDraft).
+export const DRAFT_TIME_BY_ROUND = { 1: 30, 2: 40, 3: 50 }
