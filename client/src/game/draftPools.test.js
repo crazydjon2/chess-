@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUDGET_BY_ROUND, TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, ANALYSIS_TIME_SECONDS } from './draftPools.js'
+import { BUDGET_BY_ROUND, TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, PLACEMENT_TIME_BY_ROUND } from './draftPools.js'
 
 describe('round-scaled draft tables', () => {
   it('budget grows every round', () => {
@@ -17,7 +17,8 @@ describe('round-scaled draft tables', () => {
     expect(TIME_INCREMENT_BY_ROUND[2]).toBeLessThan(TIME_INCREMENT_BY_ROUND[3])
   })
 
-  it('gives a positive free-look window before the first move', () => {
-    expect(ANALYSIS_TIME_SECONDS).toBeGreaterThan(0)
+  it('placement timer grows every round', () => {
+    expect(PLACEMENT_TIME_BY_ROUND[1]).toBeLessThan(PLACEMENT_TIME_BY_ROUND[2])
+    expect(PLACEMENT_TIME_BY_ROUND[2]).toBeLessThan(PLACEMENT_TIME_BY_ROUND[3])
   })
 })

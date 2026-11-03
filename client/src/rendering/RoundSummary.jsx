@@ -8,6 +8,7 @@ function resultLine(result) {
   if (!result) return ''
   const winnerLabel = result.winner === 'white' ? 'Белые' : 'Чёрные'
   switch (result.type) {
+    case 'king_captured': return `${winnerLabel} взяли короля соперника`
     case 'elimination': return `${winnerLabel} уничтожили армию соперника`
     case 'checkmate':    return `${winnerLabel} поставили мат`
     case 'timeout':      return `${winnerLabel} победили — у соперника закончилось время`
@@ -15,6 +16,8 @@ function resultLine(result) {
     case 'surrender':    return `${result.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${winnerLabel} победили`
     case 'draw':
       if (result.reason === 'mutual_elimination') return 'Обе армии уничтожены — ничья'
+      if (result.reason === 'mutual_king') return 'Оба короля пали — ничья'
+      if (result.reason === 'agreement') return 'Ничья по соглашению'
       return 'Ничья'
     default: return ''
   }
@@ -87,7 +90,6 @@ export default function RoundSummary({ match, previousMyColor, room, onContinue 
         name: room?.players?.[oppColor]?.name,
         capturedByMe: oppCaptured,
         active: false,
-        coins: gameState.coins?.[oppColor],
         controllable: false,
       }}
       bottomPanel={{
@@ -96,7 +98,6 @@ export default function RoundSummary({ match, previousMyColor, room, onContinue 
         capturedByMe: myCaptured,
         active: false,
         isYou: true,
-        coins: gameState.coins?.[previousMyColor],
         controllable: false,
       }}
       bottomHand={{ cards: [], isActive: false, selectedCardId: null, onCardClick: undefined }}

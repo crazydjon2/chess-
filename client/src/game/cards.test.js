@@ -13,7 +13,7 @@ describe('add_cell on a blocked map hole', () => {
       boardPattern,
       { c2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
 
     const targets = getValidTargets('add_cell', gs, 'white')
@@ -34,7 +34,7 @@ describe('freeze (mine) targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const targets = getValidTargets('freeze', gs, 'white')
     expect(targets).toContain('a1') // empty
@@ -48,51 +48,10 @@ describe('freeze (mine) targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     gs = applyCardEffect('freeze', gs, 'c3', 'white')
     expect(getValidTargets('freeze', gs, 'black')).not.toContain('c3')
-  })
-})
-
-describe('necromancy targeting', () => {
-  // Each entry: a WHITE piece's move captured a BLACK piece of `type` — a
-  // trophy white can revive, not a piece white lost.
-  function stateWithCaptures(types) {
-    const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
-    const gs0 = createDraftRoundState(
-      boardPattern,
-      { a1: { type: 'pawn', color: 'white', hp: 1 } },
-      { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
-    )
-    const moveHistory = types.map((type, i) => ({
-      from: `b${i + 1}`, to: `c${i + 1}`,
-      piece: { type: 'pawn', color: 'white', hp: 1 },
-      captured: { type, color: 'black', hp: 1 },
-    }))
-    return { ...gs0, moveHistory }
-  }
-
-  it('offers each distinct captured piece type once', () => {
-    const gs = stateWithCaptures(['knight', 'knight', 'rook'])
-    expect(getValidTargets('necromancy', gs, 'white').sort()).toEqual(['knight', 'rook'])
-  })
-
-  it('offers nothing when nothing of yours has been captured', () => {
-    const gs = stateWithCaptures([])
-    expect(getValidTargets('necromancy', gs, 'white')).toEqual([])
-  })
-
-  it('offers nothing once there\'s no empty home-rank square left', () => {
-    const gs0 = stateWithCaptures(['knight'])
-    const pieces = { ...gs0.pieces }
-    for (const col of ['a', 'b', 'c', 'd', 'e', 'f']) {
-      pieces[`${col}1`] = { type: 'pawn', color: 'white', hp: 1 }
-      pieces[`${col}2`] = { type: 'pawn', color: 'white', hp: 1 }
-    }
-    const gs = { ...gs0, pieces }
-    expect(getValidTargets('necromancy', gs, 'white')).toEqual([])
   })
 })
 
@@ -103,7 +62,7 @@ describe('smoke_screen targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['smoke_screen'], [], null, null,
+      ['smoke_screen'], [], null,
     )
 
     const targets = getValidTargets('smoke_screen', gs, 'white')
@@ -120,7 +79,7 @@ describe('meteor targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['meteor'], [], null, null,
+      ['meteor'], [], null,
     )
 
     const targets = getValidTargets('meteor', gs, 'white')
@@ -138,7 +97,7 @@ describe('unstable targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 }, a1: { type: 'king', color: 'white', hp: 1 }, c1: { type: 'rook', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['unstable'], [], null, null,
+      ['unstable'], [], null,
     )
     const s = { ...gs, pieces: { ...gs.pieces, c3: { type: 'barricade', color: 'neutral', hp: 2 } } }
 
@@ -162,7 +121,7 @@ describe('unstable targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['unstable'], [], null, null,
+      ['unstable'], [], null,
     )
     const targets = getValidTargets('unstable', gs, 'white')
     expect(targets).not.toContain('b2')
@@ -175,7 +134,7 @@ describe('unstable targeting', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'rook', color: 'black', hp: 1 } },
-      ['unstable'], [], null, null,
+      ['unstable'], [], null,
     )
     gs = applyCardEffect('unstable', gs, 'f6', 'white')
     expect(getValidTargets('unstable', gs, 'white')).not.toContain('f6')
@@ -192,7 +151,7 @@ describe('hasRescueCard', () => {
       boardPattern,
       { a1: { type: 'rook', color: 'white', hp: 1 } },
       { c3: { type: 'pawn', color: 'black', hp: 1 } },
-      cardIds, [], null, null,
+      cardIds, [], null,
     )
   }
 
@@ -215,32 +174,16 @@ describe('hasRescueCard', () => {
     const gs = { ...boxedRookState(['add_cell']), cardPlayedThisTurn: true }
     expect(hasRescueCard(gs, 'white')).toBe(false)
   })
+})
 
-  it('true when necromancy could drop a fresh piece straight onto the board', () => {
-    const boardPattern = { rows: 3, cols: 3, blockedCells: ['a2', 'b1'] }
-    const gs0 = createDraftRoundState(
-      boardPattern,
-      { a1: { type: 'rook', color: 'white', hp: 1 } },
-      { c3: { type: 'pawn', color: 'black', hp: 1 } },
-      ['necromancy'], [], null, null,
+describe('cards with a king under attack (draft mode)', () => {
+  it('stay playable — there is no check rule to filter them by', () => {
+    const gs = createDraftRoundState(
+      { rows: 6, cols: 6, blockedCells: [] },
+      { a1: { type: 'king', color: 'white', hp: 1 } },
+      { a6: { type: 'rook', color: 'black', hp: 1 }, f6: { type: 'king', color: 'black', hp: 1 } },
+      ['freeze'], [], null,
     )
-    // Necromancy's revival square is random among empty home squares (see
-    // cardEffects.js) — occupy every home square but c2 with neutral
-    // barricades (which don't count as "white pieces" but do block
-    // candidacy) so the revival square is deterministic for this test.
-    const pieces = {
-      ...gs0.pieces,
-      b2: { type: 'barricade', color: 'neutral', hp: 2 },
-      c1: { type: 'barricade', color: 'neutral', hp: 2 },
-    }
-    // White captured a black knight earlier this game — necromancy can
-    // revive it onto c2, giving white a piece with its own fresh legal
-    // moves even though the rook itself stays stuck.
-    const moveHistory = [{
-      from: 'b5', to: 'a6', piece: { type: 'pawn', color: 'white', hp: 1 },
-      captured: { type: 'knight', color: 'black', hp: 1 },
-    }]
-    const gs = { ...gs0, pieces, moveHistory }
-    expect(hasRescueCard(gs, 'white')).toBe(true)
+    expect(getValidTargets('freeze', gs, 'white').length).toBeGreaterThan(0)
   })
 })

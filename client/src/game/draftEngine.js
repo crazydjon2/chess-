@@ -1,4 +1,4 @@
-import { BUDGET_BY_ROUND } from './draftPools.js'
+import { BUDGET_BY_ROUND, DRAFT_TIME_BY_ROUND } from './draftPools.js'
 import { SHOP_PIECE_TYPES, shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
 import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
@@ -11,30 +11,20 @@ import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
 export const ALL_PIECE_TYPES = SHOP_PIECE_TYPES
 export const ALL_CARD_IDS = Object.keys(CARD_DEFS)
 
-// Base (1st-copy) cost of a catalog item — see nextItemCost below for what
-// a buyer actually pays, which climbs with every repeat of the SAME item.
-// Also doubles as the reserve floor in submitPick's zero-pieces guard,
-// valid there specifically because that guard only ever fires when NOTHING
-// has been bought yet (so nothing has escalated off its base price).
-const CHEAPEST_PIECE_COST = shopPieceCost('pawn')
-
-// Each further copy of the SAME item a color buys THIS round costs this
-// much more than the last (1st copy = base price, 2nd = base+STEP, 3rd =
-// base+2*STEP, ...) — a flat per-round "duplicate tax" on both pieces and
-// cards, so spamming the cheapest option (mainly pawns: unlimited supply +
-// elimination-mode win condition means raw body count is worth far more
-// here than in classical chess) or stacking a single powerful card no
-// longer buys unlimited value at a flat price. Applies uniformly rather
-// than singling out pawns specifically, so it also curbs stacking several
-// queens or several Necromancies the same way, with one mechanism instead
-// of a pile of special cases. Starting value: 1 coin/copy — this caps a
-// round-1 (budget 30) pawn spree at ~6 instead of the board's full 12
-// slots, and scales up on its own as later rounds' budgets grow (~8 of 14
-// in round 2, ~9 of 16 in round 3) without needing a different step per
-// round. Test plan: playtest a few matches: if wide-pawn-wall or
-// stacked-card builds still dominate, raise the step; if pawns feel
-// unaffordable in any real number, lower it.
-export const DUPLICATE_STEP = 1
+// Each further copy of the SAME item a color buys THIS round costs more
+// than the last — a "duplicate tax" on both pieces and cards, so stacking
+// one strong item (several queens, several meteors) doesn't buy unlimited
+// value at a flat price. The surcharge is a SHARE of the item's base price
+// (rounded), not a flat coin: a flat +1 nearly doubled every extra pawn and
+// made pawn-heavy armies unplayable, while barely touching a 2nd queen.
+// Pawns are exempt: they're already capped by home-rank capacity, and
+// taxing them made pawn walls unplayable.
+// Tuned with the balance lab (tools/balance).
+export const DUPLICATE_RATE = 0.25
+export function duplicateStep(item) {
+  if (item.kind === 'piece' && item.pieceType === 'pawn') return 0
+  return Math.round(baseCost(item) * DUPLICATE_RATE)
+}
 
 export function targetKey(target) {
   return target.kind === 'piece' ? `piece:${target.pieceType}` : `card:${target.cardId}`
@@ -62,11 +52,11 @@ function copiesOwned(draftState, color, item) {
 }
 
 // What `color` would actually pay for their NEXT copy of `item` right now
-// — see DUPLICATE_STEP above. This is the price shown on the catalog tile
+// — see duplicateStep above. This is the price shown on the catalog tile
 // and the price actually charged (see submitPick), always in sync since
 // both read straight off the same live draftState.
 export function nextItemCost(draftState, color, item) {
-  return baseCost(item) + copiesOwned(draftState, color, item) * DUPLICATE_STEP
+  return baseCost(item) + copiesOwned(draftState, color, item) * duplicateStep(item)
 }
 
 // `firstColor` decides who picks first this round — see rooms.js's
@@ -78,9 +68,10 @@ export function nextItemCost(draftState, color, item) {
 //
 // The budget is always the round's flat BUDGET_BY_ROUND — nothing persists
 // between rounds (see matchEngine.js): every round is a fresh draft.
-export function createDraftState(round, firstColor = 'white') {
+export function createDraftState(round, firstColor = 'white', now = Date.now()) {
   const secondColor = firstColor === 'white' ? 'black' : 'white'
   const budget = BUDGET_BY_ROUND[round]
+  const time = DRAFT_TIME_BY_ROUND[round]
   return {
     round,
     firstColor,
@@ -88,23 +79,67 @@ export function createDraftState(round, firstColor = 'white') {
     phase: 'buy',
     turn: firstColor,
     budgets: { white: budget, black: budget },
-    // Hard cap on how many PIECES (not cards) either side may draft this
-    // round — see boardPatterns.js's HOME_CAPACITY_BY_ROUND. Buying more
-    // than fit on the home ranks would leave hidden placement impossible
-    // to ever finish (see submitPick below and placementEngine.js).
+    // Hard cap on how many PIECES (not cards) either side may have this
+    // round, the free king included — see boardPatterns.js's
+    // HOME_CAPACITY_BY_ROUND. More than fit on the home ranks would leave
+    // placement impossible to ever finish (see submitPick below and
+    // placementEngine.js).
     maxPieces: HOME_CAPACITY_BY_ROUND[round],
     // Grows one item at a time via submitPick — always populated (never
     // null), since both sides' picks are visible live, not revealed only
-    // once "submitted" the way the old blind-cart draft worked.
+    // once "submitted" the way the old blind-cart draft worked. Every army
+    // starts with its king — free, never bought; taking the enemy king is
+    // what wins the round (see chess.js's getEliminationResult).
     picks: {
-      white: { pieces: [], cards: [] },
-      black: { pieces: [], cards: [] },
+      white: { pieces: ['king'], cards: [] },
+      black: { pieces: ['king'], cards: [] },
     },
     // True once a color can no longer (or chooses not to) act — see
     // submitDone and the auto-skip in submitPick. The draft is complete
     // once both are true (see isDraftComplete).
     done: { white: false, black: false },
+    // Seconds left in each player's draft time bank (see draftPools.js's
+    // DRAFT_TIME_BY_ROUND) as of `turnStartedAt` — only the side whose turn
+    // it is is actually running down. Charged on every pick/done (see
+    // chargeClock); the server fires timeoutDraft once it hits zero.
+    clocks: { white: time, black: time },
+    turnStartedAt: now,
   }
+}
+
+// Seconds `color` (whose turn it is) would have left if they acted at `now`.
+// A draft without clocks (hand-built in tests) is untimed; a null
+// turnStartedAt means the clocks haven't started yet (see matchEngine.js's
+// round-summary wait).
+export function clockRemaining(draftState, color, now = Date.now()) {
+  if (!draftState.clocks) return Infinity
+  if (draftState.turnStartedAt == null) return draftState.clocks[color]
+  return draftState.clocks[color] - Math.max(0, (now - draftState.turnStartedAt) / 1000)
+}
+
+function chargeClock(draftState, color, now) {
+  if (!draftState.clocks) return draftState
+  return {
+    ...draftState,
+    clocks: { ...draftState.clocks, [color]: Math.max(0, clockRemaining(draftState, color, now)) },
+    turnStartedAt: now,
+  }
+}
+
+// The player whose turn it is ran out of draft time — their draft ends
+// right there with whatever they've already bought, exactly as if they'd
+// pressed "done" (see submitDone).
+export function timeoutDraft(draftState, now = Date.now()) {
+  const color = draftState.turn
+  if (isDraftComplete(draftState) || draftState.done[color]) return draftState
+  const next = {
+    ...draftState,
+    clocks: { ...draftState.clocks, [color]: 0 },
+    turnStartedAt: now,
+    done: { ...draftState.done, [color]: true },
+  }
+  const turn = advanceTurn(next, color)
+  return { ...next, turn: turn ?? next.turn }
 }
 
 export function isDraftComplete(draftState) {
@@ -149,11 +184,12 @@ function advanceTurn(draftState, actingColor) {
 // the new turn-based draft (see createDraftState's comment): no more
 // blind carts, every pick lands and is broadcast immediately, so the
 // opponent sees it land in real time.
-export function submitPick(draftState, color, item) {
+export function submitPick(draftState, color, item, now = Date.now()) {
   if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
   if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
   if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
   if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
+  if (clockRemaining(draftState, color, now) <= 0) return { error: 'Время на закупку вышло' }
   if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
 
   const cost = nextItemCost(draftState, color, item)
@@ -164,12 +200,6 @@ export function submitPick(draftState, color, item) {
     if (picks.pieces.length >= draftState.maxPieces) {
       return { error: `На доске только ${draftState.maxPieces} клеток на вашей половине — столько фигур и можно купить` }
     }
-  } else if (picks.pieces.length === 0 && draftState.budgets[color] - cost < CHEAPEST_PIECE_COST) {
-    // Reserve at least a pawn's worth of budget until the first piece is
-    // owned — otherwise an all-cards spree could zero out the budget with
-    // zero pieces, an unrecoverable dead end (an empty army is a
-    // guaranteed instant loss — see chess.js's getEliminationResult).
-    return { error: 'Оставьте хотя бы 2 монеты на пешку, пока у вас нет ни одной фигуры' }
   }
 
   const newPicks = item.kind === 'piece'
@@ -177,7 +207,7 @@ export function submitPick(draftState, color, item) {
     : { ...picks, cards: [...picks.cards, item.cardId] }
 
   let next = {
-    ...draftState,
+    ...chargeClock(draftState, color, now),
     budgets: { ...draftState.budgets, [color]: draftState.budgets[color] - cost },
     picks: { ...draftState.picks, [color]: newPicks },
   }
@@ -193,16 +223,13 @@ export function submitPick(draftState, color, item) {
 // to sit through the opponent still deciding what to do with a bigger
 // budget (see advanceTurn: once done, they're skipped, never waited on
 // again). Only callable on your own turn, same as an actual pick.
-export function submitDone(draftState, color) {
+export function submitDone(draftState, color, now = Date.now()) {
   if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
   if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
   if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
   if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
-  // An empty (or cards-only) army is a guaranteed instant loss the moment
-  // the round starts — never a real choice, so it's not worth offering.
-  if (draftState.picks[color].pieces.length === 0) return { error: 'Нужно купить хотя бы одну фигуру' }
 
-  const next = { ...draftState, done: { ...draftState.done, [color]: true } }
+  const next = { ...chargeClock(draftState, color, now), done: { ...draftState.done, [color]: true } }
   const turn = advanceTurn(next, color)
   return { draftState: { ...next, turn: turn ?? next.turn } }
 }

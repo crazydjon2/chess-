@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { startRound, applyRoundResult, tryDraftPick, tryDraftDone } from './matchEngine.js'
+import { startRound, applyRoundResult, tryDraftPick, tryDraftDone, trySummaryContinue, summaryTimeout } from './matchEngine.js'
 import { shopPieceCost } from '../client/src/game/economy.js'
 
 function matchWithGameState(gameState) {
@@ -7,25 +7,20 @@ function matchWithGameState(gameState) {
   return { ...match, phase: 'battle', gameState }
 }
 
-describe('turn-based draft — leftover budget becomes starting battle coins', () => {
+describe('turn-based draft', () => {
   it('rejects a pick when it is not that color\'s turn', () => {
     const match = startRound({ white: 0, black: 0 }, 1, 'white') // white picks first
     const res = tryDraftPick(match, 'black', { kind: 'piece', pieceType: 'pawn' })
     expect(res.error).toBeTruthy()
   })
 
-  it('starts every round with zero starting coins', () => {
-    const match = startRound({ white: 0, black: 0 }, 1, 'white')
-    expect(match.startingCoins).toEqual({ white: 0, black: 0 })
-  })
-
-  it('sets startingCoins to each color\'s unspent budget once both sides finish the draft', () => {
+  it('moves to placement once both sides finish the draft', () => {
     let match = startRound({ white: 0, black: 0 }, 1, 'white')
     const budget = match.draft.budgets.white
     expect(match.draft.budgets.black).toBe(budget) // identical starting budgets
 
     // Each side buys the cheapest possible piece (a pawn) then declares
-    // done — the rest of the budget carries into the battle as coins.
+    // done — whatever budget is left simply goes unspent.
     match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).match
     match = tryDraftPick(match, 'black', { kind: 'piece', pieceType: 'pawn' }).match
     match = tryDraftDone(match, 'white').match
@@ -34,9 +29,6 @@ describe('turn-based draft — leftover budget becomes starting battle coins', (
     match = res.match
 
     expect(match.phase).toBe('placement')
-    const leftover = budget - shopPieceCost('pawn')
-    expect(match.startingCoins.white).toBe(leftover)
-    expect(match.startingCoins.black).toBe(leftover)
   })
 
   it('a color with no budget left for anything is auto-skipped without needing to declare done', () => {
@@ -50,7 +42,7 @@ describe('turn-based draft — leftover budget becomes starting battle coins', (
 
 describe('applyRoundResult', () => {
   // Every round is a clean slate — nothing from the finished round's board
-  // (surviving pieces, unused cards, leftover coins) seeds the next one.
+  // (surviving pieces, unused cards) seeds the next one.
   it('starts the next round with a completely fresh draft — nothing carries over', () => {
     const match = matchWithGameState({
       pieces: {
@@ -61,16 +53,14 @@ describe('applyRoundResult', () => {
         white: { hand: [{ id: 'freeze' }], used: [] },
         black: { hand: [], used: [] },
       },
-      coins: { white: 4, black: 1 },
     })
     const next = applyRoundResult(match, { type: 'elimination', winner: 'white' })
 
     expect(next.phase).toBe('draft')
     expect(next.previousRound).toBe(1)
-    expect(next.startingCoins).toEqual({ white: 0, black: 0 })
     expect(next.draft.picks).toEqual({
-      white: { pieces: [], cards: [] },
-      black: { pieces: [], cards: [] },
+      white: { pieces: ['king'], cards: [] },
+      black: { pieces: ['king'], cards: [] },
     })
     expect(next.gameState).toBeNull()
     expect(next.scores).toEqual({ white: 0, black: 1 })
@@ -87,7 +77,6 @@ describe('applyRoundResult', () => {
     const match = matchWithGameState({
       pieces: {},
       cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
     })
     const withScore = { ...match, scores: { white: 1, black: 0 } }
     const next = applyRoundResult(withScore, { type: 'draw', reason: 'mutual_elimination' })
@@ -104,7 +93,6 @@ describe('applyRoundResult', () => {
     const match = matchWithGameState({
       pieces: {},
       cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
     })
     expect(match.draft.firstColor).toBe('white')
     const round2 = applyRoundResult(match, { type: 'draw', reason: 'mutual_elimination' })
@@ -117,7 +105,6 @@ describe('applyRoundResult', () => {
     const match = matchWithGameState({
       pieces: {},
       cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
     })
     const next = applyRoundResult(match, { type: 'draw', reason: 'mutual_elimination' })
     expect(next.scores).toEqual({ white: 0, black: 0 })
@@ -127,11 +114,35 @@ describe('applyRoundResult', () => {
     let match = matchWithGameState({
       pieces: {},
       cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } },
-      coins: { white: 0, black: 0 },
     })
     match = { ...match, scores: { white: 1, black: 0 } } // one win already banked
     const next = applyRoundResult(match, { type: 'elimination', winner: 'white' })
     expect(next.phase).toBe('match_over')
     expect(next.scores.white).toBe(2)
+  })
+})
+
+describe('round summary wait before the next draft', () => {
+  function nextRound(now = 1_000) {
+    const match = matchWithGameState({ pieces: {}, cards: { white: { hand: [], used: [] }, black: { hand: [], used: [] } } })
+    return applyRoundResult(match, { type: 'king_captured', winner: 'white' }, now)
+  }
+
+  it('keeps draft clocks paused and picks blocked until both continue', () => {
+    let match = nextRound()
+    expect(match.draft.turnStartedAt).toBeNull()
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).error).toBeTruthy()
+
+    match = trySummaryContinue(match, 'white', 2_000).match
+    expect(match.draft.turnStartedAt).toBeNull() // still waiting on black
+    match = trySummaryContinue(match, 'black', 3_000).match
+    expect(match.draft.turnStartedAt).toBe(3_000)
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }, 4_000).error).toBeUndefined()
+  })
+
+  it('starts the draft anyway once the cap runs out', () => {
+    const match = summaryTimeout(nextRound(), 40_000)
+    expect(match.summaryReady).toEqual({ white: true, black: true })
+    expect(match.draft.turnStartedAt).toBe(40_000)
   })
 })

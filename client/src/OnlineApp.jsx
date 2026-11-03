@@ -1,45 +1,63 @@
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
+import { useMatch, useNavigate } from 'react-router'
 import GameView from './rendering/GameView'
 import Lobby from './rendering/Lobby'
 import DraftPhase from './rendering/DraftPhase'
 import PlacementPhase from './rendering/PlacementPhase'
 import RoundSummary from './rendering/RoundSummary'
 import PromotionPicker from './rendering/PromotionPicker'
-import NecromancyPicker from './rendering/NecromancyPicker'
 import ConfirmModal from './rendering/ConfirmModal'
 import PageTransition from './rendering/PageTransition'
 import { getSocket, connectSocket, disconnectSocket, request } from './net/socket'
+import { saveSeat, loadSeatToken, clearSeat } from './net/seat'
 import { loadNickname, saveNickname } from './nickname'
 import { getValidTargets, CARD_DEFS } from './game/cards'
 import { isKingInCheck, needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
 import { getCaptured } from './game/economy'
+import { PLACEMENT_TIME_BY_ROUND } from './game/draftPools'
 import { play } from './sound'
 
 const other = color => (color === 'white' ? 'black' : 'white')
 
 // Real multiplayer over Socket.IO — the draft-match game mode: draft ->
-// hidden placement -> battle -> round result -> next round, best of 3.
+// open placement -> battle -> round result -> next round, best of 3.
 // The server is fully authoritative; this component just renders whatever
 // `match` phase the last `match_update` broadcast said we're in and sends
 // requests (draft_pick / draft_done / submit_placement / move / play_card).
+// Routing (see App.jsx): /online is the room browser, /room/:code is a
+// room — waiting, draft, placement, battle, all of it. Which of those is
+// on screen is still the SERVER's match phase, never part of the URL; the
+// URL only says which room you're in. Landing on /room/:code (invite link,
+// reload) walks into that room — reclaiming your own seat if this browser
+// holds one (see net/seat.js), otherwise joining as a new player.
 export default function OnlineApp({ onExit }) {
+  const navigate = useNavigate()
+  // BrowserRouter hands out a new navigate on every location change — the
+  // long-lived socket handlers below read it through this ref instead of
+  // depending on it (which would tear the socket down on every navigation).
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+  const urlCode = useMatch('/room/:code')?.params.code?.toUpperCase() ?? null
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [room, setRoom]         = useState(null)   // { code, color, players }
   const [match, setMatch]       = useState(null)   // per-color redacted match view
   const [opponentLeft, setOpponentLeft] = useState(false)
+  // Live list of open public lobbies, pushed by the server while we're on
+  // the browse screen (see rooms.js's broadcastLobbyList).
+  const [lobbyRooms, setLobbyRooms] = useState([])
+  const [roomsLoading, setRoomsLoading] = useState(true)
 
   const [boardMode, dispatch]           = useReducer(boardModeReducer, IDLE)
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
   const [actionToast, setActionToast]   = useState(null)
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null) // { strikes: [{square, destroyed}], ts }
   const [mineStrikeAnim, setMineStrikeAnim] = useState(null) // { strike: {square, owner}, ts }
-  const [summarySeenFor, setSummarySeenFor] = useState(null) // last previousRound whose summary was dismissed
   const [pendingPromotion, setPendingPromotion] = useState(null) // { from, to } awaiting a piece choice
-  const [pendingNecromancy, setPendingNecromancy] = useState(null) // { card, options } awaiting which piece to revive
   const [surrenderConfirm, setSurrenderConfirm] = useState(false)
+  const [leaveConfirm, setLeaveConfirm] = useState(false) // browser "back" pressed mid-match
   const [nickname, setNickname] = useState(loadNickname)
   const [premove, setPremove] = useState(null) // { from, to } | null
   const premoveRef = useRef(null) // mirrors premove for the socket handler below (avoids a stale closure)
@@ -120,6 +138,8 @@ export default function OnlineApp({ onExit }) {
           // MY piece that just got taken. Plain moves/bounces are "move".
           if (lastAction.type === 'capture') play(lastAction.color === roomInfo.color ? 'get' : 'lost')
           else play('move')
+        } else if (lastAction.type === 'draw_declined' && lastAction.color !== roomInfo.color) {
+          flashError('Соперник отклонил ничью')
         } else if (lastAction.type === 'card') {
           const card = CARD_DEFS[lastAction.cardId]
           setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
@@ -128,7 +148,8 @@ export default function OnlineApp({ onExit }) {
         }
         // The opponent just acted and the turn passed to us — one gentle
         // "you're up" chime layered after their action's own sound.
-        if (m.phase === 'battle' && m.gameState.turn === roomInfo.color && lastAction.color !== roomInfo.color) {
+        const passedTurn = ['move', 'capture', 'bounce', 'card'].includes(lastAction.type)
+        if (passedTurn && m.phase === 'battle' && m.gameState.turn === roomInfo.color && lastAction.color !== roomInfo.color) {
           setTimeout(() => play('yourTurn'), 220)
         }
       }
@@ -149,26 +170,87 @@ export default function OnlineApp({ onExit }) {
       setPhase('match')
     })
 
+    socket.on('lobby_list', ({ rooms }) => {
+      setLobbyRooms(rooms ?? [])
+      setRoomsLoading(false)
+    })
+
     socket.on('opponent_left', () => setOpponentLeft(true))
+    // socket.io reconnects on its own after a dropped connection, but as a
+    // NEW socket the server doesn't know — reclaim the seat right away.
+    socket.on('connect', () => {
+      if (roomRef.current) enterRef.current(roomRef.current.code)
+    })
+    // Our seat was reclaimed by another socket holding the same token (a
+    // duplicated tab) — see index.js's rejoin_room. This tab is out.
+    socket.on('seat_taken', () => {
+      flashError('Игра открыта в другой вкладке')
+      clearSeat()
+      resetRoomState()
+      navigateRef.current('/online', { replace: true })
+    })
     socket.on('game_error', ({ message }) => flashError(message))
     socket.on('connect_error', () => flashError('Не удалось подключиться к серверу'))
 
     return () => {
       socket.off('room_update')
       socket.off('match_update')
+      socket.off('lobby_list')
       socket.off('opponent_left')
+      socket.off('connect')
+      socket.off('seat_taken')
       socket.off('game_error')
       socket.off('connect_error')
       disconnectSocket()
     }
   }, [flashError])
 
-  async function handleCreate(color) {
+  // Subscribe to the lobby list only while actually browsing — a room in
+  // progress has no use for it, and the server would otherwise keep fanning
+  // list updates out to every player mid-match.
+  useEffect(() => {
+    if (phase !== 'menu') {
+      getSocket().emit('unlist_rooms')
+      return
+    }
+    let cancelled = false
+    setRoomsLoading(true)
+    const socket = connectSocket()
+    const subscribe = () => {
+      request('list_rooms')
+        .then(res => { if (!cancelled) { setLobbyRooms(res?.rooms ?? []); setRoomsLoading(false) } })
+        .catch(() => { if (!cancelled) setRoomsLoading(false) })
+    }
+    if (socket.connected) subscribe()
+    else socket.once('connect', subscribe)
+    return () => { cancelled = true }
+  }, [phase])
+
+  // Seated in a room (create/join/rejoin all answer the same shape) — the
+  // match itself, if one is running, arrives separately as match_update.
+  function seat(res) {
+    saveSeat(res.code, res.token)
+    setRoom({ code: res.code, color: res.color, host: res.host, visibility: res.visibility, players: res.players })
+    setPhase(prev => (prev === 'match' ? prev : 'waiting'))
+    navigate(`/room/${res.code}`, { replace: urlCode === res.code })
+  }
+
+  async function handleCreate(color, visibility) {
     setBusy(true)
     try {
-      const res = await request('create_room', { color, name: nickname })
-      setRoom({ code: res.code, color: res.color, host: res.host, players: res.players })
-      setPhase('waiting')
+      seat(await request('create_room', { color, name: nickname, visibility }))
+    } catch (e) {
+      flashError(e.message)
+    }
+    setBusy(false)
+  }
+
+  // A private room against the AI — the server seats the bot and starts
+  // the match straight away (see server/bot.js).
+  async function handlePlayBot(level, color) {
+    setBusy(true)
+    try {
+      seat(await request('create_bot_room', { level, color, name: nickname }))
     } catch (e) {
       flashError(e.message)
     }
@@ -178,17 +260,78 @@ export default function OnlineApp({ onExit }) {
   async function handleJoin(code) {
     setBusy(true)
     try {
-      const res = await request('join_room', { code, name: nickname })
-      setRoom({ code, color: res.color, host: res.host, players: res.players })
-      setPhase('waiting')
+      seat(await request('join_room', { code, name: nickname }))
     } catch (e) {
       flashError(e.message)
     }
     setBusy(false)
   }
 
-  function handleLeave() {
-    getSocket().emit('leave_room')
+  // Walks into room `code` — reclaiming our own seat if this browser holds
+  // one (reload, dropped connection), otherwise joining as a new player
+  // (invite link). A room that's gone/full sends us back to the browser.
+  const enteringRef = useRef(null)
+  async function enterRoom(code) {
+    if (enteringRef.current === code) return
+    enteringRef.current = code
+    const token = loadSeatToken(code)
+    try {
+      if (token) {
+        try {
+          seat(await request('rejoin_room', { code, token }))
+          return
+        } catch {
+          clearSeat() // seat's gone (e.g. lobby seats free up on disconnect) — try joining fresh
+        }
+      }
+      seat(await request('join_room', { code, name: nickname }))
+    } catch (e) {
+      flashError(e.message)
+      resetRoomState()
+      navigate('/online', { replace: true })
+    } finally {
+      enteringRef.current = null
+    }
+  }
+  const enterRef = useRef(enterRoom)
+  enterRef.current = enterRoom
+  const roomRef = useRef(room)
+  roomRef.current = room
+
+  // URL -> room, reacting only to the URL actually CHANGING. The router
+  // commits a navigation a beat after our own state updates, so right after
+  // create/join there's a render where we're already in the room but the
+  // URL still says /online (and right after leaving, one where the room is
+  // gone but the URL still says /room/:code) — treating those in-between
+  // renders as "the user navigated" would leave a room we just made, or
+  // walk back into one we just left.
+  //   arrived on /room/:code (invite link, reload) and not in it: enter it
+  //   moved off our room's URL (browser back): in a live match, ask first
+  //   (and put the URL back meanwhile); otherwise just leave.
+  const prevUrlCodeRef = useRef(null)
+  useEffect(() => {
+    const prevUrlCode = prevUrlCodeRef.current
+    prevUrlCodeRef.current = urlCode
+    if (urlCode && urlCode !== prevUrlCode && room?.code !== urlCode) {
+      const socket = connectSocket()
+      const go = () => enterRef.current(urlCode)
+      if (socket.connected) go()
+      else socket.once('connect', go)
+      return
+    }
+    if (room && prevUrlCode === room.code && urlCode !== room.code) {
+      const liveMatch = phase === 'match' && match?.phase !== 'match_over'
+      if (liveMatch) {
+        navigate(`/room/${room.code}`)
+        setLeaveConfirm(true)
+      } else {
+        handleLeave()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCode, room?.code])
+
+  function resetRoomState() {
     setPhase('menu')
     setRoom(null)
     setMatch(null)
@@ -196,13 +339,25 @@ export default function OnlineApp({ onExit }) {
     setActionToast(null)
     setLastMoveAnim(null)
     setMeteorStrikeAnim(null)
-    setSummarySeenFor(null)
     setPendingPromotion(null)
     setSurrenderConfirm(false)
+    setLeaveConfirm(false)
     premoveRef.current = null
     setPremove(null)
     dispatch({ type: 'CANCEL' })
   }
+
+  function handleLeave() {
+    getSocket().emit('leave_room')
+    clearSeat()
+    resetRoomState()
+    if (urlCode) navigate('/online') // already off /room/:code if we got here via browser back
+  }
+
+  // Transient messages (server rejections, "opponent declined the draw", …)
+  // — shown on every match screen, not just the lobby, which used to be the
+  // only place errorMsg was rendered at all.
+  const toast = errorMsg ? <div className="game-toast">{errorMsg}</div> : null
 
   // ── Menu / waiting for the second seat — no match yet ─────────────
   if (phase !== 'match' || !room || !match) {
@@ -215,11 +370,14 @@ export default function OnlineApp({ onExit }) {
           errorMsg={errorMsg}
           onCreate={handleCreate}
           onJoin={handleJoin}
+          onPlayBot={handlePlayBot}
           onLeave={handleLeave}
           onStart={() => getSocket().emit('start_match')}
           onExit={onExit}
           nickname={nickname}
           onNicknameChange={handleNicknameChange}
+          rooms={lobbyRooms}
+          roomsLoading={roomsLoading}
         />
       </PageTransition>
     )
@@ -238,68 +396,86 @@ export default function OnlineApp({ onExit }) {
   // crossfade (see PageTransition.css) since the two share identical
   // geometry — the real page transitions are draft -> placement and
   // summary -> next round's draft.
-  if (match.phase === 'draft' && match.previousRound != null && summarySeenFor !== match.previousRound) {
+  // Server-driven: stays up until the server has registered MY "continue"
+  // (or its SUMMARY_MAX_SECONDS cap ran out) — the next draft's clocks only
+  // start once both players are past it (see matchEngine.js).
+  if (match.phase === 'draft' && match.previousRound != null && match.summaryReady && !match.summaryReady[myColor]) {
     return (
-      <PageTransition pageKey="battle">
-        <RoundSummary
-          match={match}
-          // Colors swap every round (see matchEngine.js) — during the round
-          // that just ended, "my" pieces were whatever color I'm NOT playing
-          // now, so the frozen board must be oriented/labeled accordingly.
-          previousMyColor={oppColor}
-          room={room}
-          onContinue={() => setSummarySeenFor(match.previousRound)}
-        />
-      </PageTransition>
+      <>
+        {toast}
+        <PageTransition pageKey="battle">
+          <RoundSummary
+            match={match}
+            // Colors swap every round (see matchEngine.js) — during the round
+            // that just ended, "my" pieces were whatever color I'm NOT playing
+            // now, so the frozen board must be oriented/labeled accordingly.
+            previousMyColor={oppColor}
+            room={room}
+            onContinue={() => getSocket().emit('summary_continue')}
+          />
+        </PageTransition>
+      </>
     )
   }
 
   // ── Draft phase (turn-based, no bans — every pick is live/visible) ──
   if (match.phase === 'draft') {
     return (
-      <PageTransition pageKey="draft">
-        <DraftPhase
-          round={match.round}
-          boardPattern={match.boardPattern}
-          draft={match.draft}
-          myColor={myColor}
-          matchScore={{
-            round: match.round,
-            white: match.scores.white,
-            black: match.scores.black,
-            whiteName: room.players?.white?.name,
-            blackName: room.players?.black?.name,
-          }}
-          onPick={(item) => { play('buy'); getSocket().emit('draft_pick', item) }}
-          onDone={() => getSocket().emit('draft_done')}
-        />
-      </PageTransition>
+      <>
+        {toast}
+        <PageTransition pageKey="draft">
+          <DraftPhase
+            round={match.round}
+            boardPattern={match.boardPattern}
+            draft={match.draft}
+            myColor={myColor}
+            matchScore={{
+              round: match.round,
+              white: match.scores.white,
+              black: match.scores.black,
+              whiteName: room.players?.white?.name,
+              blackName: room.players?.black?.name,
+            }}
+            onPick={(item) => { play('buy'); getSocket().emit('draft_pick', item) }}
+            onDone={() => getSocket().emit('draft_done')}
+          />
+        </PageTransition>
+      </>
     )
   }
 
-  // ── Placement phase (hidden from opponent) ─────────────────────────
+  // ── Placement phase (open, shared countdown) ───────────────────────
   if (match.phase === 'placement') {
+    const placementSeconds = PLACEMENT_TIME_BY_ROUND[Math.min(match.round, 3)]
     return (
-      <PageTransition pageKey="placement">
-        <PlacementPhase
-          boardPattern={match.boardPattern}
-          draftedPieces={match.draft.picks[myColor].pieces}
-          myCards={match.draft.picks[myColor].cards}
-          myColor={myColor}
-          opponentReady={match.placement[oppColor].ready}
-          oppColor={oppColor}
-          oppPieces={match.draft.picks[oppColor].pieces}
-          oppCards={match.draft.picks[oppColor].cards}
-          matchScore={{
-            round: match.round,
-            white: match.scores.white,
-            black: match.scores.black,
-            whiteName: room.players?.white?.name,
-            blackName: room.players?.black?.name,
-          }}
-          onSubmit={(map) => getSocket().emit('submit_placement', { map })}
-        />
-      </PageTransition>
+      <>
+        {toast}
+        <PageTransition pageKey="placement">
+          <PlacementPhase
+            boardPattern={match.boardPattern}
+            draftedPieces={match.draft.picks[myColor].pieces}
+            myCards={match.draft.picks[myColor].cards}
+            myColor={myColor}
+            opponentReady={match.placement[oppColor].ready}
+            myMap={match.placement[myColor].map}
+            oppMap={match.placement[oppColor].map}
+            deadline={match.placementDeadline}
+            totalSeconds={placementSeconds}
+            oppColor={oppColor}
+            oppPieces={match.draft.picks[oppColor].pieces}
+            oppCards={match.draft.picks[oppColor].cards}
+            matchScore={{
+              round: match.round,
+              white: match.scores.white,
+              black: match.scores.black,
+              whiteName: room.players?.white?.name,
+              blackName: room.players?.black?.name,
+            }}
+            onChange={(map) => getSocket().emit('update_placement', { map })}
+            onSubmit={(map) => getSocket().emit('submit_placement', { map })}
+          />
+        </PageTransition>
+      </>
     )
   }
 
@@ -307,7 +483,7 @@ export default function OnlineApp({ onExit }) {
   const gameState    = match.gameState
   const matchOver     = match.phase === 'match_over'
   const myTurn        = !matchOver && gameState.turn === myColor
-  const inCheck        = match.phase === 'battle' && !gameState.eliminationMode && isKingInCheck(gameState, gameState.turn)
+  const inCheck        = match.phase === 'battle' && isKingInCheck(gameState, gameState.turn)
   // Cards no longer end the turn — you still get your normal move/purchase
   // this turn, just capped at one card played per turn.
   const cardsLocked   = myTurn && gameState.cardPlayedThisTurn
@@ -334,6 +510,10 @@ export default function OnlineApp({ onExit }) {
     setPendingPromotion(null)
   }
 
+  function handleAnswerDraw(accept) {
+    getSocket().emit('answer_draw', { accept })
+  }
+
   function handleSurrenderConfirm() {
     getSocket().emit('surrender')
     setSurrenderConfirm(false)
@@ -344,14 +524,6 @@ export default function OnlineApp({ onExit }) {
     // Same pick/unpick tick a board piece gets (see Board.jsx) — selecting
     // a card to aim it, or clicking it again to cancel, both play 'select'.
     play('select')
-    // Necromancy's real choice is WHICH captured piece to revive, not a
-    // board square (where it reappears is random) — so it skips the normal
-    // click-a-square flow entirely and opens its own picker instead.
-    if (card.id === 'necromancy') {
-      const options = getValidTargets('necromancy', gameState, myColor)
-      setPendingNecromancy({ card, options })
-      return
-    }
     if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
       dispatch({ type: 'CANCEL' })
       return
@@ -363,16 +535,6 @@ export default function OnlineApp({ onExit }) {
   function handlePlayCard({ card, target }) {
     if (match.phase !== 'battle' || !myTurn || cardsLocked) return
     getSocket().emit('play_card', { cardId: card.id, target })
-  }
-
-  function handleNecromancyPick(pieceType) {
-    if (!pendingNecromancy) return
-    handlePlayCard({ card: pendingNecromancy.card, target: pieceType })
-    setPendingNecromancy(null)
-  }
-
-  function handleNecromancyCancel() {
-    setPendingNecromancy(null)
   }
 
   function handleBackgroundClick(e) {
@@ -390,112 +552,127 @@ export default function OnlineApp({ onExit }) {
     : undefined
 
   return (
-    <PageTransition pageKey="battle">
-      {opponentLeft && (
-        <div className="opponent-left-banner">
-          Соперник покинул игру
-          <button onClick={handleLeave}>Выйти в меню</button>
-        </div>
-      )}
-      {pendingPromotion && (
-        <PromotionPicker
-          color={myColor}
-          onPick={handlePromotionPick}
-          onCancel={handlePromotionCancel}
+    <>
+      {toast}
+      <PageTransition pageKey="battle">
+        {opponentLeft && (
+          <div className="opponent-left-banner">
+            Соперник покинул игру
+            <button onClick={handleLeave}>Выйти в меню</button>
+          </div>
+        )}
+        {pendingPromotion && (
+          <PromotionPicker
+            color={myColor}
+            onPick={handlePromotionPick}
+            onCancel={handlePromotionCancel}
+          />
+        )}
+        {leaveConfirm && (
+          <ConfirmModal
+            title="Выйти из матча?"
+            message="Вы покинете матч. Часы продолжат идти, пока вас нет."
+            confirmLabel="Выйти"
+            onConfirm={handleLeave}
+            onCancel={() => setLeaveConfirm(false)}
+          />
+        )}
+        {match.phase === 'battle' && gameState.drawOffer === oppColor && !surrenderConfirm && (
+          <ConfirmModal
+            title="Соперник предлагает ничью"
+            message="Раунд закончится вничью, счёт матча не изменится."
+            confirmLabel="Принять"
+            cancelLabel="Отклонить"
+            onConfirm={() => handleAnswerDraw(true)}
+            onCancel={() => handleAnswerDraw(false)}
+          />
+        )}
+        {surrenderConfirm && (
+          <ConfirmModal
+            title="Сдаться?"
+            message="Вы проиграете этот раунд сопернику. Следующий раунд начнётся с нуля — новый драфт для обеих сторон."
+            confirmLabel="Сдаться"
+            onConfirm={handleSurrenderConfirm}
+            onCancel={() => setSurrenderConfirm(false)}
+          />
+        )}
+        <GameView
+          gameState={gameState}
+          boardMode={boardMode}
+          dispatch={dispatch}
+          lastMoveAnim={lastMoveAnim}
+          actionToast={actionToast}
+          meteorStrikeAnim={meteorStrikeAnim}
+          mineStrikeAnim={mineStrikeAnim}
+          boardFlipped={myColor === 'black'}
+          // Always your own color (not gated by whose turn it is) so you can
+          // select your pieces to queue a premove while waiting — actually
+          // executing a move is what stays gated, via isMyTurn below.
+          boardPlayerColor={matchOver ? 'none' : myColor}
+          isMyTurn={myTurn}
+          premove={premove}
+          onSetPremove={setPremove}
+          onClearPremove={() => setPremove(null)}
+          onMove={handleMove}
+          onPlayCard={handlePlayCard}
+          battleLog={gameState.actionLog}
+          historyIndex={historyIndex}
+          onSelectHistory={setHistoryIndex}
+          onReturnToLive={() => setHistoryIndex(null)}
+          gameResult={gameResult}
+          resultTitle={resultTitle}
+          resultOutcome={matchOutcome}
+          restartLabel={matchOver ? 'В меню' : undefined}
+          onRestart={handleLeave}
+          onBackgroundClick={handleBackgroundClick}
+          matchScore={{
+            round: match.round,
+            white: match.scores.white,
+            black: match.scores.black,
+            whiteName: room.players?.white?.name,
+            blackName: room.players?.black?.name,
+          }}
+          turnBar={!matchOver ? {
+            color: gameState.turn,
+            text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
+            sub: myTurn ? 'Ваш ход' : 'Ход соперника',
+            urgent: myTurn,
+          } : null}
+          topPanel={{
+            color: oppColor,
+            name: room.players?.[oppColor]?.name,
+            capturedByMe: oppCaptured,
+            active: gameState.turn === oppColor,
+            inCheck: inCheck && gameState.turn === oppColor,
+            opponentCards: gameState.cards[oppColor].hand,
+            selectedCardId: null,
+            onCardClick: undefined,
+            controllable: false,
+          }}
+          bottomPanel={{
+            color: myColor,
+            name: room.players?.[myColor]?.name,
+            capturedByMe: myCaptured,
+            active: myTurn,
+            inCheck: inCheck && myTurn,
+            isYou: true,
+            // Server also enforces this — surrendering mid-opponent's-turn
+            // isn't allowed — but gating the button here avoids a round-trip
+            // error toast for something the client already knows is invalid.
+            onSurrender: match.phase === 'battle' ? () => setSurrenderConfirm(true) : undefined,
+            onOfferDraw: match.phase === 'battle' ? () => getSocket().emit('offer_draw') : undefined,
+            drawOfferDisabled: !!gameState.drawOffer
+              || gameState.drawOfferedAt?.[myColor] === (gameState.moveHistory?.length ?? 0),
+            controllable: myTurn,
+          }}
+          bottomHand={{
+            cards: gameState.cards[myColor].hand,
+            isActive: myTurn && !cardsLocked,
+            selectedCardId: boardMode.type === 'card_targeting' ? boardMode.card.id : null,
+            onCardClick: handleCardSelect,
+          }}
         />
-      )}
-      {pendingNecromancy && (
-        <NecromancyPicker
-          color={myColor}
-          options={pendingNecromancy.options}
-          onPick={handleNecromancyPick}
-          onCancel={handleNecromancyCancel}
-        />
-      )}
-      {surrenderConfirm && (
-        <ConfirmModal
-          title="Сдаться?"
-          message="Вы проиграете этот раунд сопернику. Следующий раунд начнётся с нуля — новый драфт для обеих сторон."
-          confirmLabel="Сдаться"
-          onConfirm={handleSurrenderConfirm}
-          onCancel={() => setSurrenderConfirm(false)}
-        />
-      )}
-      <GameView
-        gameState={gameState}
-        boardMode={boardMode}
-        dispatch={dispatch}
-        lastMoveAnim={lastMoveAnim}
-        actionToast={actionToast}
-        meteorStrikeAnim={meteorStrikeAnim}
-        mineStrikeAnim={mineStrikeAnim}
-        boardFlipped={myColor === 'black'}
-        // Always your own color (not gated by whose turn it is) so you can
-        // select your pieces to queue a premove while waiting — actually
-        // executing a move is what stays gated, via isMyTurn below.
-        boardPlayerColor={matchOver ? 'none' : myColor}
-        isMyTurn={myTurn}
-        premove={premove}
-        onSetPremove={setPremove}
-        onClearPremove={() => setPremove(null)}
-        onMove={handleMove}
-        onPlayCard={handlePlayCard}
-        battleLog={gameState.actionLog}
-        historyIndex={historyIndex}
-        onSelectHistory={setHistoryIndex}
-        onReturnToLive={() => setHistoryIndex(null)}
-        gameResult={gameResult}
-        resultTitle={resultTitle}
-        resultOutcome={matchOutcome}
-        restartLabel={matchOver ? 'В меню' : undefined}
-        onRestart={handleLeave}
-        onBackgroundClick={handleBackgroundClick}
-        matchScore={{
-          round: match.round,
-          white: match.scores.white,
-          black: match.scores.black,
-          whiteName: room.players?.white?.name,
-          blackName: room.players?.black?.name,
-        }}
-        turnBar={!matchOver ? {
-          color: gameState.turn,
-          text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
-          sub: myTurn ? 'Ваш ход' : 'Ход соперника',
-          urgent: myTurn,
-        } : null}
-        topPanel={{
-          color: oppColor,
-          name: room.players?.[oppColor]?.name,
-          capturedByMe: oppCaptured,
-          active: gameState.turn === oppColor,
-          inCheck: inCheck && gameState.turn === oppColor,
-          opponentCards: gameState.cards[oppColor].hand,
-          selectedCardId: null,
-          onCardClick: undefined,
-          coins: gameState.coins[oppColor],
-          controllable: false,
-        }}
-        bottomPanel={{
-          color: myColor,
-          name: room.players?.[myColor]?.name,
-          capturedByMe: myCaptured,
-          active: myTurn,
-          inCheck: inCheck && myTurn,
-          isYou: true,
-          coins: gameState.coins[myColor],
-          // Server also enforces this — surrendering mid-opponent's-turn
-          // isn't allowed — but gating the button here avoids a round-trip
-          // error toast for something the client already knows is invalid.
-          onSurrender: (!matchOver && myTurn) ? () => setSurrenderConfirm(true) : undefined,
-          controllable: myTurn,
-        }}
-        bottomHand={{
-          cards: gameState.cards[myColor].hand,
-          isActive: myTurn && !cardsLocked,
-          selectedCardId: boardMode.type === 'card_targeting' ? boardMode.card.id : null,
-          onCardClick: handleCardSelect,
-        }}
-      />
-    </PageTransition>
+      </PageTransition>
+    </>
   )
 }

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tool output (balance lab / UI tester reports)
+tools/balance/reports/
+tools/ui-e2e/reports/

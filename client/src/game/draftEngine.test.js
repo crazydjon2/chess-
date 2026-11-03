@@ -1,23 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import {
-  createDraftState, submitPick, submitDone, isDraftComplete, nextItemCost,
+  createDraftState, submitPick, submitDone, timeoutDraft, isDraftComplete, nextItemCost, duplicateStep,
   ALL_PIECE_TYPES, ALL_CARD_IDS,
 } from './draftEngine.js'
-import { BUDGET_BY_ROUND } from './draftPools.js'
+import { BUDGET_BY_ROUND, DRAFT_TIME_BY_ROUND } from './draftPools.js'
 import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
 import { shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
 
 describe('createDraftState', () => {
-  it('starts in the buy phase, turn with firstColor, equal budgets, empty picks', () => {
+  it('starts in the buy phase, turn with firstColor, equal budgets, just the free king', () => {
     const ds = createDraftState(2, 'white')
     expect(ds.phase).toBe('buy')
     expect(ds.turn).toBe('white')
     expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[2])
     expect(ds.budgets.black).toBe(BUDGET_BY_ROUND[2])
     expect(ds.picks).toEqual({
-      white: { pieces: [], cards: [] },
-      black: { pieces: [], cards: [] },
+      white: { pieces: ['king'], cards: [] },
+      black: { pieces: ['king'], cards: [] },
     })
     expect(ds.done).toEqual({ white: false, black: false })
   })
@@ -76,9 +76,10 @@ describe('submitPick — turn order', () => {
     ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
     ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }).draftState
     ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
-    expect(ds.picks.white.pieces).toEqual(['pawn', 'pawn'])
-    // 1st copy at base price, 2nd one coin more (see DUPLICATE_STEP).
-    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - shopPieceCost('pawn') - (shopPieceCost('pawn') + 1))
+    expect(ds.picks.white.pieces).toEqual(['king', 'pawn', 'pawn'])
+    // 1st copy at base price, 2nd with the duplicate surcharge (see duplicateStep).
+    const pawn = { kind: 'piece', pieceType: 'pawn' }
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - shopPieceCost('pawn') - (shopPieceCost('pawn') + duplicateStep(pawn)))
   })
 
   it('rejects a piece pick with more pieces than the board has home-rank squares for', () => {
@@ -87,7 +88,7 @@ describe('submitPick — turn order', () => {
     // below) — this test is specifically about maxPieces.
     let ds = createDraftState(1, 'white')
     ds = { ...ds, budgets: { white: 100000, black: 100000 } }
-    for (let i = 0; i < ds.maxPieces; i++) {
+    for (let i = 0; i < ds.maxPieces - 1; i++) { // the free king already takes one slot
       ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
       ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }).draftState
     }
@@ -109,28 +110,8 @@ describe('submitPick — turn order', () => {
     expect(ds.budgets.black).toBe(BUDGET_BY_ROUND[1])
   })
 
-  it('a card purchase that stays affordable and still leaves pawn money behind is fine even with zero pieces', () => {
-    const ds = createDraftState(1, 'white') // budget 30
-    const res = submitPick(ds, 'white', { kind: 'card', cardId: 'meteor' }) // cost 6, leaves 24 >= pawn cost
-    expect(res.error).toBeUndefined()
-  })
-
-  it('blocks a card purchase that would leave less than a pawn\'s cost behind while zero pieces are owned', () => {
+  it('a cards-only spree is fine — the free king means the army is never empty', () => {
     let ds = createDraftState(1, 'white')
-    const cheapestCardId = Object.keys(CARD_DEFS).sort((a, b) => CARD_DEFS[a].cost - CARD_DEFS[b].cost)[0]
-    const cost = CARD_DEFS[cheapestCardId].cost
-    // Affordable on its own (cost <= budget), but would leave only 1 coin
-    // behind — less than a pawn (2) — this is the reserve rule specifically,
-    // not plain unaffordability.
-    ds = { ...ds, budgets: { ...ds.budgets, white: cost + 1 } }
-    const res = submitPick(ds, 'white', { kind: 'card', cardId: cheapestCardId })
-    expect(res.error).toBeTruthy()
-  })
-
-  it('does not apply the reserve once at least one piece is already owned', () => {
-    let ds = createDraftState(1, 'white')
-    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState // now has 1 piece
-    ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }).draftState
     const cheapestCardId = Object.keys(CARD_DEFS).sort((a, b) => CARD_DEFS[a].cost - CARD_DEFS[b].cost)[0]
     const cost = CARD_DEFS[cheapestCardId].cost
     ds = { ...ds, budgets: { ...ds.budgets, white: cost } } // exactly affordable, would leave 0
@@ -173,10 +154,10 @@ describe('auto-skip when a color can no longer afford anything', () => {
 })
 
 describe('submitDone — voluntary early finish', () => {
-  it('rejects finishing with zero pieces bought', () => {
+  it('can finish right away — the free king alone is a legal army', () => {
     const ds = createDraftState(1, 'white')
     const res = submitDone(ds, 'white')
-    expect(res.error).toBeTruthy()
+    expect(res.error).toBeUndefined()
   })
 
   it('accepts finishing once at least one piece is owned, and skips that color from then on', () => {
@@ -216,18 +197,24 @@ describe('duplicate pricing — each repeat copy of the same item costs more', (
     expect(nextItemCost(ds, 'white', { kind: 'card', cardId: 'freeze' })).toBe(CARD_DEFS.freeze.cost)
   })
 
-  it('climbs by 1 with each further copy actually bought, and charges exactly that', () => {
-    let ds = createDraftState(1, 'white')
-    const base = shopPieceCost('pawn')
-    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'pawn' })).toBe(base)
+  it('climbs by the item-specific surcharge with each further copy, and charges exactly that', () => {
+    let ds = createDraftState(3, 'white') // round 3: budget for two of something pricey
+    const knight = { kind: 'piece', pieceType: 'knight' }
+    const base = shopPieceCost('knight'), step = duplicateStep(knight)
+    expect(step).toBeGreaterThan(0)
+    expect(nextItemCost(ds, 'white', knight)).toBe(base)
 
-    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
-    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - base)
+    ds = submitPick(ds, 'white', knight).draftState
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[3] - base)
     ds = { ...ds, turn: 'white' } // isolate white's own repeat-buy, ignore turn order here
-    expect(nextItemCost(ds, 'white', { kind: 'piece', pieceType: 'pawn' })).toBe(base + 1)
+    expect(nextItemCost(ds, 'white', knight)).toBe(base + step)
 
-    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }).draftState
-    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[1] - base - (base + 1))
+    ds = submitPick(ds, 'white', knight).draftState
+    expect(ds.budgets.white).toBe(BUDGET_BY_ROUND[3] - base - (base + step))
+  })
+
+  it('the surcharge scales with the base price — a repeat queen costs far more extra than a repeat pawn', () => {
+    expect(duplicateStep({ kind: 'piece', pieceType: 'queen' })).toBeGreaterThan(duplicateStep({ kind: 'piece', pieceType: 'pawn' }))
   })
 
   it('is per-color and per-item — buying pawns does not raise the price of knights, and the opponent\'s purchases do not raise yours', () => {
@@ -241,8 +228,7 @@ describe('duplicate pricing — each repeat copy of the same item costs more', (
   })
 
   it('caps how many of the cheapest piece are actually affordable in round 1', () => {
-    // Starting value: DUPLICATE_STEP=1 caps a round-1 (budget 30) pawn
-    // spree well short of the board's 12 home-rank slots.
+    // Either the budget or the board's home-rank slots stop a pawn spree.
     let ds = createDraftState(1, 'white')
     let bought = 0
     while (true) {
@@ -251,38 +237,43 @@ describe('duplicate pricing — each repeat copy of the same item costs more', (
       ds = { ...res.draftState, turn: 'white' }
       bought++
     }
-    expect(bought).toBeLessThan(HOME_CAPACITY_BY_ROUND[1])
+    expect(bought).toBeLessThanOrEqual(HOME_CAPACITY_BY_ROUND[1] - 1) // the king takes a slot
     expect(bought).toBeGreaterThan(0)
-  })
-})
-
-describe('invariant: a color can never finish the draft holding zero pieces', () => {
-  it('spamming the cheapest card alone eventually gets blocked by the reserve rule before any piece is bought', () => {
-    let ds = createDraftState(1, 'white')
-    const cheapestCardId = Object.keys(CARD_DEFS).sort((a, b) => CARD_DEFS[a].cost - CARD_DEFS[b].cost)[0]
-
-    let res
-    for (let i = 0; i < 50; i++) {
-      res = submitPick(ds, 'white', { kind: 'card', cardId: cheapestCardId })
-      if (res.error) break
-      ds = { ...res.draftState, turn: 'white' } // keep it white's turn to isolate white's own spending
-      // Never auto-marked done while holding zero pieces — the whole point
-      // of this test.
-      expect(ds.done.white).toBe(false)
-    }
-
-    // Eventually the reserve rule must kick in (budget is finite) — white
-    // is stuck needing to buy an actual piece before doing anything else.
-    expect(res.error).toBeTruthy()
-    expect(ds.picks.white.pieces.length).toBe(0)
-    expect(ds.done.white).toBe(false)
-    expect(submitDone(ds, 'white').error).toBeTruthy() // and can't just declare done either
   })
 })
 
 describe('catalog', () => {
   it('every piece type and every card is buyable from round 1', () => {
     expect(ALL_PIECE_TYPES).toEqual(expect.arrayContaining(['pawn', 'knight', 'bishop', 'rook', 'queen']))
+    expect(ALL_PIECE_TYPES).not.toContain('king') // free, never bought
     expect(ALL_CARD_IDS.length).toBe(Object.keys(CARD_DEFS).length)
+  })
+})
+
+describe('draft time bank', () => {
+  it('charges only the acting player, only for the time they actually took', () => {
+    let ds = createDraftState(1, 'white', 0)
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }, 5_000).draftState
+    expect(ds.clocks.white).toBe(DRAFT_TIME_BY_ROUND[1] - 5)
+    expect(ds.clocks.black).toBe(DRAFT_TIME_BY_ROUND[1])
+    ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }, 7_000).draftState
+    expect(ds.clocks.black).toBe(DRAFT_TIME_BY_ROUND[1] - 2)
+  })
+
+  it('rejects a pick once the player\'s time is gone', () => {
+    const ds = createDraftState(1, 'white', 0)
+    const res = submitPick(ds, 'white', { kind: 'piece', pieceType: 'pawn' }, (DRAFT_TIME_BY_ROUND[1] + 1) * 1000)
+    expect(res.error).toBeTruthy()
+  })
+
+  it('timing out ends that player\'s draft with what they already bought', () => {
+    let ds = createDraftState(1, 'white', 0)
+    ds = submitPick(ds, 'white', { kind: 'piece', pieceType: 'rook' }, 1_000).draftState
+    ds = submitPick(ds, 'black', { kind: 'piece', pieceType: 'pawn' }, 2_000).draftState
+    ds = timeoutDraft(ds, 40_000)
+    expect(ds.done.white).toBe(true)
+    expect(ds.clocks.white).toBe(0)
+    expect(ds.picks.white.pieces).toEqual(['king', 'rook'])
+    expect(ds.turn).toBe('black')
   })
 })

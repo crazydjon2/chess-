@@ -1,7 +1,6 @@
 import { useState, useReducer, useCallback } from 'react'
 import GameView from './rendering/GameView'
 import PromotionPicker from './rendering/PromotionPicker'
-import NecromancyPicker from './rendering/NecromancyPicker'
 import { createDraftRoundState } from './game/initialState'
 import { CARD_DEFS, getValidTargets } from './game/cards'
 import { isKingInCheck, needsPromotion } from './game/chess'
@@ -30,6 +29,7 @@ function freshSandboxState() {
       b1: { type: 'knight', color: 'white', hp: 1 },
       c1: { type: 'bishop', color: 'white', hp: 1 },
       d1: { type: 'queen', color: 'white', hp: 1 },
+      e1: { type: 'king', color: 'white', hp: 1 },
       e2: { type: 'pawn', color: 'white', hp: 1 },
       f2: { type: 'pawn', color: 'white', hp: 1 },
       g7: { type: 'pawn', color: 'white', hp: 1 }, // one step from promoting
@@ -39,12 +39,12 @@ function freshSandboxState() {
       g8: { type: 'knight', color: 'black', hp: 1 },
       f8: { type: 'bishop', color: 'black', hp: 1 },
       e8: { type: 'queen', color: 'black', hp: 1 },
+      d8: { type: 'king', color: 'black', hp: 1 },
       d7: { type: 'pawn', color: 'black', hp: 1 },
       c7: { type: 'pawn', color: 'black', hp: 1 },
       b2: { type: 'pawn', color: 'black', hp: 1 }, // one step from promoting
     },
     ALL_CARD_IDS, ALL_CARD_IDS,
-    { white: 40, black: 40 },
     null, // untimed — testing shouldn't get cut off mid-poke
   )
 }
@@ -78,7 +78,6 @@ export default function SandboxApp({ onExit }) {
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null)
   const [mineStrikeAnim, setMineStrikeAnim] = useState(null)
   const [pendingPromotion, setPendingPromotion] = useState(null)
-  const [pendingNecromancy, setPendingNecromancy] = useState(null)
   const [historyIndex, setHistoryIndex] = useState(null) // null = live, see GameView.jsx
 
   const flashError = useCallback((msg) => {
@@ -124,7 +123,6 @@ export default function SandboxApp({ onExit }) {
     setMeteorStrikeAnim(null)
     setMineStrikeAnim(null)
     setPendingPromotion(null)
-    setPendingNecromancy(null)
     setHistoryIndex(null)
     dispatch({ type: 'CANCEL' })
   }
@@ -132,7 +130,7 @@ export default function SandboxApp({ onExit }) {
   const myColor  = gameState.turn // whoever's turn it is controls the bottom panel/hand
   const oppColor = other(myColor)
   const gameOver = !!gameResult
-  const inCheck  = !gameOver && !gameState.eliminationMode && isKingInCheck(gameState, gameState.turn)
+  const inCheck  = !gameOver && isKingInCheck(gameState, gameState.turn)
   const cardsLocked = gameState.cardPlayedThisTurn
 
   const myCaptured  = getCaptured(gameState, myColor)
@@ -160,11 +158,6 @@ export default function SandboxApp({ onExit }) {
   function handleCardSelect(card) {
     if (gameOver || cardsLocked) return
     play('select')
-    if (card.id === 'necromancy') {
-      const options = getValidTargets('necromancy', gameState, myColor)
-      setPendingNecromancy({ card, options })
-      return
-    }
     if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
       dispatch({ type: 'CANCEL' })
       return
@@ -178,16 +171,6 @@ export default function SandboxApp({ onExit }) {
     applyResult(tryPlayCard(gameState, myColor, card.id, target))
   }
 
-  function handleNecromancyPick(pieceType) {
-    if (!pendingNecromancy) return
-    handlePlayCard({ card: pendingNecromancy.card, target: pieceType })
-    setPendingNecromancy(null)
-  }
-
-  function handleNecromancyCancel() {
-    setPendingNecromancy(null)
-  }
-
   function handleBackgroundClick(e) {
     if (e.target === e.currentTarget && boardMode.type === 'card_targeting') {
       dispatch({ type: 'CANCEL' })
@@ -196,21 +179,13 @@ export default function SandboxApp({ onExit }) {
 
   return (
     <div className={leaving ? 'sandbox-leaving' : undefined}>
-      {errorMsg && <div className="sandbox-error">{errorMsg}</div>}
+      {errorMsg && <div className="game-toast">{errorMsg}</div>}
 
       {pendingPromotion && (
         <PromotionPicker
           color={myColor}
           onPick={handlePromotionPick}
           onCancel={handlePromotionCancel}
-        />
-      )}
-      {pendingNecromancy && (
-        <NecromancyPicker
-          color={myColor}
-          options={pendingNecromancy.options}
-          onPick={handleNecromancyPick}
-          onCancel={handleNecromancyCancel}
         />
       )}
 
@@ -249,7 +224,6 @@ export default function SandboxApp({ onExit }) {
           opponentCards: gameState.cards[oppColor].hand,
           selectedCardId: null,
           onCardClick: undefined,
-          coins: gameState.coins[oppColor],
           controllable: false,
         }}
         bottomPanel={{
@@ -257,7 +231,6 @@ export default function SandboxApp({ onExit }) {
           capturedByMe: myCaptured,
           active: true,
           inCheck: inCheck && gameState.turn === myColor,
-          coins: gameState.coins[myColor],
           controllable: true,
         }}
         bottomHand={{

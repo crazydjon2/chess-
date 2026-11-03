@@ -7,6 +7,7 @@
    board gets almost the whole screen. */
 .pl-screen {
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -125,6 +126,28 @@
 
 .pl-tray-count.opp  { background: #2b6fd4; color: #fdf6e8; }
 .pl-tray-count.mine { background: #f0b429; color: #241708; }
+
+/* Controls half of the tray (label/count/submit); the roster is the other
+   half. Two explicit parts so the tray is one row on desktop and two stacked
+   rows on a phone without a fragile flex-wrap — same pattern as the draft
+   tray (.dr-tray-top). */
+.pl-tray-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Holds the roster fade strips. On desktop it fills the row to the right of
+   the controls; on mobile it drops to its own full-width second row. */
+.pl-tray-roster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
 
 /* Fade-out mask on the right edge of each scrollable strip — signals
    there's more to scroll to without needing a visible scrollbar hint. */
@@ -471,20 +494,72 @@
   50%      { opacity: 0.4; }
 }
 
-@media (max-width: 700px) {
+/* Phones + portrait tablets (see App.css's matching query for why it's
+   keyed on orientation, not width alone). */
+@media (max-width: 1024px) and (orientation: portrait) {
+  /* Stays a FIXED-VIEWPORT dashboard on mobile too (no page scroll — the
+     goal of the mobile pass). Exactly the viewport tall (100dvh so the
+     phone URL bar doesn't force a scroll), clipped, every region except the
+     board flex-shrink:0. */
   .pl-screen {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    gap: 6px;
+    padding: 10px 10px;
   }
 
+  /* Thin fixed-height header, matched to the battle header (42px). The 60px
+     right padding clears the settings gear + the scoreboard's offset shadow. */
+  .pl-header { height: 42px; padding-right: 60px; align-items: center; gap: 8px; }
+  .pl-title { font-size: 17px; }
+  .pl-subtitle { font-size: 10px; }
+
+  /* Robust two-ROW trays (same structure as the draft tray): a controls row
+     and a roster row, each fixed height, tray = column. No flex-wrap, so
+     nothing spills; the roster reads clearly on its own line; the submit
+     button sits at the right of the controls row and is never clipped. */
   .pl-tray {
-    flex-wrap: wrap;
-    height: auto; /* see .player-panel mobile note in App.css */
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 10px 6px 16px;
+    border-width: 3px;
   }
+  .pl-tray-edge { width: 7px; }
+
+  .pl-tray-top {
+    min-height: 30px;
+    gap: 8px;
+  }
+  .pl-tray-label { font-size: 13px; }
+  .pl-tray-sub { display: none; } /* saves width in the controls row */
+  .pl-submit-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .pl-tray-roster {
+    height: 32px;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+  }
+  /* flex:0 1 — the pieces and cards strips group together at the left
+     (each only as wide as its content, shrinking + scrolling if needed)
+     instead of each grabbing half the row and leaving a gap between them. */
+  .pl-tray-fade,
+  .pl-tray-fade.shrink { flex: 0 1 auto; min-width: 0; max-width: none; }
+  .pl-tray-piece { width: 28px; height: 28px; }
+  .pl-tray-piece svg { height: 26px; }
+  .pl-tray-cardbadge { width: 26px; height: 26px; font-size: 14px; }
 
   .pl-main {
     flex-direction: column;
+    align-items: center;
+    gap: 6px;
   }
 
   .pl-main-spacer {
@@ -492,14 +567,24 @@
   }
 
   .pl-board-wrap {
-    min-height: 320px;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
   }
 
-  .pl-piece-rail {
-    width: 100%;
+  /* Size comes from useFitSquare (exact square, cells stay square). */
+  .pl-board {
     height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+    width: auto;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
   }
+
+  /* Pieces-to-place moved into the SideDrawer (thin trigger bar + slide-out
+     panel), so the desktop rail is hidden here and the board keeps the full
+     height — same bottom layout as the battle screen, so nothing jumps
+     between placement and battle. */
+  .pl-piece-rail { display: none; }
+  .sd-bar { display: flex; }
 }

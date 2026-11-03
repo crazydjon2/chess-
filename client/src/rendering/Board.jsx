@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import HitLayer from './HitLayer'
 import VisualLayer from './VisualLayer'
 import EffectLayer from './EffectLayer'
+import useFitSquare from './useFitSquare'
 import { getHighlights } from '../game/highlights'
 import { getLegalMoves, getFogCaptureSquares, isKingInCheck } from '../game/chess'
 import { play } from '../sound'
@@ -35,7 +36,7 @@ export default function Board({
   // No "check" concept in elimination mode — the king has no special
   // status there, so highlighting it as uniquely endangered would be
   // misleading (every piece is equally capturable).
-  const inCheck      = !gameState.eliminationMode && isKingInCheck(gameState, gameState.turn)
+  const inCheck      = isKingInCheck(gameState, gameState.turn)
   const checkSquare  = inCheck ? findKingSquare(gameState.pieces, gameState.turn) : null
   const highlights   = { ...getHighlights(boardMode), checkSquare }
 
@@ -136,6 +137,12 @@ export default function Board({
   const cardAccent = isCardMode ? (boardMode.card?.accent ?? '#888') : null
   const cardModeStyle = isCardMode ? { '--card-accent': cardAccent } : {}
 
+  // Fluid board size measured from the real space its container gives it
+  // (see useFitSquare) — an exact cols:rows rectangle that fills the surface
+  // edge-to-edge with no cream letterbox bands and is always as large as the
+  // room allows.
+  const [sceneRef, fit] = useFitSquare(cols, rows, fluid)
+
   const layers = (
     <>
       <VisualLayer
@@ -168,6 +175,17 @@ export default function Board({
     </>
   )
 
+  // Read-only hooks for the automated UI tester (tools/ui-e2e): the board's
+  // interaction state, so it can click a piece and then one of the squares
+  // the UI itself offers — exactly what a player sees highlighted.
+  const testAttrs = {
+    'data-testid': 'board',
+    'data-mode': boardMode.type,
+    'data-selected': highlights.selected ?? '',
+    'data-targets': (highlights.targets ?? []).join(' '),
+    'data-card-targets': (highlights.cardTargets ?? []).join(' '),
+  }
+
   // Fluid mode is deliberately a completely separate, much flatter
   // structure from the fixed-pixel one below — not a shared tree with
   // fluid-only style overrides sprinkled in. That's what broke last time:
@@ -182,10 +200,12 @@ export default function Board({
   // never again feed back into the board's own sizing.
   if (fluid) {
     return (
-      <div className="board-scene-wrap fluid">
+      <div className="board-scene-wrap fluid" ref={sceneRef} {...testAttrs}>
         <div
           className={`board-root fluid${isCardMode ? ' card-mode' : ''}${hasOutsideCells ? ' has-outside-cells' : ''}`}
-          style={{ aspectRatio: `${cols} / ${rows}`, ...cardModeStyle }}
+          style={fit
+            ? { width: fit.w, height: fit.h, ...cardModeStyle }
+            : { aspectRatio: `${cols} / ${rows}`, ...cardModeStyle }}
         >
           <div className="board-fluid-surface">{layers}</div>
           <div className="coords-overlay-ranks">
@@ -200,7 +220,7 @@ export default function Board({
   }
 
   return (
-    <div className="board-scene-wrap">
+    <div className="board-scene-wrap" {...testAttrs}>
       <div className="board-frame">
         <div className="frame-inner">
           <ol className="coords-ranks" style={{ height }}>

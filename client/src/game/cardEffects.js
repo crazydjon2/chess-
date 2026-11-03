@@ -1,4 +1,4 @@
-import { getValidSquares, emptyHomeSquares, UNSTABLE_TYPES } from './chess.js'
+import { getValidSquares, UNSTABLE_TYPES } from './chess.js'
 
 function squareCol(sq)  { return sq.charCodeAt(0) - 97 }
 function squareRank(sq) { return parseInt(sq.slice(1), 10) }
@@ -44,38 +44,6 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
           ...gameState.board,
           extraCells: [...extraCells, targetSquare],
         },
-      }
-    }
-
-    // `targetSquare` is repurposed here as a captured PIECE TYPE (see
-    // cards.js's getValidTargets) — necromancy doesn't target a square at
-    // all, since where the piece reappears is random, not chosen. Finds the
-    // first not-yet-revived OPPONENT capture of that type in moveHistory (a
-    // trophy — a piece the caster cut down, not one they lost) and marks it
-    // revived (so it stops counting as "captured" — see economy.js's
-    // getCaptured — and can't be revived a second time), then drops a fresh
-    // copy of that piece, fighting for the caster now, on a random empty
-    // home-rank square.
-    case 'necromancy': {
-      const pieceType = targetSquare
-      const oppColor = playerColor === 'white' ? 'black' : 'white'
-      const hist = gameState.moveHistory ?? []
-      const idx = hist.findIndex(m =>
-        m.captured && m.captured.color === oppColor && m.captured.type === pieceType && !m.captured.revived
-      )
-      if (idx === -1) return gameState
-
-      const squares = emptyHomeSquares(gameState, playerColor)
-      if (squares.length === 0) return gameState
-      const square = squares[Math.floor(Math.random() * squares.length)]
-
-      const moveHistory = [...hist]
-      moveHistory[idx] = { ...moveHistory[idx], captured: { ...moveHistory[idx].captured, revived: true } }
-
-      return {
-        ...gameState,
-        pieces: { ...gameState.pieces, [square]: { type: pieceType, color: playerColor, hp: 1 } },
-        moveHistory,
       }
     }
 
@@ -137,7 +105,7 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
     // themselves never tick anything.
     case 'unstable': {
       const piece = gameState.pieces[targetSquare]
-      if (!piece || piece.type === 'king' || piece.color === 'neutral' || piece.unstable) return gameState
+      if (!piece || !UNSTABLE_TYPES.includes(piece.type) || piece.color === 'neutral' || piece.unstable) return gameState
       const pool = UNSTABLE_TYPES.filter(t => t !== piece.type)
       const nextType = pool[Math.floor(Math.random() * pool.length)]
       return {
@@ -146,6 +114,19 @@ export function applyCardEffect(cardId, gameState, targetSquare, playerColor) {
           ...gameState.pieces,
           [targetSquare]: { ...piece, unstable: { originalType: piece.type, turnsLeft: 6, nextType } },
         },
+      }
+    }
+
+    // Gives one of the caster's own pieces (king included) a second HP —
+    // the next attack on it bounces exactly like hitting a barricade (see
+    // chess.js's applyMove), and a meteor only knocks the shield off. Never
+    // stacks: an already-shielded (hp>1) piece is left as-is.
+    case 'shield': {
+      const piece = gameState.pieces[targetSquare]
+      if (!piece || piece.color !== playerColor || piece.hp !== 1) return gameState
+      return {
+        ...gameState,
+        pieces: { ...gameState.pieces, [targetSquare]: { ...piece, hp: 2 } },
       }
     }
 

@@ -1,17 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { getCaptured, shopPieceCost } from './economy.js'
+import { getCaptured, shopPieceCost, SHOP_PRICES, SHOP_PIECE_TYPES } from './economy.js'
 import { applyMove } from './chess.js'
 import { createDraftRoundState } from './initialState.js'
 
 const boardPattern = { rows: 6, cols: 6, blockedCells: [] }
 
 describe('shopPieceCost', () => {
-  it('charges double the capture value for every piece type', () => {
-    expect(shopPieceCost('pawn')).toBe(2)
-    expect(shopPieceCost('knight')).toBe(6)
-    expect(shopPieceCost('bishop')).toBe(6)
-    expect(shopPieceCost('rook')).toBe(10)
-    expect(shopPieceCost('queen')).toBe(18)
+  // Prices are tuned with the balance lab, so only the contract is fixed here.
+  it('prices every buyable piece from the price table, all positive', () => {
+    for (const t of SHOP_PIECE_TYPES) {
+      expect(shopPieceCost(t)).toBe(SHOP_PRICES[t])
+      expect(shopPieceCost(t)).toBeGreaterThan(0)
+    }
+  })
+
+  it('the king is never for sale', () => {
+    expect(shopPieceCost('king')).toBe(0)
+    expect(SHOP_PIECE_TYPES).not.toContain('king')
   })
 })
 
@@ -21,7 +26,7 @@ describe('getCaptured', () => {
       boardPattern,
       { b1: { type: 'pawn', color: 'white', hp: 1 } },
       { c2: { type: 'knight', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyMove(gs0, 'b1', 'c2') // diagonal pawn capture
     expect(getCaptured(next, 'black')).toEqual(['knight'])
@@ -33,7 +38,7 @@ describe('getCaptured', () => {
       boardPattern,
       { a5: { type: 'pawn', color: 'white', hp: 1 } },
       { f1: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const next = applyMove(gs0, 'a5', 'a6', 'queen')
     expect(getCaptured(next, 'white')).toEqual([]) // the pawn upgraded, it didn't vanish captured
@@ -47,7 +52,7 @@ describe('getCaptured', () => {
       boardPattern,
       { b2: { type: 'pawn', color: 'white', hp: 1 } },
       { f6: { type: 'pawn', color: 'black', hp: 1 } },
-      [], [], null, null,
+      [], [], null,
     )
     const redacted = { ...gs, pieces: { f6: gs.pieces.f6 } } // simulate b2 redacted away
     expect(getCaptured(redacted, 'white')).toEqual([])

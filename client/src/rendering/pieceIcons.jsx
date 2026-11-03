@@ -2,7 +2,7 @@
 // Kit.dc.html) — chunky outlined silhouettes, drawn once per type per color
 // and reused everywhere a piece icon appears (draft catalog/roster,
 // placement tray/board). Unlike cards (open-ended, each with its own
-// `glyph`), the piece set is fixed at exactly 5 types × 2 colors.
+// `glyph`), the piece set is fixed at exactly 6 types × 2 colors.
 export const PIECE_ICONS = {
   white: {
     pawn: (
@@ -52,6 +52,7 @@ export const PIECE_ICONS = {
         <circle cx="56" cy="36" r="6" fill="#fdf6e8" stroke="#241708" strokeWidth="3.5" />
       </svg>
     ),
+    king: kingIcon('#fdf6e8'),
   },
   black: {
     pawn: (
@@ -98,5 +99,18 @@ export const PIECE_ICONS = {
         <circle cx="56" cy="36" r="6" fill="#33302c" stroke="#241708" strokeWidth="3.5" />
       </svg>
     ),
+    king: kingIcon('#33302c'),
   },
+}
+
+function kingIcon(fill) {
+  return (
+    <svg viewBox="0 0 68 100">
+      <path d="M30 6H38V11H44V19H38V27H30V19H24V11H30Z" fill={fill} stroke="#241708" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M20 44C18 32 25 25 34 25C43 25 50 32 48 44Z" fill={fill} stroke="#241708" strokeWidth="4.5" strokeLinejoin="round" />
+      <path d="M18 82C17 70 20 60 24 51H44C48 60 51 70 50 82Z" fill={fill} stroke="#241708" strokeWidth="4.5" strokeLinejoin="round" />
+      <rect x="16" y="42" width="36" height="10" rx="5" fill={fill} stroke="#241708" strokeWidth="4" />
+      <rect x="12" y="82" width="44" height="13" rx="5" fill={fill} stroke="#241708" strokeWidth="4" />
+    </svg>
+  )
 }

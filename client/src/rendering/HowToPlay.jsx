@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CARD_DEFS } from '../game/cards'
 import { BOARD_PATTERNS } from '../game/boardPatterns'
-import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, ANALYSIS_TIME_SECONDS } from '../game/draftPools'
+import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, PLACEMENT_TIME_BY_ROUND, DRAFT_TIME_BY_ROUND } from '../game/draftPools'
 import BoardThumbnail from './BoardThumbnail'
 import './HowToPlay.css'
 
@@ -9,6 +9,8 @@ import './HowToPlay.css'
 // stale the next time TIME_LIMIT_BY_ROUND gets tuned.
 const CLOCK_MINUTES = [1, 2, 3].map(r => Math.round(TIME_LIMIT_BY_ROUND[r] / 60)).join('/')
 const CLOCK_INCREMENT = [1, 2, 3].map(r => TIME_INCREMENT_BY_ROUND[r]).join('/')
+const PLACEMENT_SECONDS = [1, 2, 3].map(r => PLACEMENT_TIME_BY_ROUND[r]).join('/')
+const DRAFT_SECONDS = [1, 2, 3].map(r => DRAFT_TIME_BY_ROUND[r]).join('/')
 
 // Generic, hand-drawn step icons (not tied to live game state) — same
 // felt-card visual language as MainMenu/PatchNotes. Real content (card
@@ -62,22 +64,22 @@ const STEPS = [
   {
     title: 'Драфт',
     Icon: DraftIcon,
-    desc: 'Игроки по очереди покупают фигуры и карты. Видно, что берёт соперник. Повторный выбор одного и того же дорожает.',
+    desc: `Игроки по очереди покупают фигуры и карты, король у каждого бесплатно. Видно, что берёт соперник. Повторный выбор одного и того же дорожает (кроме пешек). У каждого ${DRAFT_SECONDS} сек на весь драфт.`,
   },
   {
     title: 'Расстановка',
     Icon: PlacementIcon,
-    desc: 'Расставь купленные фигуры на своих двух рядах. Расстановка соперника скрыта до начала боя.',
+    desc: `Расставь купленные фигуры на своих двух рядах. Расстановку соперника видно, на всё — ${PLACEMENT_SECONDS} сек.`,
   },
   {
     title: 'Бой',
     Icon: BattleIcon,
-    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу; первый ход в раунде каждый может обдумывать бесплатно ${ANALYSIS_TIME_SECONDS} сек. Можно заранее выбрать ход на чужом ходу. Журнал боя хранит историю ходов и карт.`,
+    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу. Можно заранее выбрать ход на чужом ходу. Журнал боя хранит историю ходов и карт.`,
   },
   {
     title: 'Итог раунда',
     Icon: RoundResultIcon,
-    desc: 'Короля нет — раунд выигрывает тот, кто уничтожит всю армию соперника, у кого кончилось время или не осталось ходов. Матч идёт до 2 побед; каждый раунд — новый драфт с нуля.',
+    desc: 'Раунд выигрывает тот, кто возьмёт короля соперника. У короля 2 жизни: первый удар отскакивает. Шаха нет — король ходит под удар, как любая фигура. Кончилось время или нет ходов — поражение. Матч идёт до 2 побед; каждый раунд — новый драфт с нуля.',
   },
 ]
 

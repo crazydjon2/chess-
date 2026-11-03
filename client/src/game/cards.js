@@ -1,11 +1,8 @@
-import { getValidSquares, isKingInCheck, emptyHomeSquares, hasAnyLegalMove } from './chess.js'
+import { getValidSquares, isKingInCheck, hasAnyLegalMove } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
-import { getCaptured } from './economy.js'
 
-// Cost is priced against piece capture values (pawn=1, knight/bishop=3,
-// rook=5, queen=9) — see PIECE_VALUE in App.jsx. Two captured pawns (2
-// coins) should never be enough to afford anything; cheapest cards cost 6
-// (a rook, or a minor piece plus change).
+// Cost is the draft price — same budget pieces are bought from (see
+// draftEngine.js and economy.js's shopPieceCost).
 export const CARD_DEFS = {
   barricade: {
     id:     'barricade',
@@ -21,15 +18,7 @@ export const CARD_DEFS = {
     desc:   'Добавляет одну новую клетку за краем доски, расширяя игровое поле.',
     accent: '#27ae60',
     glyph:  '✦',
-    cost:   5,
-  },
-  necromancy: {
-    id:     'necromancy',
-    name:   'Некромантия',
-    desc:   'Возрождает одну из срубленных вами фигур соперника — она переходит на вашу сторону. Появляется на случайной свободной клетке на вашей половине доски.',
-    accent: '#6c3fa8',
-    glyph:  '☠',
-    cost:   13,
+    cost:   2,
   },
   freeze: {
     id:     'freeze',
@@ -37,7 +26,7 @@ export const CARD_DEFS = {
     desc:   'Закладывает невидимую мину на свободную клетку. Вражеская фигура, которая наступит на неё, застревает и пропускает свой следующий ход. Соперник знает, что где-то заложена мина, но не видит, где именно.',
     accent: '#2980b9',
     glyph:  '❄',
-    cost:   4,
+    cost:   7,
   },
   smoke_screen: {
     id:     'smoke_screen',
@@ -45,15 +34,15 @@ export const CARD_DEFS = {
     desc:   'Скрывает ваши фигуры в области 3×3 от соперника на следующие 4 хода.',
     accent: '#7f8c8d',
     glyph:  '☁',
-    cost:   7,
+    cost:   14,
   },
   meteor: {
     id:     'meteor',
     name:   'Метеор',
-    desc:   'Через 2 полных хода метеор падает на выбранную клетку и уничтожает всё, что на ней окажется. Соперник знает, что метеор летит, но не видит куда.',
+    desc:   'Через 2 полных хода метеор падает на выбранную клетку и бьёт то, что на ней окажется: снимает 1 HP. Короля не задевает. Соперник знает, что метеор летит, но не видит куда.',
     accent: '#d35400',
     glyph:  '☄',
-    cost:   6,
+    cost:   7,
   },
   unstable: {
     id:     'unstable',
@@ -61,7 +50,15 @@ export const CARD_DEFS = {
     desc:   'Превращает фигуру, кроме пешки (свою или соперника), в нестабильную на 6 ходов. Раз в два хода она меняет тип на заранее известный, а затем возвращается к исходному.',
     accent: '#8e44ad',
     glyph:  '☯',
-    cost:   12,
+    cost:   6,
+  },
+  shield: {
+    id:     'shield',
+    name:   'Щит',
+    desc:   'Ваша фигура получает 2 HP и выдерживает один удар — атакующий отскакивает. Нельзя ставить дважды на одну фигуру.',
+    accent: '#16a085',
+    glyph:  '⛨',
+    cost:   13,
   },
 }
 
@@ -70,7 +67,11 @@ export const CARD_DEFS = {
 // trigger this (placing a mine or a wall doesn't move anyone), but the
 // filter is applied uniformly so any future card gets it for free.
 export function getValidTargets(cardId, gameState, playerColor) {
-  return rawTargets(cardId, gameState, playerColor).filter(target => {
+  const targets = rawTargets(cardId, gameState, playerColor)
+  // Draft mode has no check rule (see chess.js's getEliminationResult) — a
+  // king under attack must not lock its owner out of every card.
+  if (gameState.eliminationMode) return targets
+  return targets.filter(target => {
     const next = applyCardEffect(cardId, gameState, target, playerColor)
     return !isKingInCheck(next, playerColor)
   })
@@ -82,9 +83,8 @@ export function getValidTargets(cardId, gameState, playerColor) {
 // the instant it becomes your turn, before you've had any chance to act.
 // Cards don't end the turn, so trying one is always on the table first —
 // most cards can't rescue a jammed position (a mine or a wall doesn't move
-// anyone), but a couple genuinely can: add_cell can open a brand-new square
-// for a piece boxed in at the board's edge, necromancy can drop a fresh
-// piece straight onto the board. Checked generically over every card in
+// anyone), but add_cell genuinely can: it can open a brand-new square
+// for a piece boxed in at the board's edge. Checked generically over every card in
 // hand rather than special-casing which ones "count", so a future card
 // that can also rescue a stuck position gets this for free. False once
 // cardPlayedThisTurn is already set — only one card per turn, so having
@@ -136,21 +136,6 @@ function rawTargets(cardId, gameState, playerColor) {
       return [...candidates]
     }
 
-    // "Target" here is a captured PIECE TYPE, not a square — see
-    // cardEffects.js. Offers the opponent's pieces YOU captured (trophies),
-    // not your own losses — reanimated, they fight on your side. The square
-    // it actually revives on is chosen at random among the caster's own
-    // empty home-rank squares, so it isn't part of the target at all;
-    // offered only when there's both something to revive AND somewhere to
-    // put it.
-    case 'necromancy': {
-      const oppColor = playerColor === 'white' ? 'black' : 'white'
-      const captured = getCaptured(gameState, oppColor)
-      if (captured.length === 0) return []
-      if (emptyHomeSquares(gameState, playerColor).length === 0) return []
-      return [...new Set(captured)]
-    }
-
     // A hidden mine, laid on any free square — see cardEffects.js. Same
     // "must be empty" targeting as barricade, plus it can't stack on a
     // square that already has a mine on it (from either side), since a
@@ -177,15 +162,20 @@ function rawTargets(cardId, gameState, playerColor) {
       return [...getValidSquares(board), ...(board.blockedCells ?? [])]
 
     // Any piece on the board, either side's — except a king (shapeshifting
-    // it away from 'king' would break findKing/check logic mid-effect), a
-    // barricade (not a real piece, has no "original type" to return to), or
-    // a pawn (a disguised pawn could walk to the far rank in a strong
-    // shifted form, safe from the promotion-rank risk a real pawn run would
-    // carry, then shift/revert back to 'pawn' while already parked there —
-    // an unearned, untelegraphed promotion). A piece already unstable can't
+    // it away from 'king' mid-effect would decide the round), a barricade
+    // (not a real piece, has no "original type" to return to), or a pawn
+    // (pawns never take part in shapeshifting at all — see chess.js's
+    // UNSTABLE_TYPES — so a temporary effect can never end in a permanent
+    // promotion). A piece already unstable can't
     // be re-targeted: recording a new originalType over an already-shifted
     // type would lose the real one it's meant to revert to (see
     // cardEffects.js).
+    // Any of the caster's own pieces, the king included, that isn't already
+    // shielded — hp>1 means it still has a shield (or never lost one), and
+    // stacking a second would make it shrug off two hits.
+    case 'shield':
+      return Object.keys(pieces).filter(sq => pieces[sq].color === playerColor && pieces[sq].hp === 1)
+
     case 'unstable':
       return Object.keys(pieces).filter(sq => {
         const p = pieces[sq]

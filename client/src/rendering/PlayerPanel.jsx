@@ -10,10 +10,13 @@ import { PIECE_GLYPHS, CAPTURE_ORDER } from '../game/economy'
 export default function PlayerPanel({
   color, capturedByMe, active, inCheck, isYou,
   opponentCards, selectedCardId, onCardClick,
-  coins,
-  timeSeconds, turnStartedAt, ticking, analysisSeconds, hasAnalysisLeft,
+  timeSeconds, turnStartedAt, ticking,
   characterName,
   onSurrender,
+  // Draw offer button (online only): onOfferDraw undefined hides it;
+  // drawOfferDisabled greys it out (offer already standing, or already
+  // offered this move).
+  onOfferDraw, drawOfferDisabled,
   // `active` is purely visual (turn highlight/dot). `controllable` gates
   // whether the opponent hand can actually be clicked — online mode forces
   // this false on the opponent's panel so a player can inspect but never
@@ -48,19 +51,8 @@ export default function PlayerPanel({
           baseSeconds={timeSeconds}
           turnStartedAt={turnStartedAt}
           ticking={ticking}
-          analysisSeconds={analysisSeconds}
-          hasAnalysisLeft={hasAnalysisLeft}
         />
       </div>
-
-      {coins != null && (
-        <>
-          <span className="pp-divider" />
-          <span className="coin-badge" title="Неизрасходованный бюджет драфта + стоимость срубленных фигур — пойдёт в бюджет следующего раунда">
-            <span className="pp-coin" />{coins}
-          </span>
-        </>
-      )}
 
       <span className="pp-divider" />
       <div className="player-captures">
@@ -82,12 +74,19 @@ export default function PlayerPanel({
         </>
       )}
 
-      {isYou && onSurrender && (
+      {isYou && (onSurrender || onOfferDraw) && (
         <>
           <span className="pp-divider" />
-          <button className="surrender-btn" onClick={onSurrender} title="Сдаться">
-            🏳
-          </button>
+          {onOfferDraw && (
+            <button className="draw-btn" onClick={onOfferDraw} disabled={drawOfferDisabled} title="Предложить ничью">
+              ½
+            </button>
+          )}
+          {onSurrender && (
+            <button className="surrender-btn" onClick={onSurrender} title="Сдаться">
+              🏳
+            </button>
+          )}
         </>
       )}
     </div>

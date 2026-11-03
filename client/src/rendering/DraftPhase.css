@@ -15,6 +15,7 @@
    separate turn-bar strip either. */
 .dr-screen {
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -130,6 +131,18 @@
 .dr-tray.active {
   border-color: #f0b429;
   box-shadow: 5px 5px 0 0 #241708, 0 0 0 3px #f0b429;
+}
+
+/* Controls half of the tray (dot/label/budget/count/done-button); the
+   roster (.dr-tray-chips) is the other half. Two explicit parts so the
+   layout can be one row on desktop and two stacked rows on a phone without
+   a fragile flex-wrap. */
+.dr-tray-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .dr-tray-edge {
@@ -331,6 +344,13 @@
   font-weight: 700;
   font-size: 18px;
   color: #241708;
+}
+
+.dr-catalog-wait {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  color: #8a7658;
 }
 
 .dr-legend {
@@ -597,20 +617,78 @@
 .dr-tile-tag.cantAfford { color: #d4302f; }
 .dr-tile-tag.soldOut    { color: #8a8378; }
 
-/* ── Narrow screens: the fixed dashboard doesn't fit — fall back to a
-   normal scrolling stacked layout instead. ─────────────────────────── */
-@media (max-width: 700px) {
+/* Phones + portrait tablets: STAY a fixed-viewport dashboard (no page
+   scroll — the whole app is no-scroll now). The catalog is the single
+   flexible region and scrolls internally (.dr-catalog-scroll), so the
+   header + trays + done button never leave the screen. Just tighten the
+   chrome. Keyed on portrait like the board screens (see App.css). */
+@media (max-width: 1024px) and (orientation: portrait) {
   .dr-screen {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    gap: 8px;
+    padding: 10px 10px;
   }
 
+  /* 60px right padding clears the settings gear + the scoreboard's offset
+     shadow so nothing overlaps in the header's top-right. */
+  .dr-header {
+    padding-right: 60px;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  /* The board (the "map" you're drafting for) MUST stay visible on a phone —
+     the catalog hides the real board, so this thumbnail is the only preview
+     of what you're building an army for. Shrink it; the thumbnail renders at
+     a fixed pixel size so it's scaled (not resized) to fit the smaller box. */
+  .dr-board-card { padding: 4px 10px 4px 4px; gap: 8px; }
+  .dr-board-thumb-wrap { width: 44px; height: 44px; border-radius: 8px; }
+  .dr-board-thumb-wrap .board-thumb { transform: scale(0.66); }
+  .dr-board-name { font-size: 12px; }
+  .dr-board-size { font-size: 9px; }
+
+  .dr-catalog { padding: 10px; border-radius: 16px; }
+  .dr-catalog-header { margin-bottom: 4px; }
+
+  /* Robust two ROW layout: the tray becomes a column of a controls row and a
+     roster row, each a FIXED height, so the tray is always exactly 30+34+
+     gaps tall and clips nothing — no matter how wide the "Готово" button or
+     how many chips the roster holds. This replaced a flex-wrap+order version
+     that overflowed and spilled chips out of the tray as artifacts. */
   .dr-tray {
-    flex-wrap: wrap;
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 10px 6px 16px;
+  }
+  .dr-tray-divider { display: none; }
+  .dr-tray-done-badge { display: none; } /* the disabled done button already reads as "done" */
+  .dr-count-unit { display: none; }      /* "1 / 12" is enough */
+
+  .dr-tray-top {
+    min-height: 30px;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .dr-tray-label { font-size: 13px; }
+  .dr-tray-count { font-size: 10px; }
+  .dr-tray-done-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 11px;
+    box-shadow: 0 3px 0 0 #241708;
   }
 
-  .dr-catalog {
-    min-height: 420px;
+  .dr-tray-chips {
+    height: 32px;
+    flex: 0 0 auto;
+    gap: 8px;
   }
+  .dr-chip { width: 28px; height: 28px; }
+  .dr-chip svg { height: 22px; }
+  .dr-chip-card { width: 24px; height: 24px; font-size: 12px; }
 }

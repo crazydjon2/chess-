@@ -12,7 +12,7 @@ const DEAL_PIECES = [
 // the host presses "Начать". Same felt-table card language as the other
 // online-flow screens.
 export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(null) // null | 'code' | 'link'
   const [starting, setStarting] = useState(false)
 
   const players = room?.players ?? {}
@@ -36,8 +36,14 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
     }
   }
 
-  async function copyCode() {
-    const text = room?.code ?? ''
+  // Shareable deep link — the room's own address (see App.jsx's routing);
+  // opening it walks straight into the room.
+  function inviteLink() {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.origin}/room/${room?.code ?? ''}`
+  }
+
+  async function copyText(text, kind) {
     let ok = false
 
     if (navigator.clipboard && window.isSecureContext) {
@@ -69,8 +75,8 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
     }
 
     if (ok) {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+      setCopied(kind)
+      setTimeout(() => setCopied(null), 1800)
     }
   }
 
@@ -81,17 +87,29 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
 
       <div className="wr-panel">
         <div className="wr-code-block">
-          <span className="wr-code-label">Код комнаты — нажми, чтобы скопировать</span>
-          <button className="wr-code-box" onClick={copyCode}>
+          <div className="wr-code-labelrow">
+            <span className="wr-code-label">Код комнаты</span>
+            <span className={`wr-vis-badge ${room?.visibility === 'private' ? 'private' : 'public'}`}>
+              {room?.visibility === 'private' ? '🔒 приватное' : '🌐 открытое'}
+            </span>
+          </div>
+          <button className="wr-code-box" onClick={() => copyText(room?.code ?? '', 'code')}>
             <span className="wr-code-value">{room?.code}</span>
             <span className="wr-copy-icon">
               <span />
             </span>
           </button>
+          {/* An invite link is the one-tap way in — the recipient never has
+             to find the join screen or type the code at all. */}
+          <button className="wr-link-btn" onClick={() => copyText(inviteLink(), 'link')}>
+            🔗 Скопировать ссылку-приглашение
+          </button>
           <span className="wr-copy-status">
-            {copied
-              ? <span className="wr-copied">Скопировано!</span>
-              : <span className="wr-copy-hint">отправь код другу</span>}
+            {copied === 'code'
+              ? <span className="wr-copied">Код скопирован!</span>
+              : copied === 'link'
+                ? <span className="wr-copied">Ссылка скопирована!</span>
+                : <span className="wr-copy-hint">отправь код или ссылку другу</span>}
           </span>
         </div>
 

@@ -1,5 +1,4 @@
 // Chess logic: pseudo-legal generation → legal filtering (king safety) → game result
-import { homeRanks } from './boardPatterns.js'
 
 function squareToPos(sq) {
   return { col: sq.charCodeAt(0) - 97, rank: parseInt(sq.slice(1)) }
@@ -21,7 +20,23 @@ function sqOrNull(col, rank, validSquares) {
 // blockedCells here is for *static map patterns* (draft-mode board shapes,
 // fixed for the whole round) — not player-toggleable on their own, so they
 // can't be abused to wall a king in the way the old remove_cell card could.
+//
+// Cached per board object: boards are never mutated in place (every change
+// — add_cell, a new round — builds a new board object), so the same object
+// always yields the same set. Move generation calls this for every piece,
+// which made it the hottest path in the engine. The returned Set is shared:
+// callers must only read it.
+const validSquaresCache = new WeakMap()
 export function getValidSquares(board) {
+  let valid = validSquaresCache.get(board)
+  if (!valid) {
+    valid = computeValidSquares(board)
+    validSquaresCache.set(board, valid)
+  }
+  return valid
+}
+
+function computeValidSquares(board) {
   const { size: { rows, cols }, extraCells = [], blockedCells = [] } = board
   const blocked = new Set(blockedCells)
   const extra   = new Set(extraCells)
@@ -33,21 +48,6 @@ export function getValidSquares(board) {
     }
   extraCells.forEach(sq => valid.add(sq))
   return valid
-}
-
-// Empty squares on `color`'s own two home ranks — same ranks hidden
-// placement uses at the start of a round. Used by necromancy (see
-// cardEffects.js) to pick a random square for a revived piece; obstacles
-// never touch home ranks by design (see boardPatterns.js), so this only
-// ever needs to check occupancy, not blocked cells.
-export function emptyHomeSquares(gameState, color) {
-  const { board, pieces } = gameState
-  const [lo, hi] = homeRanks(board.size.rows, color)
-  const validSquares = getValidSquares(board)
-  return [...validSquares].filter(sq => {
-    const rank = parseInt(sq.slice(1), 10)
-    return rank >= lo && rank <= hi && !pieces[sq]
-  })
 }
 
 const ROOK_DIRS    = [[0,1],[0,-1],[1,0],[-1,0]]
@@ -229,19 +229,24 @@ function isInsufficientMaterial(gameState) {
   return false
 }
 
-// Elimination mode: the king has no special status, so the only way to win
-// is wiping out every one of the opponent's pieces. Avoids the "instant
-// checkmate straight out of hidden placement" problem checkmate-based rules
-// have here — two sides place armies without seeing each other, so a king
-// can easily end up placed into an already-losing line of fire with no
-// chance to react.
+// Draft-mode rules ("king capture"): the king moves like a normal piece
+// with no check/checkmate/stalemate safety rules — it may step into attack
+// like anything else — and TAKING it wins the round outright, whether by a
+// move or a meteor (both land in moveHistory as a capture, see applyMove).
+// Wiping out a whole army still counts too (it's how armies without a king
+// — sandbox/test setups — can end).
 //
 // Both "the game can't continue naturally" cases — a jammed position with
 // no legal move, or a clock hitting zero — are flat, decisive losses for
 // whoever it happened to, never a material tiebreak and never a draw.
-// There's no king to be safely stalemated behind here, so being stuck is
-// exactly as fatal as running out of time.
 function getEliminationResult(gameState) {
+  const kingLost = color => (gameState.moveHistory ?? []).some(m => m.captured?.type === 'king' && m.captured.color === color)
+  const whiteKingLost = kingLost('white')
+  const blackKingLost = kingLost('black')
+  if (whiteKingLost && blackKingLost) return { type: 'draw', reason: 'mutual_king' }
+  if (whiteKingLost) return { type: 'king_captured', winner: 'black' }
+  if (blackKingLost) return { type: 'king_captured', winner: 'white' }
+
   const white = Object.values(gameState.pieces).filter(p => p.color === 'white').length
   const black = Object.values(gameState.pieces).filter(p => p.color === 'black').length
   if (white === 0 && black === 0) return { type: 'draw', reason: 'mutual_elimination' }
@@ -320,10 +325,11 @@ export function tickFogZones(fogZones, movedColor) {
 }
 
 // Every type a piece can shapeshift into while "unstable" (see
-// cardEffects.js). Kings can never be targeted (see cards.js) so this pool
-// never needs 'king' — swapping into/out of one would break findKing and the
-// check-safety logic that assumes exactly one king per side.
-export const UNSTABLE_TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen']
+// cardEffects.js). No 'king' — kings can never be targeted (see cards.js),
+// and one appearing/vanishing mid-effect would decide the round. No 'pawn'
+// either — a piece shifted into a pawn could walk onto the far rank and
+// promote, turning a temporary effect into a permanent new queen.
+export const UNSTABLE_TYPES = ['knight', 'bishop', 'rook', 'queen']
 
 // What `unstable.nextType` should preview after a shift lands: if the
 // FOLLOWING event (2 ticks away) is the final revert rather than another
@@ -380,14 +386,13 @@ export function tickUnstablePieces(pieces) {
 // only the opponent's moves bring it closer to landing. One consequence:
 // your own move ticks down the OPPONENT's pending meteors, never your own.
 // `strikes` reports every detonation this call caused (square, whatever was
-// destroyed there or null on a miss, and the meteor's owner) — the location
+// destroyed there or null on a miss or a mere 1-HP hit, and the meteor's owner) — the location
 // was secret up to this point, but the impact itself is never hidden from
 // either player (see gameEngine.js/rooms.js, which broadcast it unredacted
 // for the explosion animation both sides are meant to see). `owner` lets
-// applyMove (below) credit the kill as a genuine capture and tryMove award
-// coins for it — a piece is just as dead whether a meteor or a direct move
-// ended it, and killed-by-meteor pieces should count for BOTH the same as
-// any other capture (coin reward, the captured tray, necromancy trophies).
+// applyMove (below) credit the kill as a genuine capture — a piece is just
+// as dead whether a meteor or a direct move ended it, so it counts the
+// same as any other capture (the captured tray).
 export function tickMeteors(pieces, meteors, movedColor) {
   let nextPieces = pieces
   const nextMeteors = []
@@ -396,12 +401,23 @@ export function tickMeteors(pieces, meteors, movedColor) {
     if (m.owner === movedColor) { nextMeteors.push(m); return }
     const remaining = m.turnsLeft - 1
     if (remaining > 0) { nextMeteors.push({ ...m, turnsLeft: remaining }); return }
-    // Detonates now — destroy whatever ended up on the target square, if
-    // anything (the intended victim may well have simply moved away).
-    const destroyed = nextPieces[m.square] ?? null
-    if (destroyed) {
+    // Detonates now — hits whatever ended up on the target square, if
+    // anything (the intended victim may well have simply moved away). A hit
+    // takes 1 HP, same as any attack: an hp>1 piece (shield, barricade)
+    // just loses a point and stays; `destroyed` is only set on a real kill.
+    // Kings are immune: a hidden, unanswerable shot at the king turned the
+    // card into a coin-flip round winner (balance lab: 69% of games where
+    // it was bought ended with the meteor killing the king).
+    const hit = nextPieces[m.square] ?? null
+    let destroyed = null
+    if (hit && hit.type !== 'king') {
       if (nextPieces === pieces) nextPieces = { ...pieces }
-      delete nextPieces[m.square]
+      if (hit.hp > 1) {
+        nextPieces[m.square] = { ...hit, hp: hit.hp - 1 }
+      } else {
+        delete nextPieces[m.square]
+        destroyed = hit
+      }
     }
     strikes.push({ square: m.square, destroyed, owner: m.owner })
   })
@@ -466,12 +482,9 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     movedPieces[to]   = { ...target, hp: target.hp - 1 }
   } else if (piece.type === 'pawn' && parseInt(to.slice(1)) === promotionRank(gameState.board, piece.color)) {
     const type = PROMOTION_TYPES.includes(promotion) ? promotion : 'queen'
-    // A promoting pawn might really be an unstable piece mid-disguise (see
-    // cardEffects.js) — promotion is a deliberate, permanent choice, so it
-    // settles the shapeshifting for good rather than leaving it to keep
-    // ticking (and eventually reverting the promotion away).
-    const { unstable, ...rest } = piece
-    movedPieces[to] = { ...rest, type }
+    // Always a real pawn — unstable pieces never shift into one (see
+    // UNSTABLE_TYPES), so there's no shapeshifting state to settle here.
+    movedPieces[to] = { ...piece, type }
   } else {
     movedPieces[to] = piece
   }
@@ -490,10 +503,10 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
   // A meteor strike is just as much a capture as landing on the square
   // yourself — see tickMeteors' comment — so every detonation this move
   // caused gets its own moveHistory entry alongside the move's own, keyed
-  // the same way (`captured` holds the destroyed piece) so getCaptured and
-  // necromancy pick it up without needing to know meteors exist at all.
+  // the same way (`captured` holds the destroyed piece) so getCaptured
+  // picks it up without needing to know meteors exist at all.
   // Friendly fire (meteor destroys its own owner's piece) still gets an
-  // entry — getCaptured/necromancy key off the VICTIM's color, not the
+  // entry — getCaptured keys off the VICTIM's color, not the
   // meteor's owner, so it correctly attributes to whoever actually lost it.
   const meteorCaptures = meteorStrikes
     .filter(s => s.destroyed)
@@ -514,22 +527,12 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
   // final clamp bottoms it out at exactly 0 with NO bonus added, and
   // getGameResult's timeout check (timers.color <= 0) still fires — the
   // increment must never be able to paper over an actual flag fall.
-  //
-  // EACH color gets its own analysis discount on its own first move of the
-  // round (see draftPools.js's ANALYSIS_TIME_SECONDS / analysisUsed below)
-  // — not just whoever happens to move first chronologically. Otherwise,
-  // since turn always starts with white, only white would ever get a free
-  // look at the board and black never would.
   let timers = gameState.timers
-  let analysisUsed = gameState.analysisUsed
   if (timers) {
     const elapsedSeconds = Math.max(0, (now - gameState.turnStartedAt) / 1000)
-    const hasAnalysisLeft = analysisUsed && !analysisUsed[gameState.turn]
-    const discount = hasAnalysisLeft ? Math.min(elapsedSeconds, gameState.analysisSeconds ?? 0) : 0
-    const remaining = timers[gameState.turn] - (elapsedSeconds - discount)
+    const remaining = timers[gameState.turn] - elapsedSeconds
     const increment = remaining > 0 ? (gameState.timerIncrement ?? 0) : 0
     timers = { ...timers, [gameState.turn]: Math.max(0, remaining) + increment }
-    if (hasAnalysisLeft) analysisUsed = { ...analysisUsed, [gameState.turn]: true }
   }
 
   return {
@@ -542,7 +545,6 @@ export function applyMove(gameState, from, to, promotion, now = Date.now()) {
     halfMoveClock,
     moveHistory,
     timers,
-    analysisUsed,
     turnStartedAt: timers ? now : gameState.turnStartedAt,
     // Transient — not real persisted game state, just this call's report of
     // any meteor/mine detonations it caused. gameEngine.js's tryMove reads

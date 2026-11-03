@@ -5,14 +5,13 @@ import { getLegalMoves } from '../client/src/game/chess.js'
 
 const boardPattern = { rows: 6, cols: 6, blockedCells: ['a1'] }
 
-function freshState(coins = { white: 20, black: 20 }) {
+function freshState() {
   const gs = createDraftRoundState(
     boardPattern,
     { b1: { type: 'pawn', color: 'white', hp: 1 } },
     { b6: { type: 'pawn', color: 'black', hp: 1 } },
-    ['smoke_screen'], [], null, null,
+    ['smoke_screen'], [], null,
   )
-  gs.coins = coins
   return gs
 }
 
@@ -75,9 +74,8 @@ describe('meteor integration (tryPlayCard + tryMove ticking/detonation)', () => 
       boardPattern,
       { b1: { type: 'pawn', color: 'white', hp: 1 }, c1: { type: 'pawn', color: 'white', hp: 1 } },
       { b6: { type: 'pawn', color: 'black', hp: 1 }, c6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['meteor'], [], null, null,
+      ['meteor'], [], null,
     )
-    gs.coins = { white: 20, black: 20 }
 
     const cast = tryPlayCard(gs, 'white', 'meteor', 'c6')
     expect(cast.error).toBeUndefined()
@@ -110,23 +108,21 @@ describe('meteor integration (tryPlayCard + tryMove ticking/detonation)', () => 
     expect(res.meteorStrikes).toEqual([{ square: 'c6', destroyed: { type: 'pawn', color: 'black', hp: 1 }, owner: 'white' }])
     expect(res.gameState.meteorStrikes).toBeUndefined() // transient — never persisted
 
-    // The kill is just as real as a direct capture — white gets paid for it
-    // (pawn = 1 coin) and it shows up as a genuine capture in moveHistory.
-    expect(res.gameState.coins.white).toBe(21)
+    // The kill is just as real as a direct capture — it shows up as a
+    // genuine capture in moveHistory.
     expect(res.gameState.moveHistory.at(-1)).toEqual({
       from: null, to: 'c6', piece: null,
       captured: { type: 'pawn', color: 'black', hp: 1 }, cause: 'meteor',
     })
   })
 
-  it('friendly fire earns no coins — a meteor destroying its own owner\'s piece is not a paid kill', () => {
+  it('friendly fire — a meteor destroys its own owner\'s piece too', () => {
     const gs = createDraftRoundState(
       boardPattern,
       { b1: { type: 'pawn', color: 'white', hp: 1 }, c6: { type: 'knight', color: 'white', hp: 1 } },
       { b6: { type: 'pawn', color: 'black', hp: 1 } },
-      ['meteor'], [], null, null,
+      ['meteor'], [], null,
     )
-    gs.coins = { white: 20, black: 20 }
 
     const cast = tryPlayCard(gs, 'white', 'meteor', 'c6')
     let res = tryMove(cast.gameState, 'white', 'b1', 'b2') // white's own residual move — no tick
@@ -135,7 +131,6 @@ describe('meteor integration (tryPlayCard + tryMove ticking/detonation)', () => 
     res = tryMove(res.gameState, 'black', 'b5', 'b4')       // 2nd opponent move — detonates on white's own knight
 
     expect(res.gameState.pieces.c6).toBeUndefined()
-    expect(res.gameState.coins.white).toBe(20) // no reward for destroying their own piece
   })
 })
 
@@ -149,9 +144,8 @@ describe('no_moves suppressed while a rescue card is available', () => {
       tinyBoard,
       { a1: { type: 'rook', color: 'white', hp: 1 } },
       { c3: { type: 'pawn', color: 'black', hp: 1 } },
-      cardIds, [], null, null,
+      cardIds, [], null,
     )
-    gs.coins = { white: 20, black: 20 }
     return { ...gs, turn: 'black' }
   }
 
@@ -195,7 +189,7 @@ describe('tryMove', () => {
     expect(res.error).toBeTruthy()
   })
 
-  it('awards coins on capture equal to the captured piece\'s value', () => {
+  it('reports a capture', () => {
     const gs = freshState()
     gs.pieces = {
       b1: { type: 'pawn', color: 'white', hp: 1 },
@@ -203,7 +197,6 @@ describe('tryMove', () => {
     }
     const res = tryMove(gs, 'white', 'b1', 'c2')
     expect(res.error).toBeUndefined()
-    expect(res.gameState.coins.white).toBe(20 + 3)
     expect(res.lastAction.type).toBe('capture')
   })
 })
@@ -259,5 +252,16 @@ describe('actionLog — the scrubbable battle-log history', () => {
     // entry 1's snapshot even though the LIVE board has since moved it to b5.
     expect(firstMoveSnapshot.b6).toEqual({ type: 'pawn', color: 'black', hp: 1 })
     expect(res.gameState.pieces.b6).toBeUndefined() // live board has moved on
+  })
+})
+
+describe('draw offer vs moves', () => {
+  it('a move by the side that received the offer declines it; the offerer moving keeps it', () => {
+    const gs = { ...freshState(), drawOffer: 'black' }
+    const declined = tryMove(gs, 'white', 'b1', 'b2')
+    expect(declined.gameState.drawOffer).toBeNull()
+
+    const standing = tryMove({ ...freshState(), drawOffer: 'white' }, 'white', 'b1', 'b2')
+    expect(standing.gameState.drawOffer).toBe('white')
   })
 })
