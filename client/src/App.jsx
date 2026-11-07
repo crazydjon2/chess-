@@ -1,3 +1,4 @@
+import { useLang } from './i18n'
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import OnlineApp from './OnlineApp'
@@ -43,6 +44,7 @@ function modeFor(pathname) {
 }
 
 export default function App() {
+  useLang() // re-render the whole tree on language switch
   const location = useLocation()
   const navigate = useNavigate()
   const mode = modeFor(location.pathname) // null | 'online' | 'sandbox'

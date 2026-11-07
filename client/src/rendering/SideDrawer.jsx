@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './SideDrawer.css'
@@ -15,7 +16,7 @@ import './SideDrawer.css'
 // trigger bar and panel are display:none there (see SideDrawer.css).
 export default function SideDrawer({
   icon, label, count, title,
-  armed, armedLabel = 'Отмена', onCancel,
+  armed, armedLabel = t('common.cancel'), onCancel,
   open, onOpenChange,
   disabled,
   accent = '#f0b429',
@@ -65,7 +66,7 @@ export default function SideDrawer({
           >
             <div className="sd-panel-head">
               <span className="sd-panel-title">{title}</span>
-              <button className="sd-panel-close" onClick={() => onOpenChange(false)} title="Закрыть">✕</button>
+              <button className="sd-panel-close" onClick={() => onOpenChange(false)} title={t('common.close')}>✕</button>
             </div>
             <div className="sd-panel-list">
               {hasItems ? children : <div className="sd-panel-empty">{emptyText}</div>}

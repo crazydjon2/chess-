@@ -1,6 +1,7 @@
+import { t } from '../i18n'
 import { useState } from 'react'
 import { CARD_DEFS } from '../game/cards'
-import { BOARD_PATTERNS } from '../game/boardPatterns'
+import { BOARD_PATTERNS, boardName } from '../game/boardPatterns'
 import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, PLACEMENT_TIME_BY_ROUND, DRAFT_TIME_BY_ROUND } from '../game/draftPools'
 import BoardThumbnail from './BoardThumbnail'
 import './HowToPlay.css'
@@ -55,44 +56,44 @@ function RoundResultIcon() {
         <span className="filled" />
         <span />
       </div>
-      <span className="htp-score-label">2 победы</span>
+      <span className="htp-score-label">{t('htp.twoWins')}</span>
     </div>
   )
 }
 
-const STEPS = [
+const getSteps = () => [
   {
-    title: 'Драфт',
+    title: t('htp.draftTitle'),
     Icon: DraftIcon,
-    desc: `Игроки по очереди покупают фигуры и карты, король у каждого бесплатно. Видно, что берёт соперник. Повторный выбор одного и того же дорожает (кроме пешек). У каждого ${DRAFT_SECONDS} сек на весь драфт.`,
+    desc: t('htp.draftDesc', { sec: DRAFT_SECONDS }),
   },
   {
-    title: 'Расстановка',
+    title: t('htp.placementTitle'),
     Icon: PlacementIcon,
-    desc: `Расставь купленные фигуры на своих двух рядах. Расстановку соперника видно, на всё — ${PLACEMENT_SECONDS} сек.`,
+    desc: t('htp.placementDesc', { sec: PLACEMENT_SECONDS }),
   },
   {
-    title: 'Бой',
+    title: t('htp.battleTitle'),
     Icon: BattleIcon,
-    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу. Можно заранее выбрать ход на чужом ходу. Журнал боя хранит историю ходов и карт.`,
+    desc: t('htp.battleDesc', { min: CLOCK_MINUTES, inc: CLOCK_INCREMENT }),
   },
   {
-    title: 'Итог раунда',
+    title: t('htp.resultTitle'),
     Icon: RoundResultIcon,
-    desc: 'Раунд выигрывает тот, кто возьмёт короля соперника. У короля 2 жизни: первый удар отскакивает. Шаха нет — король ходит под удар, как любая фигура. Кончилось время или нет ходов — поражение. Матч идёт до 2 побед; каждый раунд — новый драфт с нуля.',
+    desc: t('htp.resultDesc'),
   },
 ]
 
-const TABS = [
-  { id: 'general', label: 'Общее' },
-  { id: 'spells',  label: 'Заклинания' },
-  { id: 'boards',  label: 'Карты' },
+const getTabs = () => [
+  { id: 'general', label: t('htp.tabGeneral') },
+  { id: 'spells',  label: t('htp.tabSpells') },
+  { id: 'boards',  label: t('htp.tabBoards') },
 ]
 
 function GeneralTab() {
   return (
     <div className="htp-steps">
-      {STEPS.map((step, i) => (
+      {getSteps().map((step, i) => (
         <div className="htp-step" key={step.title}>
           <div className="htp-step-icon-wrap">
             <step.Icon />
@@ -133,14 +134,14 @@ function BoardsTab() {
     <div className="htp-boards">
       {Object.entries(BOARD_PATTERNS).map(([round, patterns]) => (
         <div className="htp-boards-round" key={round}>
-          <div className="htp-boards-round-title">Раунд {round}</div>
+          <div className="htp-boards-round-title">{t('common.round', { n: round })}</div>
           <div className="htp-boards-grid">
             {patterns.map(pattern => (
-              <div className="htp-board-chip" key={pattern.name}>
+              <div className="htp-board-chip" key={pattern.id}>
                 <div className="htp-board-thumb-wrap">
                   <BoardThumbnail boardPattern={pattern} cellSize={8} />
                 </div>
-                <span className="htp-board-name">{pattern.name}</span>
+                <span className="htp-board-name">{boardName(pattern)}</span>
                 <span className="htp-board-dims">{pattern.rows}×{pattern.cols}</span>
               </div>
             ))}
@@ -158,18 +159,18 @@ export default function HowToPlay({ onClose }) {
     <div className="htp-overlay" onClick={onClose}>
       <div className="htp-card" onClick={e => e.stopPropagation()}>
         <div className="htp-header">
-          <span className="htp-title">Как играть</span>
-          <button className="htp-close" onClick={onClose} title="Закрыть">✕</button>
+          <span className="htp-title">{t('htp.title')}</span>
+          <button className="htp-close" onClick={onClose} title={t('common.close')}>✕</button>
         </div>
 
         <div className="htp-tabs">
-          {TABS.map(t => (
+          {getTabs().map(tb => (
             <button
-              key={t.id}
-              className={`htp-tab${tab === t.id ? ' active' : ''}`}
-              onClick={() => setTab(t.id)}
+              key={tb.id}
+              className={`htp-tab${tab === tb.id ? ' active' : ''}`}
+              onClick={() => setTab(tb.id)}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>

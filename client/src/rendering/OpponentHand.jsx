@@ -1,3 +1,4 @@
+import { CARD_DEFS } from '../game/cards'
 import './OpponentHand.css'
 
 // Cards have been public information since the moment they're drafted
@@ -19,7 +20,7 @@ export default function OpponentHand({ cards, isActive, selectedCardId, onCardCl
           key={`${card.id}-${i}`}
           className={`opp-hand-badge${selectedCardId === card.id ? ' selected' : ''}`}
           style={{ background: card.accent }}
-          title={card.name}
+          title={CARD_DEFS[card.id]?.name ?? card.name}
           disabled={!isActive}
           onClick={() => onCardClick?.(card)}
         >

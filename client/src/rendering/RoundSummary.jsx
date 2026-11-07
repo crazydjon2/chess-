@@ -1,3 +1,4 @@
+import { t, playerName } from '../i18n'
 import { useEffect, useState } from 'react'
 import GameView from './GameView'
 import { IDLE } from '../game/boardMode'
@@ -6,19 +7,19 @@ import { play } from '../sound'
 
 function resultLine(result) {
   if (!result) return ''
-  const winnerLabel = result.winner === 'white' ? 'Белые' : 'Чёрные'
+  const winnerLabel = t(result.winner === 'white' ? 'common.white' : 'common.black')
   switch (result.type) {
-    case 'king_captured': return `${winnerLabel} взяли короля соперника`
-    case 'elimination': return `${winnerLabel} уничтожили армию соперника`
-    case 'checkmate':    return `${winnerLabel} поставили мат`
-    case 'timeout':      return `${winnerLabel} победили — у соперника закончилось время`
-    case 'no_moves':     return `${winnerLabel} победили — у соперника не осталось ходов`
-    case 'surrender':    return `${result.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${winnerLabel} победили`
+    case 'king_captured': return t('summary.kingCaptured', { winner: winnerLabel })
+    case 'elimination': return t('summary.elimination', { winner: winnerLabel })
+    case 'checkmate':    return t('summary.checkmate', { winner: winnerLabel })
+    case 'timeout':      return t('summary.timeout', { winner: winnerLabel })
+    case 'no_moves':     return t('summary.noMoves', { winner: winnerLabel })
+    case 'surrender':    return t('summary.surrender', { loser: t(result.loser === 'white' ? 'common.white' : 'common.black'), winner: winnerLabel })
     case 'draw':
-      if (result.reason === 'mutual_elimination') return 'Обе армии уничтожены — ничья'
-      if (result.reason === 'mutual_king') return 'Оба короля пали — ничья'
-      if (result.reason === 'agreement') return 'Ничья по соглашению'
-      return 'Ничья'
+      if (result.reason === 'mutual_elimination') return t('summary.mutualElim')
+      if (result.reason === 'mutual_king') return t('summary.mutualKing')
+      if (result.reason === 'agreement') return t('summary.agreement')
+      return t('summary.draw')
     default: return ''
   }
 }
@@ -52,7 +53,7 @@ export default function RoundSummary({ match, previousMyColor, room, onContinue 
     else if (outcome === 'loss') play('lose')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.previousRound])
-  const outcomeLabel = { win: 'Вы победили в раунде', loss: 'Вы проиграли раунд', draw: 'Ничья' }[outcome]
+  const outcomeLabel = { win: t('summary.win'), loss: t('summary.loss'), draw: t('summary.draw') }[outcome]
   const line = resultLine(result)
 
   const gameState = match.previousGameState
@@ -76,25 +77,25 @@ export default function RoundSummary({ match, previousMyColor, room, onContinue 
       gameResult={result}
       resultMode="inline"
       resultTitle={`${outcomeLabel}${line ? ' — ' + line : ''}`}
-      restartLabel={`Продолжить → Раунд ${match.round}`}
+      restartLabel={t('summary.continue', { n: match.round })}
       onRestart={onContinue}
       matchScore={{
         round: match.previousRound,
         white: match.scores.white,
         black: match.scores.black,
-        whiteName: room?.players?.white?.name,
-        blackName: room?.players?.black?.name,
+        whiteName: playerName(room?.players?.white),
+        blackName: playerName(room?.players?.black),
       }}
       topPanel={{
         color: oppColor,
-        name: room?.players?.[oppColor]?.name,
+        name: playerName(room?.players?.[oppColor]),
         capturedByMe: oppCaptured,
         active: false,
         controllable: false,
       }}
       bottomPanel={{
         color: previousMyColor,
-        name: room?.players?.[previousMyColor]?.name,
+        name: playerName(room?.players?.[previousMyColor]),
         capturedByMe: myCaptured,
         active: false,
         isYou: true,

@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useMemo, useState } from 'react'
 import { PIECE_ICONS } from './pieceIcons'
 import Settings from './Settings'
@@ -135,8 +136,8 @@ export default function MenuLayout({ children }) {
       <button
         className="ml-settings-btn"
         onClick={() => setSettingsOpen(true)}
-        title="Настройки"
-        aria-label="Настройки"
+        title={t('settings.title')}
+        aria-label={t('settings.title')}
       >
         ⚙
       </button>

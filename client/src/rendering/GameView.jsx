@@ -1,3 +1,4 @@
+import { t, tn, tParts } from '../i18n'
 import { useState } from 'react'
 import Board from './Board'
 import CardHand from './CardHand'
@@ -7,20 +8,22 @@ import PlayerPanel from './PlayerPanel'
 import MatchScoreBoard from './MatchScoreBoard'
 import BattleLog from './BattleLog'
 
+const side = c => t(c === 'white' ? 'common.white' : 'common.black')
+
 const RESULT_TEXT = {
-  checkmate:   r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — мат`,
-  king_captured: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — король соперника взят`,
-  elimination: r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — армия соперника уничтожена`,
-  timeout:     r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника закончилось время`,
-  no_moves:    r => `${r.winner === 'white' ? 'Белые' : 'Чёрные'} победили — у соперника нет ходов`,
-  surrender:   r => `${r.loser === 'white' ? 'Белые' : 'Чёрные'} сдались — ${r.winner === 'white' ? 'белые' : 'чёрные'} победили`,
-  stalemate:   ()  => 'Пат — ничья',
+  checkmate:   r => t('result.checkmate', { winner: side(r.winner) }),
+  king_captured: r => t('result.kingCaptured', { winner: side(r.winner) }),
+  elimination: r => t('result.elimination', { winner: side(r.winner) }),
+  timeout:     r => t('result.timeout', { winner: side(r.winner) }),
+  no_moves:    r => t('result.noMoves', { winner: side(r.winner) }),
+  surrender:   r => t('result.surrender', { loser: side(r.loser), winner: t(r.winner === 'white' ? 'common.whiteLower' : 'common.blackLower') }),
+  stalemate:   ()  => t('result.stalemate'),
   draw:        r   => {
-    if (r.reason === '50_move_rule') return 'Ничья — правило 50 ходов'
-    if (r.reason === 'mutual_elimination') return 'Ничья — обе армии уничтожены'
-    if (r.reason === 'mutual_king') return 'Ничья — оба короля пали'
-    if (r.reason === 'agreement') return 'Ничья по соглашению'
-    return 'Ничья — недостаточно материала'
+    if (r.reason === '50_move_rule') return t('result.draw50')
+    if (r.reason === 'mutual_elimination') return t('result.drawMutualElim')
+    if (r.reason === 'mutual_king') return t('result.drawMutualKing')
+    if (r.reason === 'agreement') return t('result.drawAgreement')
+    return t('result.drawMaterial')
   },
 }
 
@@ -105,7 +108,7 @@ export default function GameView({
          (threat status, the journal). */}
       <div className="bt-header">
         <div className="bt-header-left">
-          {onBack && <button className="bt-back" onClick={onBack} title="Выйти">←</button>}
+          {onBack && <button className="bt-back" onClick={onBack} title={t('common.exit')}>←</button>}
           {matchScore && <MatchScoreBoard {...matchScore} />}
         </div>
         <div className="bt-header-right">
@@ -120,8 +123,8 @@ export default function GameView({
             <span
               className="threat-badge meteor"
               title={incomingMeteors.length === 1
-                ? `Соперник бросил метеор — упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`
-                : `Метеоры соперника (${incomingMeteors.length}) — ближайший упадёт через ${soonestMeteor} ${soonestMeteor === 1 ? 'ход' : 'хода'}`}
+                ? t('battle.meteorOne', { turns: tn('unit.turns', soonestMeteor) })
+                : t('battle.meteorMany', { count: incomingMeteors.length, turns: tn('unit.turns', soonestMeteor) })}
             >
               ☄ {soonestMeteor}
             </span>
@@ -130,8 +133,8 @@ export default function GameView({
             <span
               className="threat-badge mine"
               title={incomingMines.length === 1
-                ? 'Соперник где-то заложил мину заморозки'
-                : `Соперник заложил мины заморозки (${incomingMines.length})`}
+                ? t('battle.mineOne')
+                : t('battle.mineMany', { count: incomingMines.length })}
             >
               ❄{incomingMines.length > 1 ? ` ${incomingMines.length}` : ''}
             </span>
@@ -141,7 +144,7 @@ export default function GameView({
               className={`bt-log-btn${logOpen ? ' open' : ''}${viewingHistory ? ' history' : ''}${viewingHistory && isMyLiveTurn ? ' urgent' : ''}`}
               onClick={toggleLog}
             >
-              Журнал{viewingHistory ? ` · ход ${historyIndex}` : ''}
+              {t('battle.log')}{viewingHistory ? t('battle.logAtMove', { n: historyIndex }) : ''}
             </button>
           )}
         </div>
@@ -159,10 +162,10 @@ export default function GameView({
           <div className="result-inline-text">
             <p className="result-title">{resultTitle ?? RESULT_TEXT[gameResult.type]?.(gameResult)}</p>
             {matchScore && (
-              <p className="result-sub">Счёт матча {matchScore.white} : {matchScore.black}</p>
+              <p className="result-sub">{t('common.matchScore', { white: matchScore.white, black: matchScore.black })}</p>
             )}
           </div>
-          <button className="restart-btn" onClick={onRestart}>{restartLabel ?? 'Новая игра'}</button>
+          <button className="restart-btn" onClick={onRestart}>{restartLabel ?? t('common.newGame')}</button>
         </div>
       )}
 
@@ -216,9 +219,10 @@ export default function GameView({
             >
               <span className="toast-glyph">{actionToast.card.glyph}</span>
               <span className="toast-text">
-                <b>{actionToast.color === 'white' ? 'Белые' : 'Чёрные'}</b>
-                {' сыграли '}
-                {actionToast.card.name}
+                {tParts('battle.toast', {
+                  color: <b key="c">{side(actionToast.color)}</b>,
+                  card: actionToast.card.name,
+                })}
               </span>
             </div>
           )}
@@ -236,16 +240,16 @@ export default function GameView({
            the cards never sit under the board eating its height. */}
         <SideDrawer
           icon="🃠"
-          label="Карты"
+          label={t('battle.cards')}
           count={bottomHand.cards.length}
-          title="Твои карты"
+          title={t('battle.yourCards')}
           armed={boardMode.type === 'card_targeting'}
-          armedLabel="Отменить карту"
+          armedLabel={t('battle.cancelCard')}
           onCancel={() => dispatch({ type: 'CANCEL' })}
           open={deckOpen}
           onOpenChange={setDeckOpen}
           disabled={viewingHistory || !bottomHand.isActive || bottomHand.cards.length === 0}
-          emptyText="Карт нет"
+          emptyText={t('battle.noCards')}
         >
           {bottomHand.cards.map((card, i) => (
             <Card
@@ -273,10 +277,10 @@ export default function GameView({
             <p className="result-title">{resultTitle ?? RESULT_TEXT[gameResult.type]?.(gameResult)}</p>
             {matchScore && (
               <p className="result-sub">
-                Раунд {matchScore.round} — счёт матча {matchScore.white} : {matchScore.black}
+                {t('battle.roundScore', { round: matchScore.round, white: matchScore.white, black: matchScore.black })}
               </p>
             )}
-            <button className="restart-btn" onClick={onRestart}>{restartLabel ?? 'Новая игра'}</button>
+            <button className="restart-btn" onClick={onRestart}>{restartLabel ?? t('common.newGame')}</button>
           </div>
         </div>
       )}

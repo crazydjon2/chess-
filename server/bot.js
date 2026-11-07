@@ -14,9 +14,9 @@ import { newMemory, perceive, relook } from '../tools/balance/lib/ai/perception.
 import { evaluate } from '../tools/balance/lib/ai/eval.js'
 
 export const BOT_LEVELS = {
-  weak: { label: 'Слабый', strength: 'weak', drafts: ['randomPieces'], smartPlacement: false, think: [700, 1300] },
-  normal: { label: 'Средний', strength: 'normal', drafts: ['human:defensive', 'human:control', 'human:aggro'], smartPlacement: true, think: [500, 1000] },
-  strong: { label: 'Сильный', strength: 'strong', drafts: ['human:aggro', 'human:control', 'human:defensive'], smartPlacement: true, think: [400, 800] },
+  weak: { strength: 'weak', drafts: ['randomPieces'], smartPlacement: false, think: [700, 1300] },
+  normal: { strength: 'normal', drafts: ['human:defensive', 'human:control', 'human:aggro'], smartPlacement: true, think: [500, 1000] },
+  strong: { strength: 'strong', drafts: ['human:aggro', 'human:control', 'human:defensive'], smartPlacement: true, think: [400, 800] },
 }
 
 const opp = c => (c === 'white' ? 'black' : 'white')
@@ -56,9 +56,10 @@ export function createBotRoom(io, socket, { level, color, name } = {}) {
     busy: false,
     rng: Math.random,
   }
-  room.players[botSeat] = { socketId: room.bot.id, connected: true, name: `ИИ · ${cfg.label}`, token: null, bot: true }
+  // No name: the client shows a localized "AI · <level>" from botLevel.
+  room.players[botSeat] = { socketId: room.bot.id, connected: true, name: null, botLevel: room.bot.level, token: null, bot: true }
   rooms.startMatch(io, room)
-  return { ...res, players: { ...res.players, [botSeat]: { connected: true, name: room.players[botSeat].name } } }
+  return { ...res, players: { ...res.players, [botSeat]: { connected: true, name: null, botLevel: room.bot.level } } }
 }
 
 // Called after every broadcast of a bot room (see rooms.js's setBotHook):

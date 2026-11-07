@@ -25,7 +25,7 @@ export async function openOnline(page, base, nickname) {
 }
 
 export async function createRoom(page, { visibility = 'public', color = 'random' } = {}) {
-  await page.locator('.po-create-btn').click({ timeout: T.normal })
+  await page.locator('.po-create-btn:not(.po-bot-btn)').click({ timeout: T.normal })
   await page.locator(`.po-opt`).nth(visibility === 'public' ? 0 : 1).click()
   await page.locator(`.po-color-opt.${color}`).click()
   await page.locator('.po-modal-submit').click()

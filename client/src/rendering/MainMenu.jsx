@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useState } from 'react'
 import HowToPlay from './HowToPlay'
 import { PIECE_ICONS } from './pieceIcons'
@@ -38,7 +39,7 @@ export default function MainMenu({ onPlayOnline, onSandbox, onOpenPatchNotes, un
           <span className="mm-hero-piece white">{PIECE_ICONS.white.pawn}</span>
           <span className="mm-hero-piece black">{PIECE_ICONS.black.pawn}</span>
         </span>
-        <span className="mm-hero-title">Играть онлайн</span>
+        <span className="mm-hero-title">{t('menu.playOnline')}</span>
       </button>
 
       <div className="mm-row">
@@ -48,18 +49,18 @@ export default function MainMenu({ onPlayOnline, onSandbox, onOpenPatchNotes, un
               <span className="mm-icon-flask-neck" />
             </span>
           </span>
-          <span className="mm-card-title">Песочница</span>
+          <span className="mm-card-title">{t('menu.sandbox')}</span>
         </button>
 
         <button className="mm-card mm-card-howto" onClick={() => setHowToPlayOpen(true)}>
           <span className="mm-card-icon">
             <span className="mm-icon-question">?</span>
           </span>
-          <span className="mm-card-title">Как играть</span>
+          <span className="mm-card-title">{t('menu.howToPlay')}</span>
         </button>
 
         <button className={`mm-card mm-card-patchnotes${unseenPatch ? ' unseen' : ''}`} onClick={onOpenPatchNotes}>
-          {unseenPatch && <span className="mm-card-badge-new">NEW</span>}
+          {unseenPatch && <span className="mm-card-badge-new">{t('menu.newBadge')}</span>}
           <span className="mm-card-icon">
             <span className="mm-icon-scroll">
               <span />
@@ -67,17 +68,17 @@ export default function MainMenu({ onPlayOnline, onSandbox, onOpenPatchNotes, un
               <span />
             </span>
           </span>
-          <span className="mm-card-title">Что нового</span>
+          <span className="mm-card-title">{t('menu.whatsNew')}</span>
         </button>
       </div>
 
-      <div className="mm-skins-banner" title="Скоро">
+      <div className="mm-skins-banner" title={t('menu.soon')}>
         <span className="mm-skins-icon">
           <span className="mm-icon-shirt" />
         </span>
-        <span className="mm-skins-label">Скины</span>
+        <span className="mm-skins-label">{t('menu.skins')}</span>
         <span className="mm-skins-spacer" />
-        <span className="mm-skins-tag">СКОРО</span>
+        <span className="mm-skins-tag">{t('menu.soonTag')}</span>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import OpponentHand from './OpponentHand'
 import Clock from './Clock'
 import { PIECE_GLYPHS, CAPTURE_ORDER } from '../game/economy'
@@ -25,7 +26,7 @@ export default function PlayerPanel({
   name,
 }) {
   const canControl = controllable ?? active
-  const colorLabel = color === 'white' ? 'Белые' : 'Чёрные'
+  const colorLabel = t(color === 'white' ? 'common.white' : 'common.black')
   const label  = name || colorLabel
   const glyphs = PIECE_GLYPHS[color === 'white' ? 'black' : 'white']
   const sorted = [...capturedByMe].sort((a, b) => CAPTURE_ORDER.indexOf(a) - CAPTURE_ORDER.indexOf(b))
@@ -33,7 +34,7 @@ export default function PlayerPanel({
   return (
     <div className={`player-panel ${isYou ? 'mine' : 'opp'}${active ? ' active' : ''}${inCheck ? ' in-check' : ''}`}>
       <span className="pp-edge" />
-      {active && <span className="pp-turn-badge">ХОДИТ</span>}
+      {active && <span className="pp-turn-badge">{t('player.turn')}</span>}
 
       <span className="player-avatar">
         {color === 'white' ? '♔' : '♚'}
@@ -45,7 +46,7 @@ export default function PlayerPanel({
           <span className="player-name">{label}</span>
           <span className={`player-color-tag p-${color}`}>{colorLabel}</span>
           {characterName && <span className="player-character">{characterName}</span>}
-          {inCheck && <span className="check-badge">ШАХ</span>}
+          {inCheck && <span className="check-badge">{t('player.check')}</span>}
         </div>
         <Clock
           baseSeconds={timeSeconds}
@@ -78,12 +79,12 @@ export default function PlayerPanel({
         <>
           <span className="pp-divider" />
           {onOfferDraw && (
-            <button className="draw-btn" onClick={onOfferDraw} disabled={drawOfferDisabled} title="Предложить ничью">
+            <button className="draw-btn" onClick={onOfferDraw} disabled={drawOfferDisabled} title={t('player.offerDraw')}>
               ½
             </button>
           )}
           {onSurrender && (
-            <button className="surrender-btn" onClick={onSurrender} title="Сдаться">
+            <button className="surrender-btn" onClick={onSurrender} title={t('player.surrender')}>
               🏳
             </button>
           )}

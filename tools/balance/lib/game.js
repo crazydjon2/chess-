@@ -112,7 +112,7 @@ export function playRound(cfg, rng) {
   }
   const firstCap = ev.find(e => e.t === 'cap')
   return {
-    round, board: pattern.name, draft: cfg.draft, placement: cfg.placement?.styles ?? null, ai: cfg.ai ?? null,
+    round, board: boards.boardName(pattern), draft: cfg.draft, placement: cfg.placement?.styles ?? null, ai: cfg.ai ?? null,
     result: result.type, reason: result.reason ?? null, winner: result.winner ?? null, plies: ply,
     armies: { white: { pieces: ds.picks.white.pieces, cards: ds.picks.white.cards }, black: { pieces: ds.picks.black.pieces, cards: ds.picks.black.cards } },
     left: { white: ds.budgets.white, black: ds.budgets.black },

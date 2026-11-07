@@ -23,9 +23,9 @@ export function validatePlacement(boardPattern, color, placementMap, draftedPiec
     // Number.isNaN guards a malformed key like "a" (no rank digit) — rank
     // would otherwise be NaN, which fails both `<` and `>` comparisons below
     // and silently slips past the home-rank check instead of being rejected.
-    if (col < 0 || col >= cols || Number.isNaN(rank)) return { error: `Клетка ${sq} вне доски` }
-    if (rank < homeLo || rank > homeHi) return { error: `${sq} не на твоей половине` }
-    if (blocked.has(sq)) return { error: `${sq} заблокирована на этой карте` }
+    if (col < 0 || col >= cols || Number.isNaN(rank)) return { error: 'err.cellOffBoard' }
+    if (rank < homeLo || rank > homeHi) return { error: 'err.notYourHalf' }
+    if (blocked.has(sq)) return { error: 'err.cellBlocked' }
   }
 
   const placedTypes = squares.map(sq => placementMap[sq])
@@ -33,7 +33,7 @@ export function validatePlacement(boardPattern, color, placementMap, draftedPiec
     const left = [...draftedPieceTypes]
     for (const t of placedTypes) {
       const idx = left.indexOf(t)
-      if (idx === -1) return { error: 'Расставленные фигуры не совпадают с тем, что задрафтили' }
+      if (idx === -1) return { error: 'err.placementMismatch' }
       left.splice(idx, 1)
     }
     return { ok: true }
@@ -41,7 +41,7 @@ export function validatePlacement(boardPattern, color, placementMap, draftedPiec
   const expected = [...draftedPieceTypes].sort()
   const actual   = [...placedTypes].sort()
   if (expected.length !== actual.length || expected.some((t, i) => t !== actual[i])) {
-    return { error: 'Расставленные фигуры не совпадают с тем, что задрафтили' }
+    return { error: 'err.placementMismatch' }
   }
 
   return { ok: true }

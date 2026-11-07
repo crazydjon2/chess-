@@ -1,3 +1,4 @@
+import { t, tn } from '../i18n'
 import { useState } from 'react'
 import { homeRanks } from '../game/boardPatterns'
 import { PIECE_LABEL } from '../game/economy'
@@ -101,10 +102,10 @@ export default function PlacementPhase({
     // "Готово" (disabled) even while incomplete — the "Осталось: N" count
     // already lives in the tray's count badge, so repeating it on the button
     // was a duplicate of the same number right next to itself.
-    incomplete: 'Готово',
-    ready: 'Готово',
-    waiting: 'Ждём соперника…',
-    both: 'Начинаем бой…',
+    incomplete: t('common.done'),
+    ready: t('common.done'),
+    waiting: t('common.waitingOpponent'),
+    both: t('placement.starting'),
   }[submitState]
 
   return (
@@ -118,9 +119,9 @@ export default function PlacementPhase({
       <div className="pl-tray pl-tray-opp">
         <span className="pl-tray-edge" />
         <div className="pl-tray-top">
-          <span className="pl-tray-label">Набор соперника</span>
-          <span className="pl-tray-sub">({oppColor === 'white' ? 'белые' : 'чёрные'})</span>
-          <span className="pl-tray-count opp">{opponentReady ? 'Готов' : `${oppPieces.length} фигур`}</span>
+          <span className="pl-tray-label">{t('placement.oppSet')}</span>
+          <span className="pl-tray-sub">({t(oppColor === 'white' ? 'common.whiteLower' : 'common.blackLower')})</span>
+          <span className="pl-tray-count opp">{opponentReady ? t('placement.ready') : tn('unit.pieces', oppPieces.length)}</span>
         </div>
         {/* Roster is its own row (own line on mobile) so the opponent's
            pieces are legible; same robust two-part layout as the draft tray. */}
@@ -196,11 +197,11 @@ export default function PlacementPhase({
               const oppPiece = zone === 'opp' ? oppMap?.[sq] : null
               const droppable = !!selectedType && zone === 'mine' && !piece
               const cellTitle =
-                zone === 'opp' ? (oppPiece ? PIECE_LABEL[oppPiece] : 'Чужая половина — недоступна для расстановки')
-                : zone === 'neutral' ? 'Нейтральная зона — не задействована в расстановке'
-                : piece ? `${PIECE_LABEL[piece]} — нажмите, чтобы убрать обратно в лоток`
-                : droppable ? `Поставить сюда: ${PIECE_LABEL[selectedType]}`
-                : 'Можно поставить фигуру'
+                zone === 'opp' ? (oppPiece ? PIECE_LABEL[oppPiece] : t('placement.oppHalf'))
+                : zone === 'neutral' ? t('placement.neutral')
+                : piece ? t('placement.removeHint', { piece: PIECE_LABEL[piece] })
+                : droppable ? t('placement.placeHere', { piece: PIECE_LABEL[selectedType] })
+                : t('placement.canPlace')
               return (
                 <button
                   key={sq}
@@ -242,16 +243,16 @@ export default function PlacementPhase({
            cell to place it; "Отмена" clears the pick. */}
         <SideDrawer
           icon="♟"
-          label="Фигуры"
+          label={t('placement.pieces')}
           count={remaining.length}
-          title="Расставь фигуры"
+          title={t('placement.placeTitle')}
           armed={selectedType != null}
-          armedLabel="Отменить фигуру"
+          armedLabel={t('placement.cancelPiece')}
           onCancel={() => setSelectedType(null)}
           open={deckOpen}
           onOpenChange={setDeckOpen}
           disabled={submitted || remaining.length === 0}
-          emptyText="Все расставлены"
+          emptyText={t('placement.allPlaced')}
         >
           {remaining.map((type, i) => (
             <GameCard
@@ -270,8 +271,8 @@ export default function PlacementPhase({
       <div className="pl-tray pl-tray-mine active">
         <span className="pl-tray-edge" />
         <div className="pl-tray-top">
-          <span className="pl-tray-label">Ваш набор</span>
-          <span className="pl-tray-count mine">Осталось: {remainingCount}</span>
+          <span className="pl-tray-label">{t('placement.mySet')}</span>
+          <span className="pl-tray-count mine">{t('placement.remaining', { n: remainingCount })}</span>
           {deadline != null && (
             <Clock
               baseSeconds={totalSeconds}

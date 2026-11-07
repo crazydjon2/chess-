@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { squareName, cellXY } from '../game/coords'
 import { getRenderer } from './pieces/registry'
 import { PIECE_GLYPHS } from '../game/economy'
@@ -272,7 +273,7 @@ export default function VisualLayer({ gameState, highlights, skin, width, height
       const px = x + cellSize * 0.56
       const py = y + cellSize * 0.82
       unstableOverlays.push(
-        <g key={`un-next-${square}`} className="unstable-badge unstable-next-badge" title="Следующий тип">
+        <g key={`un-next-${square}`} className="unstable-badge unstable-next-badge" title={t('board.nextType')}>
           <circle cx={px} cy={py} r={cellSize * 0.20}
             fill="rgba(35,10,50,0.88)" stroke="rgba(210,150,255,0.9)" strokeWidth={1.5} />
           <text x={px} y={py + 1} textAnchor="middle" dominantBaseline="central"

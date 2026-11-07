@@ -185,20 +185,20 @@ function advanceTurn(draftState, actingColor) {
 // blind carts, every pick lands and is broadcast immediately, so the
 // opponent sees it land in real time.
 export function submitPick(draftState, color, item, now = Date.now()) {
-  if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
-  if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
-  if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
-  if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
-  if (clockRemaining(draftState, color, now) <= 0) return { error: 'Время на закупку вышло' }
-  if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
+  if (draftState.phase !== 'buy') return { error: 'err.notBuyPhase' }
+  if (isDraftComplete(draftState)) return { error: 'err.buyFinished' }
+  if (draftState.done[color]) return { error: 'err.youFinishedBuying' }
+  if (draftState.turn !== color) return { error: 'err.notYourDraftTurn' }
+  if (clockRemaining(draftState, color, now) <= 0) return { error: 'err.buyTimeUp' }
+  if (!isValidCatalogTarget(item)) return { error: 'err.badItem' }
 
   const cost = nextItemCost(draftState, color, item)
-  if (cost > draftState.budgets[color]) return { error: 'Недостаточно бюджета' }
+  if (cost > draftState.budgets[color]) return { error: 'err.noBudget' }
 
   const picks = draftState.picks[color]
   if (item.kind === 'piece') {
     if (picks.pieces.length >= draftState.maxPieces) {
-      return { error: `На доске только ${draftState.maxPieces} клеток на вашей половине — столько фигур и можно купить` }
+      return { error: 'err.maxPieces' }
     }
   }
 
@@ -224,10 +224,10 @@ export function submitPick(draftState, color, item, now = Date.now()) {
 // budget (see advanceTurn: once done, they're skipped, never waited on
 // again). Only callable on your own turn, same as an actual pick.
 export function submitDone(draftState, color, now = Date.now()) {
-  if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
-  if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
-  if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
-  if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
+  if (draftState.phase !== 'buy') return { error: 'err.notBuyPhase' }
+  if (isDraftComplete(draftState)) return { error: 'err.buyFinished' }
+  if (draftState.done[color]) return { error: 'err.youFinishedBuying' }
+  if (draftState.turn !== color) return { error: 'err.notYourDraftTurn' }
 
   const next = { ...chargeClock(draftState, color, now), done: { ...draftState.done, [color]: true } }
   const turn = advanceTurn(next, color)

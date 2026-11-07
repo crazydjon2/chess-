@@ -1,8 +1,9 @@
+import { t } from '../i18n'
 import './ConfirmModal.css'
 
 // Generic yes/no confirmation overlay — used for anything destructive
 // enough to need a second click (currently: surrender).
-export default function ConfirmModal({ title, message, confirmLabel = 'Подтвердить', cancelLabel = 'Отмена', onConfirm, onCancel }) {
+export default function ConfirmModal({ title, message, confirmLabel = t('common.confirm'), cancelLabel = t('common.cancel'), onConfirm, onCancel }) {
   return (
     <div className="confirm-overlay" onClick={onCancel}>
       <div className="confirm-card" onClick={e => e.stopPropagation()}>

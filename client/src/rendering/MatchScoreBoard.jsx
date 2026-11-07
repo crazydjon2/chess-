@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 // Bo3 scoreboard — shows the round number plus each side's win-dots (filled
 // as rounds are won) instead of a plain "1:0" pill, so who's ahead and how
 // close to winning the match reads at a glance rather than needing parsing.
@@ -15,16 +16,16 @@ export default function MatchScoreBoard({ round, white, black, whiteName, blackN
   return (
     <div className="match-scoreboard">
       <div className="msb-side msb-white">
-        <span className="msb-label" title={whiteName || 'Белые'}>{whiteName || 'Белые'}</span>
+        <span className="msb-label" title={whiteName || t('common.white')}>{whiteName || t('common.white')}</span>
         <div className="msb-dots">{dots(white)}</div>
       </div>
       <div className="msb-center">
         <span className="msb-round-num">{round}</span>
-        <span className="msb-round-label">раунд</span>
+        <span className="msb-round-label">{t('score.round')}</span>
       </div>
       <div className="msb-side msb-black">
         <div className="msb-dots">{dots(black)}</div>
-        <span className="msb-label" title={blackName || 'Чёрные'}>{blackName || 'Чёрные'}</span>
+        <span className="msb-label" title={blackName || t('common.black')}>{blackName || t('common.black')}</span>
       </div>
     </div>
   )

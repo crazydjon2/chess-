@@ -842,7 +842,7 @@ describe('rooms against the AI', () => {
     expect(room.players.black).toMatchObject({ bot: true, connected: true })
     expect(room.match.phase).toBe('draft')
     expect(room.visibility).toBe('private')
-    expect(res.players.black.name).toMatch(/ИИ/)
+    expect(res.players.black.botLevel).toBe('weak') // client shows a localized "AI · <level>"
   })
 
   it('throws the room away when the human leaves — the bot never keeps it alive', async () => {

@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+import { boardName } from '../game/boardPatterns'
 import { ALL_PIECE_TYPES, ALL_CARD_IDS, nextItemCost, duplicateStep } from '../game/draftEngine'
 import { CARD_DEFS } from '../game/cards'
 import { PIECE_LABEL, shopPieceCost } from '../game/economy'
@@ -71,7 +73,7 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
             <BoardThumbnail boardPattern={boardPattern} cellSize={Math.floor(60 / Math.max(boardPattern.rows, boardPattern.cols))} />
           </div>
           <div className="dr-board-info">
-            <span className="dr-board-name">{boardPattern.name}</span>
+            <span className="dr-board-name">{boardName(boardPattern)}</span>
             <span className="dr-board-size">{boardPattern.rows}×{boardPattern.cols}</span>
           </div>
         </div>
@@ -79,7 +81,7 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
       </div>
 
       <Tray
-        side="opp" label="Соперник" active={!myIsActive} done={oppDone}
+        side="opp" label={t('common.opponent')} active={!myIsActive} done={oppDone}
         budget={draft.budgets[oppColor]} pieceCount={draft.picks[oppColor].pieces.length} maxPieces={draft.maxPieces}
         roster={oppRoster} pieceColor={oppColor}
         clock={draftClock(draft, oppColor)}
@@ -87,13 +89,13 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
 
       <div className="dr-catalog">
         <div className="dr-catalog-header">
-          <span className="dr-catalog-title">Каталог</span>
-          {waiting && <span className="dr-catalog-wait">Ждём соперника…</span>}
+          <span className="dr-catalog-title">{t('draft.catalog')}</span>
+          {waiting && <span className="dr-catalog-wait">{t('common.waitingOpponent')}</span>}
         </div>
 
         <div className="dr-catalog-scroll">
           <div className="dr-catalog-section">
-            <div className="dr-section-title">Фигуры</div>
+            <div className="dr-section-title">{t('draft.pieces')}</div>
             <div className="dr-piece-grid">
               {ALL_PIECE_TYPES.map(type => {
                 const target = { kind: 'piece', pieceType: type }
@@ -114,7 +116,7 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
           </div>
 
           <div className="dr-catalog-section">
-            <div className="dr-section-title">Карты</div>
+            <div className="dr-section-title">{t('draft.cards')}</div>
             <div className="dr-card-grid">
               {ALL_CARD_IDS.map(cardId => {
                 const card = CARD_DEFS[cardId]
@@ -140,7 +142,7 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
       </div>
 
       <Tray
-        side="mine" label="Вы" active={myIsActive} done={iAmDone}
+        side="mine" label={t('common.you')} active={myIsActive} done={iAmDone}
         budget={remaining} pieceCount={pieceCount} maxPieces={draft.maxPieces}
         roster={myRoster} pieceColor={myColor}
         clock={draftClock(draft, myColor)}
@@ -150,7 +152,7 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
           disabled={!myIsActive}
           onClick={onDone}
         >
-          Готово, я закончил
+          {t('draft.finish')}
         </button>
       </Tray>
     </div>
@@ -163,8 +165,8 @@ export default function DraftPhase({ round, boardPattern, draft, myColor, matchS
 // non-clickable disabled look. Cost is the gold top-right badge; the "?"
 // (spells only) sits top-left.
 function statusTag(state) {
-  if (state === 'cantAfford') return { text: 'нет монет', tone: 'red' }
-  if (state === 'soldOut')    return { text: 'нет места', tone: 'neutral' }
+  if (state === 'cantAfford') return { text: t('draft.noCoins'), tone: 'red' }
+  if (state === 'soldOut')    return { text: t('draft.noRoom'), tone: 'neutral' }
   return null
 }
 
@@ -234,14 +236,14 @@ function Tray({ side, label, active, done, budget, pieceCount, maxPieces, roster
       <div className="dr-tray-top">
         <span className={`dr-tray-dot${active ? ' active' : ''}`} />
         <span className="dr-tray-label">{label}</span>
-        {done && <span className="dr-tray-done-badge">✓ Готово</span>}
+        {done && <span className="dr-tray-done-badge">{t('draft.doneBadge')}</span>}
         {!done && clock}
         <span className="dr-tray-budget"><span className="dr-coin" />{budget}</span>
-        <span className="dr-tray-count">{pieceCount} / {maxPieces}<span className="dr-count-unit"> фигур</span></span>
+        <span className="dr-tray-count">{pieceCount} / {maxPieces}<span className="dr-count-unit">{t('draft.piecesUnit')}</span></span>
         {children}
       </div>
       <div className="dr-tray-chips">
-        {roster.length === 0 && <span className="dr-tray-empty">пока пусто</span>}
+        {roster.length === 0 && <span className="dr-tray-empty">{t('draft.empty')}</span>}
         {roster.map((it, i) => (
           <span className="dr-chip" key={`${it.key}-${i}`} title={it.kind === 'piece' ? PIECE_LABEL[it.pieceType] : CARD_DEFS[it.cardId].name}>
             {it.kind === 'piece' ? (

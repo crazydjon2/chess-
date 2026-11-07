@@ -54,8 +54,8 @@ function on(socket, event, handler) {
       handler(data, reply)
     } catch (e) {
       console.error(`[${event}] handler failed:`, e)
-      reply({ error: 'Ошибка сервера' })
-      socket.emit('game_error', { message: 'Ошибка сервера' })
+      reply({ error: 'err.server' })
+      socket.emit('game_error', { message: 'err.server' })
     }
   })
 }

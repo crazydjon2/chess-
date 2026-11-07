@@ -78,8 +78,8 @@ function startDraftIfReady(match, now) {
 }
 
 export function tryDraftPick(match, color, item, now = Date.now()) {
-  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
-  if (summaryPending(match)) return { error: 'Ждём соперника' }
+  if (match.phase !== 'draft') return { error: 'err.notDraft' }
+  if (summaryPending(match)) return { error: 'err.waitingOpponent' }
   const res = submitPick(match.draft, color, item, now)
   if (res.error) return { error: res.error }
   return finalizeDraftStep(match, res.draftState, now)
@@ -92,8 +92,8 @@ export function draftTimeout(match, now = Date.now()) {
 }
 
 export function tryDraftDone(match, color, now = Date.now()) {
-  if (match.phase !== 'draft') return { error: 'Сейчас не фаза драфта' }
-  if (summaryPending(match)) return { error: 'Ждём соперника' }
+  if (match.phase !== 'draft') return { error: 'err.notDraft' }
+  if (summaryPending(match)) return { error: 'err.waitingOpponent' }
   const res = submitDone(match.draft, color, now)
   if (res.error) return { error: res.error }
   return finalizeDraftStep(match, res.draftState, now)
@@ -104,8 +104,8 @@ export function tryDraftDone(match, color, now = Date.now()) {
 // live to the opponent (see rooms.js's viewFor). Locked once that side
 // hits "ready" (see tryPlacement).
 export function tryUpdatePlacement(match, color, placementMap) {
-  if (match.phase !== 'placement') return { error: 'Сейчас не фаза расстановки' }
-  if (match.placement[color].ready) return { error: 'Вы уже готовы' }
+  if (match.phase !== 'placement') return { error: 'err.notPlacement' }
+  if (match.placement[color].ready) return { error: 'err.alreadyReady' }
 
   const draftedTypes = match.draft.picks[color].pieces
   const check = validatePlacement(match.boardPattern, color, placementMap, draftedTypes, { partial: true })
@@ -116,8 +116,8 @@ export function tryUpdatePlacement(match, color, placementMap) {
 }
 
 export function tryPlacement(match, color, placementMap) {
-  if (match.phase !== 'placement') return { error: 'Сейчас не фаза расстановки' }
-  if (match.placement[color].ready) return { error: 'Вы уже готовы' }
+  if (match.phase !== 'placement') return { error: 'err.notPlacement' }
+  if (match.placement[color].ready) return { error: 'err.alreadyReady' }
 
   const draftedTypes = match.draft.picks[color].pieces
   const check = validatePlacement(match.boardPattern, color, placementMap, draftedTypes)
@@ -167,10 +167,10 @@ function startBattle(match, placement) {
 // implicit decline — see gameEngine.js's tryMove).
 export function tryOfferDraw(match, color) {
   const gs = match.gameState
-  if (match.phase !== 'battle' || !gs) return { error: 'Сейчас не бой' }
-  if (gs.drawOffer) return { error: 'Ничья уже предложена' }
+  if (match.phase !== 'battle' || !gs) return { error: 'err.notBattle' }
+  if (gs.drawOffer) return { error: 'err.drawAlreadyOffered' }
   const moveCount = gs.moveHistory?.length ?? 0
-  if ((gs.drawOfferedAt?.[color] ?? -1) === moveCount) return { error: 'Ничью можно предлагать раз за ход' }
+  if ((gs.drawOfferedAt?.[color] ?? -1) === moveCount) return { error: 'err.drawOncePerTurn' }
   const gameState = {
     ...gs,
     drawOffer: color,
@@ -184,8 +184,8 @@ export function tryOfferDraw(match, color) {
 // withdraws the offer.
 export function tryAnswerDraw(match, color, accept) {
   const gs = match.gameState
-  if (match.phase !== 'battle' || !gs) return { error: 'Сейчас не бой' }
-  if (!gs.drawOffer || gs.drawOffer === color) return { error: 'Нет предложения ничьей' }
+  if (match.phase !== 'battle' || !gs) return { error: 'err.notBattle' }
+  if (!gs.drawOffer || gs.drawOffer === color) return { error: 'err.noDrawOffer' }
   if (accept) return { match: applyRoundResult(match, { type: 'draw', reason: 'agreement' }), ended: true }
   return { match: { ...match, gameState: { ...gs, drawOffer: null } }, ended: false }
 }

@@ -33,7 +33,7 @@ function generateCode() {
 }
 
 function publicPlayers(room) {
-  const pub = (p) => p ? { connected: p.connected, name: p.name } : null
+  const pub = (p) => p ? { connected: p.connected, name: p.name, ...(p.botLevel && { botLevel: p.botLevel }) } : null
   return { white: pub(room.players.white), black: pub(room.players.black) }
 }
 
@@ -119,10 +119,10 @@ export function joinRoom(socket, code, name) {
   // rather than 404 on "  kx92f " — the generated alphabet is uppercase.
   const key = typeof code === 'string' ? code.trim().toUpperCase() : ''
   const room = rooms.get(key)
-  if (!room) throw new Error('Комната не найдена')
-  if (room.match) throw new Error('Игра в этой комнате уже началась')
+  if (!room) throw new Error('err.roomNotFound')
+  if (room.match) throw new Error('err.roomStarted')
   const openColor = !room.players.white ? 'white' : !room.players.black ? 'black' : null
-  if (!openColor) throw new Error('Комната уже заполнена')
+  if (!openColor) throw new Error('err.roomFull')
   room.players[openColor] = newSeat(socket, name)
   socket.join(key)
   socket.data.roomCode = key
@@ -136,9 +136,9 @@ export function joinRoom(socket, code, name) {
 export function rejoinRoom(socket, code, token) {
   const key = typeof code === 'string' ? code.trim().toUpperCase() : ''
   const room = rooms.get(key)
-  if (!room || typeof token !== 'string') throw new Error('Комната не найдена')
+  if (!room || typeof token !== 'string') throw new Error('err.roomNotFound')
   const color = ['white', 'black'].find(c => room.players[c]?.token === token)
-  if (!color) throw new Error('Вы не участник этой комнаты')
+  if (!color) throw new Error('err.notInRoom')
   const previousSocketId = room.players[color].socketId
   room.players[color] = { ...room.players[color], socketId: socket.id, connected: true }
   clearAbandonCheck(room)

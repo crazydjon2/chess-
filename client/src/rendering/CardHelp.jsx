@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './Card.css'
@@ -52,7 +53,7 @@ export default function CardHelp({ name, desc, className }) {
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        aria-label={`Описание карты: ${name}`}
+        aria-label={t('cardHelp.aria', { name })}
       >
         ?
       </span>

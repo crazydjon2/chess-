@@ -1,3 +1,4 @@
+import { t, tErr, playerName } from './i18n'
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
 import { useMatch, useNavigate } from 'react-router'
 import GameView from './rendering/GameView'
@@ -88,7 +89,7 @@ export default function OnlineApp({ onExit }) {
   }
 
   const flashError = useCallback((msg) => {
-    setErrorMsg(msg)
+    setErrorMsg(tErr(msg))
     setTimeout(() => setErrorMsg(null), 3000)
   }, [])
 
@@ -139,7 +140,7 @@ export default function OnlineApp({ onExit }) {
           if (lastAction.type === 'capture') play(lastAction.color === roomInfo.color ? 'get' : 'lost')
           else play('move')
         } else if (lastAction.type === 'draw_declined' && lastAction.color !== roomInfo.color) {
-          flashError('Соперник отклонил ничью')
+          flashError(t('err.drawDeclined'))
         } else if (lastAction.type === 'card') {
           const card = CARD_DEFS[lastAction.cardId]
           setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
@@ -184,13 +185,13 @@ export default function OnlineApp({ onExit }) {
     // Our seat was reclaimed by another socket holding the same token (a
     // duplicated tab) — see index.js's rejoin_room. This tab is out.
     socket.on('seat_taken', () => {
-      flashError('Игра открыта в другой вкладке')
+      flashError(t('err.otherTab'))
       clearSeat()
       resetRoomState()
       navigateRef.current('/online', { replace: true })
     })
     socket.on('game_error', ({ message }) => flashError(message))
-    socket.on('connect_error', () => flashError('Не удалось подключиться к серверу'))
+    socket.on('connect_error', () => flashError(t('err.connectFailed')))
 
     return () => {
       socket.off('room_update')
@@ -433,8 +434,8 @@ export default function OnlineApp({ onExit }) {
               round: match.round,
               white: match.scores.white,
               black: match.scores.black,
-              whiteName: room.players?.white?.name,
-              blackName: room.players?.black?.name,
+              whiteName: playerName(room.players?.white),
+              blackName: playerName(room.players?.black),
             }}
             onPick={(item) => { play('buy'); getSocket().emit('draft_pick', item) }}
             onDone={() => getSocket().emit('draft_done')}
@@ -468,8 +469,8 @@ export default function OnlineApp({ onExit }) {
               round: match.round,
               white: match.scores.white,
               black: match.scores.black,
-              whiteName: room.players?.white?.name,
-              blackName: room.players?.black?.name,
+              whiteName: playerName(room.players?.white),
+              blackName: playerName(room.players?.black),
             }}
             onChange={(map) => getSocket().emit('update_placement', { map })}
             onSubmit={(map) => getSocket().emit('submit_placement', { map })}
@@ -548,7 +549,7 @@ export default function OnlineApp({ onExit }) {
     ? (match.scores[myColor] > match.scores[oppColor] ? 'win' : 'loss')
     : undefined
   const resultTitle = matchOver
-    ? `Матч окончен — ${matchOutcome === 'win' ? 'вы победили' : 'вы проиграли'} ${match.scores.white}:${match.scores.black}`
+    ? t(matchOutcome === 'win' ? 'online.matchOverWin' : 'online.matchOverLoss', { score: `${match.scores.white}:${match.scores.black}` })
     : undefined
 
   return (
@@ -557,8 +558,8 @@ export default function OnlineApp({ onExit }) {
       <PageTransition pageKey="battle">
         {opponentLeft && (
           <div className="opponent-left-banner">
-            Соперник покинул игру
-            <button onClick={handleLeave}>Выйти в меню</button>
+            {t('online.opponentLeft')}
+            <button onClick={handleLeave}>{t('online.leaveToMenu')}</button>
           </div>
         )}
         {pendingPromotion && (
@@ -570,28 +571,28 @@ export default function OnlineApp({ onExit }) {
         )}
         {leaveConfirm && (
           <ConfirmModal
-            title="Выйти из матча?"
-            message="Вы покинете матч. Часы продолжат идти, пока вас нет."
-            confirmLabel="Выйти"
+            title={t('online.leaveTitle')}
+            message={t('online.leaveMsg')}
+            confirmLabel={t('common.exit')}
             onConfirm={handleLeave}
             onCancel={() => setLeaveConfirm(false)}
           />
         )}
         {match.phase === 'battle' && gameState.drawOffer === oppColor && !surrenderConfirm && (
           <ConfirmModal
-            title="Соперник предлагает ничью"
-            message="Раунд закончится вничью, счёт матча не изменится."
-            confirmLabel="Принять"
-            cancelLabel="Отклонить"
+            title={t('online.drawOfferTitle')}
+            message={t('online.drawOfferMsg')}
+            confirmLabel={t('online.accept')}
+            cancelLabel={t('online.decline')}
             onConfirm={() => handleAnswerDraw(true)}
             onCancel={() => handleAnswerDraw(false)}
           />
         )}
         {surrenderConfirm && (
           <ConfirmModal
-            title="Сдаться?"
-            message="Вы проиграете этот раунд сопернику. Следующий раунд начнётся с нуля — новый драфт для обеих сторон."
-            confirmLabel="Сдаться"
+            title={t('online.surrenderTitle')}
+            message={t('online.surrenderMsg')}
+            confirmLabel={t('online.surrender')}
             onConfirm={handleSurrenderConfirm}
             onCancel={() => setSurrenderConfirm(false)}
           />
@@ -622,25 +623,25 @@ export default function OnlineApp({ onExit }) {
           gameResult={gameResult}
           resultTitle={resultTitle}
           resultOutcome={matchOutcome}
-          restartLabel={matchOver ? 'В меню' : undefined}
+          restartLabel={matchOver ? t('online.toMenu') : undefined}
           onRestart={handleLeave}
           onBackgroundClick={handleBackgroundClick}
           matchScore={{
             round: match.round,
             white: match.scores.white,
             black: match.scores.black,
-            whiteName: room.players?.white?.name,
-            blackName: room.players?.black?.name,
+            whiteName: playerName(room.players?.white),
+            blackName: playerName(room.players?.black),
           }}
           turnBar={!matchOver ? {
             color: gameState.turn,
-            text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
-            sub: myTurn ? 'Ваш ход' : 'Ход соперника',
+            text: t(gameState.turn === 'white' ? 'common.whiteToMove' : 'common.blackToMove'),
+            sub: t(myTurn ? 'online.yourMove' : 'online.opponentMove'),
             urgent: myTurn,
           } : null}
           topPanel={{
             color: oppColor,
-            name: room.players?.[oppColor]?.name,
+            name: playerName(room.players?.[oppColor]),
             capturedByMe: oppCaptured,
             active: gameState.turn === oppColor,
             inCheck: inCheck && gameState.turn === oppColor,
@@ -651,7 +652,7 @@ export default function OnlineApp({ onExit }) {
           }}
           bottomPanel={{
             color: myColor,
-            name: room.players?.[myColor]?.name,
+            name: playerName(room.players?.[myColor]),
             capturedByMe: myCaptured,
             active: myTurn,
             inCheck: inCheck && myTurn,

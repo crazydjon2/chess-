@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { createPortal } from 'react-dom'
 import { PIECE_GLYPHS, PIECE_LABEL } from '../game/economy'
 import { CARD_DEFS } from '../game/cards'
@@ -8,14 +9,14 @@ import './BattleLog.css'
 // glyph comes from the entry's OWN snapshot (pieces AFTER the move landed)
 // rather than needing the mover's piece type as a separate field.
 function describeEntry(entry) {
-  if (entry.kind === 'start') return { glyph: '🏁', text: 'Начальная позиция' }
+  if (entry.kind === 'start') return { glyph: '🏁', text: t('log.start') }
   if (entry.kind === 'move') {
     // Redacted server-side (see rooms.js's redactActionLogEntry) whenever
     // this move's own from/to fell inside the mover's own still-live fog
     // zone — no square shown, same "something happened, not where" the
     // live board already gives for a caster's own hidden pieces.
     if (entry.hidden) {
-      return { glyph: '☁', text: `${entry.color === 'white' ? 'Белые' : 'Чёрные'} сходили в тумане` }
+      return { glyph: '☁', text: t('log.hiddenMove', { color: t(entry.color === 'white' ? 'common.white' : 'common.black') }) }
     }
     const piece = entry.snapshot.pieces[entry.to]
     const glyph = piece ? PIECE_GLYPHS[entry.color][piece.type] : PIECE_GLYPHS[entry.color].pawn
@@ -50,13 +51,13 @@ export default function BattleLog({ entries, historyIndex, onSelect, onReturnToL
   return createPortal(
     <div className={`bl-panel${closing ? ' closing' : ''}`}>
       <div className="bl-header">
-        <span className="bl-title">Журнал боя</span>
-        <button className="bl-close" onClick={onClose} title="Закрыть">✕</button>
+        <span className="bl-title">{t('log.title')}</span>
+        <button className="bl-close" onClick={onClose} title={t('common.close')}>✕</button>
       </div>
 
       {historyIndex != null && (
         <button className={`bl-return${isMyLiveTurn ? ' urgent' : ''}`} onClick={onReturnToLive}>
-          {isMyLiveTurn ? '⚠ Сейчас ваш ход — вернуться в игру' : '↩ Вернуться в игру'}
+          {t(isMyLiveTurn ? 'log.backMyTurn' : 'log.back')}
         </button>
       )}
 
@@ -76,7 +77,7 @@ export default function BattleLog({ entries, historyIndex, onSelect, onReturnToL
               {entry.color && <span className={`bl-entry-dot p-${entry.color}`} />}
               <span className="bl-entry-glyph">{glyph}</span>
               <span className="bl-entry-text">{text}</span>
-              {isLive && <span className="bl-entry-live">live</span>}
+              {isLive && <span className="bl-entry-live">{t('log.live')}</span>}
             </button>
           )
         })}

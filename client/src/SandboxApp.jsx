@@ -1,3 +1,4 @@
+import { t, tErr } from './i18n'
 import { useState, useReducer, useCallback } from 'react'
 import GameView from './rendering/GameView'
 import PromotionPicker from './rendering/PromotionPicker'
@@ -81,7 +82,7 @@ export default function SandboxApp({ onExit }) {
   const [historyIndex, setHistoryIndex] = useState(null) // null = live, see GameView.jsx
 
   const flashError = useCallback((msg) => {
-    setErrorMsg(msg)
+    setErrorMsg(tErr(msg))
     setTimeout(() => setErrorMsg(null), 3000)
   }, [])
 
@@ -207,13 +208,13 @@ export default function SandboxApp({ onExit }) {
         onSelectHistory={setHistoryIndex}
         onReturnToLive={() => setHistoryIndex(null)}
         gameResult={gameResult}
-        restartLabel="Сбросить песочницу"
+        restartLabel={t('sandbox.reset')}
         onRestart={handleRestart}
         onBackgroundClick={handleBackgroundClick}
         turnBar={!gameOver ? {
           color: gameState.turn,
-          text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
-          sub: 'Песочница — ходите за обе стороны',
+          text: t(gameState.turn === 'white' ? 'common.whiteToMove' : 'common.blackToMove'),
+          sub: t('sandbox.sub'),
           urgent: false,
         } : null}
         topPanel={{

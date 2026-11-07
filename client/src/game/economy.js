@@ -1,3 +1,4 @@
+import { t } from '../i18n/core.js'
 // Draft prices of the pieces. Tuned with the balance lab (tools/balance) —
 // not derived from classical chess values: when taking the king wins, long-
 // range pieces are worth far more than their chess value on these boards.
@@ -12,7 +13,10 @@ export const PIECE_GLYPHS = {
   black: { king: '♚', pawn: '♟', rook: '♜', knight: '♞', bishop: '♝', queen: '♛' },
 }
 
-export const PIECE_LABEL = { pawn: 'Пешка', knight: 'Конь', bishop: 'Слон', rook: 'Ладья', queen: 'Ферзь', king: 'Король' }
+// Getters: always the current UI language (see i18n/core.js).
+export const PIECE_LABEL = Object.defineProperties({}, Object.fromEntries(
+  ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'].map(type => [type, { enumerable: true, get: () => t('piece.' + type) }]),
+))
 
 // King is last/rarest to lose in classical mode (can't happen there at
 // all), but draft mode's elimination ruleset lets kings be captured like

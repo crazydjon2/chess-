@@ -21,10 +21,10 @@ function resolveResult(gameState) {
 }
 
 export function tryMove(gameState, color, from, to, promotion, now = Date.now()) {
-  if (gameState.turn !== color) return { error: 'Не ваш ход' }
+  if (gameState.turn !== color) return { error: 'err.notYourTurn' }
   const piece = gameState.pieces[from]
-  if (!piece || piece.color !== color) return { error: 'Нет вашей фигуры на этой клетке' }
-  if (!getLegalMoves(gameState, from).includes(to)) return { error: 'Недопустимый ход' }
+  if (!piece || piece.color !== color) return { error: 'err.noPiece' }
+  if (!getLegalMoves(gameState, from).includes(to)) return { error: 'err.illegalMove' }
 
   const target = gameState.pieces[to]
   const next   = applyMove(gameState, from, to, promotion, now)
@@ -57,12 +57,12 @@ export function tryMove(gameState, color, from, to, promotion, now = Date.now())
 // passes the turn to the opponent (there's no in-battle shop any more —
 // see economy.js's shopPieceCost, now only used to price the draft).
 export function tryPlayCard(gameState, color, cardId, target) {
-  if (gameState.turn !== color) return { error: 'Не ваш ход' }
-  if (gameState.cardPlayedThisTurn) return { error: 'В этот ход уже сыграна карта' }
+  if (gameState.turn !== color) return { error: 'err.notYourTurn' }
+  if (gameState.cardPlayedThisTurn) return { error: 'err.cardAlreadyPlayed' }
   const hand = gameState.cards[color].hand
   const idx  = hand.findIndex(c => c.id === cardId)
-  if (idx === -1) return { error: 'Этой карты нет в руке' }
-  if (!getValidTargets(cardId, gameState, color).includes(target)) return { error: 'Недопустимая цель' }
+  if (idx === -1) return { error: 'err.cardNotInHand' }
+  if (!getValidTargets(cardId, gameState, color).includes(target)) return { error: 'err.invalidTarget' }
 
   const card = hand[idx]
   const next = applyCardEffect(cardId, gameState, target, color)
