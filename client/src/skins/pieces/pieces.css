@@ -1,0 +1,44 @@
+/* Piece art inside a .pz box. The box is sized by whoever places it (board
+   cell, picker button, journal row) via width/height; the art scales with
+   the box through container units, so one rule works at every size. */
+.pz {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  container-type: size;
+  line-height: 1;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pz.center { align-items: center; }
+
+.pz > svg, .pz .pz-svg { width: 100%; height: 100%; display: block; }
+
+.pz-glyph {
+  font-family: var(--f-glyph);
+  font-size: 92cqh;
+  line-height: 1;
+  display: block;
+  /* the glyph's own box sits a bit low in the em — nudge it to the base */
+  transform: translateY(4%);
+}
+.pz-glyph.white {
+  color: var(--piece-white-fill);
+  --pz-line: var(--piece-white-line);
+}
+.pz-glyph.black {
+  color: var(--piece-black-fill);
+  --pz-line: var(--piece-black-line);
+}
+/* Outline via 8-way text shadows, scaled with the glyph (cqh). */
+.pz-glyph {
+  --o: 2.6cqh;
+  text-shadow:
+    var(--o) 0 0 var(--pz-line), calc(-1 * var(--o)) 0 0 var(--pz-line),
+    0 var(--o) 0 var(--pz-line), 0 calc(-1 * var(--o)) 0 var(--pz-line),
+    calc(var(--o) * .7) calc(var(--o) * .7) 0 var(--pz-line), calc(var(--o) * -.7) calc(var(--o) * -.7) 0 var(--pz-line),
+    calc(var(--o) * .7) calc(var(--o) * -.7) 0 var(--pz-line), calc(var(--o) * -.7) calc(var(--o) * .7) 0 var(--pz-line);
+}
+/* Small sizes (journal, chips): thinner outline. */
+.pz.thin .pz-glyph { --o: 4cqh; }

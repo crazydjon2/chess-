@@ -1,22 +1,23 @@
 import { t, tErr, playerName } from './i18n'
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
-import { useMatch, useNavigate } from 'react-router'
+import { useMatch, useNavigate, useLocation } from 'react-router'
 import GameView from './rendering/GameView'
 import Lobby from './rendering/Lobby'
-import DraftPhase from './rendering/DraftPhase'
-import PlacementPhase from './rendering/PlacementPhase'
-import RoundSummary from './rendering/RoundSummary'
+import RecruitPhase from './rendering/RecruitPhase'
+import RoundSummary, { resultLine } from './rendering/RoundSummary'
+import ResultModal from './rendering/match/ResultModal'
+import { SettingsButton } from './rendering/Settings'
+import { IconFlag, IconExit } from './rendering/ui/Icons'
+import { Piece } from './skins/Piece'
 import PromotionPicker from './rendering/PromotionPicker'
 import ConfirmModal from './rendering/ConfirmModal'
 import PageTransition from './rendering/PageTransition'
 import { getSocket, connectSocket, disconnectSocket, request } from './net/socket'
 import { saveSeat, loadSeatToken, clearSeat } from './net/seat'
 import { loadNickname, saveNickname } from './nickname'
-import { getValidTargets, CARD_DEFS } from './game/cards'
-import { isKingInCheck, needsPromotion } from './game/chess'
+import { getValidTargets } from './game/cards'
+import { needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
-import { getCaptured } from './game/economy'
-import { PLACEMENT_TIME_BY_ROUND } from './game/draftPools'
 import { play } from './sound'
 
 const other = color => (color === 'white' ? 'black' : 'white')
@@ -40,6 +41,8 @@ export default function OnlineApp({ onExit }) {
   const navigateRef = useRef(navigate)
   navigateRef.current = navigate
   const urlCode = useMatch('/room/:code')?.params.code?.toUpperCase() ?? null
+  // Main menu's "Против ИИ" lands here with the bot dialog open.
+  const openBotOnEnter = !!useLocation().state?.bot
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -53,7 +56,20 @@ export default function OnlineApp({ onExit }) {
 
   const [boardMode, dispatch]           = useReducer(boardModeReducer, IDLE)
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
-  const [actionToast, setActionToast]   = useState(null)
+  const [cardSplash, setCardSplash]     = useState(null) // { cardId, color, ts }
+  const [drawConfirm, setDrawConfirm]   = useState(false)
+  // Recruit → battle: a short "Бой!" beat instead of a hard swap.
+  const [battleIntro, setBattleIntro] = useState(false)
+  const prevPhaseRef = useRef(null)
+  useEffect(() => {
+    const prev = prevPhaseRef.current
+    prevPhaseRef.current = match?.phase ?? null
+    if (prev === 'draft' && match?.phase === 'battle') {
+      setBattleIntro(true)
+      const id = setTimeout(() => setBattleIntro(false), 1500)
+      return () => clearTimeout(id)
+    }
+  }, [match?.phase])
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null) // { strikes: [{square, destroyed}], ts }
   const [mineStrikeAnim, setMineStrikeAnim] = useState(null) // { strike: {square, owner}, ts }
   const [pendingPromotion, setPendingPromotion] = useState(null) // { from, to } awaiting a piece choice
@@ -142,9 +158,9 @@ export default function OnlineApp({ onExit }) {
         } else if (lastAction.type === 'draw_declined' && lastAction.color !== roomInfo.color) {
           flashError(t('err.drawDeclined'))
         } else if (lastAction.type === 'card') {
-          const card = CARD_DEFS[lastAction.cardId]
-          setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
-          setTimeout(() => setActionToast(null), 2000)
+          const ts = Date.now()
+          setCardSplash({ cardId: lastAction.cardId, color: lastAction.color, ts })
+          setTimeout(() => setCardSplash(s => (s?.ts === ts ? null : s)), 1900)
           play('card')
         }
         // The opponent just acted and the turn passed to us — one gentle
@@ -337,7 +353,8 @@ export default function OnlineApp({ onExit }) {
     setRoom(null)
     setMatch(null)
     setOpponentLeft(false)
-    setActionToast(null)
+    setCardSplash(null)
+    setDrawConfirm(false)
     setLastMoveAnim(null)
     setMeteorStrikeAnim(null)
     setPendingPromotion(null)
@@ -356,9 +373,8 @@ export default function OnlineApp({ onExit }) {
   }
 
   // Transient messages (server rejections, "opponent declined the draw", …)
-  // — shown on every match screen, not just the lobby, which used to be the
-  // only place errorMsg was rendered at all.
-  const toast = errorMsg ? <div className="game-toast">{errorMsg}</div> : null
+  // — shown on every screen.
+  const toast = errorMsg ? <div className="ui-toast" role="status">{errorMsg}</div> : null
 
   // ── Menu / waiting for the second seat — no match yet ─────────────
   if (phase !== 'match' || !room || !match) {
@@ -379,6 +395,8 @@ export default function OnlineApp({ onExit }) {
           onNicknameChange={handleNicknameChange}
           rooms={lobbyRooms}
           roomsLoading={roomsLoading}
+          openBot={openBotOnEnter}
+          onRefresh={() => request('list_rooms').then(res => setLobbyRooms(res?.rooms ?? [])).catch(() => {})}
         />
       </PageTransition>
     )
@@ -386,111 +404,76 @@ export default function OnlineApp({ onExit }) {
 
   const myColor  = room.color
   const oppColor = other(myColor)
+  const names = {
+    white: playerName(room.players?.white) || t('common.white'),
+    black: playerName(room.players?.black) || t('common.black'),
+  }
+  // Recruit, battle and the round summary share one page (same layout, the
+  // board stays put); only a new round fades in as a fresh page.
+  const gamePageKey = `game-${match.round}`
+
+  const leaveModal = leaveConfirm && (
+    <ConfirmModal
+      icon={<IconExit />}
+      tone="danger"
+      title={t('online.leaveTitle')}
+      message={t('online.leaveMsg')}
+      confirmLabel={t('common.exit')}
+      cancelLabel={t('online.stay')}
+      onConfirm={handleLeave}
+      onCancel={() => setLeaveConfirm(false)}
+    />
+  )
 
   // ── Round-over summary ───────────────────────────────────────────────
-  // Shown once per round transition, right before the next round's draft.
-  // pageKey is "battle", SHARED with the live battle below — a round ending
-  // is not a new page, it's the same board now frozen with a result banner
-  // over it, so no transition plays between them; only the banner
-  // announces itself (its own result-banner-in, see App.css). Placement
-  // has its own key, but its exit into battle is just a soft whole-screen
-  // crossfade (see PageTransition.css) since the two share identical
-  // geometry — the real page transitions are draft -> placement and
-  // summary -> next round's draft.
   // Server-driven: stays up until the server has registered MY "continue"
-  // (or its SUMMARY_MAX_SECONDS cap ran out) — the next draft's clocks only
-  // start once both players are past it (see matchEngine.js).
+  // (or its SUMMARY_MAX_SECONDS cap ran out).
   if (match.phase === 'draft' && match.previousRound != null && match.summaryReady && !match.summaryReady[myColor]) {
     return (
       <>
         {toast}
-        <PageTransition pageKey="battle">
+        <PageTransition pageKey={`game-${match.previousRound}`}>
           <RoundSummary
             match={match}
-            // Colors swap every round (see matchEngine.js) — during the round
-            // that just ended, "my" pieces were whatever color I'm NOT playing
-            // now, so the frozen board must be oriented/labeled accordingly.
+            // Colors swap every round — during the round that just ended,
+            // "my" pieces were whatever color I'm NOT playing now.
             previousMyColor={oppColor}
             room={room}
             onContinue={() => getSocket().emit('summary_continue')}
+            onExit={() => setLeaveConfirm(true)}
           />
         </PageTransition>
+        {leaveModal}
       </>
     )
   }
 
-  // ── Draft phase (turn-based, no bans — every pick is live/visible) ──
+  // ── Recruit (turn-based buying straight onto the board) ─────────────
   if (match.phase === 'draft') {
     return (
       <>
         {toast}
-        <PageTransition pageKey="draft">
-          <DraftPhase
-            round={match.round}
-            boardPattern={match.boardPattern}
-            draft={match.draft}
+        <PageTransition pageKey={gamePageKey}>
+          <RecruitPhase
+            match={match}
             myColor={myColor}
-            matchScore={{
-              round: match.round,
-              white: match.scores.white,
-              black: match.scores.black,
-              whiteName: playerName(room.players?.white),
-              blackName: playerName(room.players?.black),
-            }}
+            room={room}
             onPick={(item) => { play('buy'); getSocket().emit('draft_pick', item) }}
             onDone={() => getSocket().emit('draft_done')}
+            onExit={() => setLeaveConfirm(true)}
           />
         </PageTransition>
+        {leaveModal}
       </>
     )
   }
 
-  // ── Placement phase (open, shared countdown) ───────────────────────
-  if (match.phase === 'placement') {
-    const placementSeconds = PLACEMENT_TIME_BY_ROUND[Math.min(match.round, 3)]
-    return (
-      <>
-        {toast}
-        <PageTransition pageKey="placement">
-          <PlacementPhase
-            boardPattern={match.boardPattern}
-            draftedPieces={match.draft.picks[myColor].pieces}
-            myCards={match.draft.picks[myColor].cards}
-            myColor={myColor}
-            opponentReady={match.placement[oppColor].ready}
-            myMap={match.placement[myColor].map}
-            oppMap={match.placement[oppColor].map}
-            deadline={match.placementDeadline}
-            totalSeconds={placementSeconds}
-            oppColor={oppColor}
-            oppPieces={match.draft.picks[oppColor].pieces}
-            oppCards={match.draft.picks[oppColor].cards}
-            matchScore={{
-              round: match.round,
-              white: match.scores.white,
-              black: match.scores.black,
-              whiteName: playerName(room.players?.white),
-              blackName: playerName(room.players?.black),
-            }}
-            onChange={(map) => getSocket().emit('update_placement', { map })}
-            onSubmit={(map) => getSocket().emit('submit_placement', { map })}
-          />
-        </PageTransition>
-      </>
-    )
-  }
-
-  // ── Battle / match-over — reuse the normal GameView battle UI ──────
+  // ── Battle / match-over ──────────────────────────────────────────────
   const gameState    = match.gameState
-  const matchOver     = match.phase === 'match_over'
-  const myTurn        = !matchOver && gameState.turn === myColor
-  const inCheck        = match.phase === 'battle' && isKingInCheck(gameState, gameState.turn)
-  // Cards no longer end the turn — you still get your normal move/purchase
-  // this turn, just capped at one card played per turn.
-  const cardsLocked   = myTurn && gameState.cardPlayedThisTurn
-
-  const myCaptured  = getCaptured(gameState, myColor)
-  const oppCaptured = getCaptured(gameState, oppColor)
+  const matchOver    = match.phase === 'match_over'
+  const myTurn       = !matchOver && gameState.turn === myColor
+  const cardsLocked  = myTurn && gameState.cardPlayedThisTurn
+  const drawDisabled = !!gameState.drawOffer || gameState.drawOfferedAt?.[myColor] === (gameState.moveHistory?.length ?? 0)
 
   function handleMove({ from, to }) {
     if (match.phase !== 'battle' || !myTurn) return
@@ -507,30 +490,14 @@ export default function OnlineApp({ onExit }) {
     setPendingPromotion(null)
   }
 
-  function handlePromotionCancel() {
-    setPendingPromotion(null)
-  }
-
-  function handleAnswerDraw(accept) {
-    getSocket().emit('answer_draw', { accept })
-  }
-
-  function handleSurrenderConfirm() {
-    getSocket().emit('surrender')
-    setSurrenderConfirm(false)
-  }
-
   function handleCardSelect(card) {
     if (match.phase !== 'battle' || !myTurn || cardsLocked) return
-    // Same pick/unpick tick a board piece gets (see Board.jsx) — selecting
-    // a card to aim it, or clicking it again to cancel, both play 'select'.
     play('select')
     if (boardMode.type === 'card_targeting' && boardMode.card.id === card.id) {
       dispatch({ type: 'CANCEL' })
       return
     }
-    const validTargets = getValidTargets(card.id, gameState, myColor)
-    dispatch({ type: 'PLAY_CARD', card, validTargets })
+    dispatch({ type: 'PLAY_CARD', card, validTargets: getValidTargets(card.id, gameState, myColor) })
   }
 
   function handlePlayCard({ card, target }) {
@@ -538,142 +505,126 @@ export default function OnlineApp({ onExit }) {
     getSocket().emit('play_card', { cardId: card.id, target })
   }
 
-  function handleBackgroundClick(e) {
-    if (e.target === e.currentTarget && boardMode.type === 'card_targeting') {
-      dispatch({ type: 'CANCEL' })
-    }
-  }
+  const battleActions = match.phase === 'battle' && (
+    <>
+      <SettingsButton />
+      <button className="ui-btn has-lbl" disabled={drawDisabled} onClick={() => setDrawConfirm(true)} title={t('player.offerDraw')} data-testid="draw-btn">
+        <span className="bt-half">½</span><span className="lbl">{t('battle.draw')}</span>
+      </button>
+      <button className="ui-btn has-lbl danger-text" onClick={() => setSurrenderConfirm(true)} title={t('player.surrender')} data-testid="surrender-btn">
+        <span className="bt-flag"><IconFlag size={20} /></span><span className="lbl">{t('online.surrender')}</span>
+      </button>
+    </>
+  )
 
-  const gameResult   = matchOver ? match.lastRoundResult : null
-  const matchOutcome = matchOver
-    ? (match.scores[myColor] > match.scores[oppColor] ? 'win' : 'loss')
-    : undefined
-  const resultTitle = matchOver
-    ? t(matchOutcome === 'win' ? 'online.matchOverWin' : 'online.matchOverLoss', { score: `${match.scores.white}:${match.scores.black}` })
-    : undefined
+  const outcome = matchOver ? (match.scores[myColor] > match.scores[oppColor] ? 'win' : match.scores[myColor] < match.scores[oppColor] ? 'loss' : 'draw') : null
+  const rematch = match.rematch ?? {}
 
   return (
     <>
       {toast}
-      <PageTransition pageKey="battle">
-        {opponentLeft && (
-          <div className="opponent-left-banner">
-            {t('online.opponentLeft')}
-            <button onClick={handleLeave}>{t('online.leaveToMenu')}</button>
-          </div>
-        )}
-        {pendingPromotion && (
-          <PromotionPicker
-            color={myColor}
-            onPick={handlePromotionPick}
-            onCancel={handlePromotionCancel}
-          />
-        )}
-        {leaveConfirm && (
-          <ConfirmModal
-            title={t('online.leaveTitle')}
-            message={t('online.leaveMsg')}
-            confirmLabel={t('common.exit')}
-            onConfirm={handleLeave}
-            onCancel={() => setLeaveConfirm(false)}
-          />
-        )}
-        {match.phase === 'battle' && gameState.drawOffer === oppColor && !surrenderConfirm && (
-          <ConfirmModal
-            title={t('online.drawOfferTitle')}
-            message={t('online.drawOfferMsg')}
-            confirmLabel={t('online.accept')}
-            cancelLabel={t('online.decline')}
-            onConfirm={() => handleAnswerDraw(true)}
-            onCancel={() => handleAnswerDraw(false)}
-          />
-        )}
-        {surrenderConfirm && (
-          <ConfirmModal
-            title={t('online.surrenderTitle')}
-            message={t('online.surrenderMsg')}
-            confirmLabel={t('online.surrender')}
-            onConfirm={handleSurrenderConfirm}
-            onCancel={() => setSurrenderConfirm(false)}
-          />
-        )}
+      <PageTransition pageKey={gamePageKey}>
         <GameView
+          round={match.round}
+          boardPattern={match.boardPattern}
+          names={names}
+          scores={match.scores}
           gameState={gameState}
           boardMode={boardMode}
           dispatch={dispatch}
           lastMoveAnim={lastMoveAnim}
-          actionToast={actionToast}
+          cardSplash={cardSplash}
           meteorStrikeAnim={meteorStrikeAnim}
           mineStrikeAnim={mineStrikeAnim}
-          boardFlipped={myColor === 'black'}
+          myColor={myColor}
+          flipped={myColor === 'black'}
           // Always your own color (not gated by whose turn it is) so you can
-          // select your pieces to queue a premove while waiting — actually
-          // executing a move is what stays gated, via isMyTurn below.
+          // select your pieces to queue a premove while waiting.
           boardPlayerColor={matchOver ? 'none' : myColor}
           isMyTurn={myTurn}
           premove={premove}
           onSetPremove={setPremove}
           onClearPremove={() => setPremove(null)}
-          onMove={handleMove}
-          onPlayCard={handlePlayCard}
-          battleLog={gameState.actionLog}
+          onMove={matchOver ? undefined : handleMove}
+          onPlayCard={matchOver ? undefined : handlePlayCard}
+          draftLog={match.draft?.log ?? []}
           historyIndex={historyIndex}
           onSelectHistory={setHistoryIndex}
           onReturnToLive={() => setHistoryIndex(null)}
-          gameResult={gameResult}
-          resultTitle={resultTitle}
-          resultOutcome={matchOutcome}
-          restartLabel={matchOver ? t('online.toMenu') : undefined}
-          onRestart={handleLeave}
-          onBackgroundClick={handleBackgroundClick}
-          matchScore={{
-            round: match.round,
-            white: match.scores.white,
-            black: match.scores.black,
-            whiteName: playerName(room.players?.white),
-            blackName: playerName(room.players?.black),
-          }}
-          turnBar={!matchOver ? {
-            color: gameState.turn,
-            text: t(gameState.turn === 'white' ? 'common.whiteToMove' : 'common.blackToMove'),
-            sub: t(myTurn ? 'online.yourMove' : 'online.opponentMove'),
-            urgent: myTurn,
-          } : null}
-          topPanel={{
-            color: oppColor,
-            name: playerName(room.players?.[oppColor]),
-            capturedByMe: oppCaptured,
-            active: gameState.turn === oppColor,
-            inCheck: inCheck && gameState.turn === oppColor,
-            opponentCards: gameState.cards[oppColor].hand,
-            selectedCardId: null,
-            onCardClick: undefined,
-            controllable: false,
-          }}
-          bottomPanel={{
-            color: myColor,
-            name: playerName(room.players?.[myColor]),
-            capturedByMe: myCaptured,
-            active: myTurn,
-            inCheck: inCheck && myTurn,
-            isYou: true,
-            // Server also enforces this — surrendering mid-opponent's-turn
-            // isn't allowed — but gating the button here avoids a round-trip
-            // error toast for something the client already knows is invalid.
-            onSurrender: match.phase === 'battle' ? () => setSurrenderConfirm(true) : undefined,
-            onOfferDraw: match.phase === 'battle' ? () => getSocket().emit('offer_draw') : undefined,
-            drawOfferDisabled: !!gameState.drawOffer
-              || gameState.drawOfferedAt?.[myColor] === (gameState.moveHistory?.length ?? 0),
-            controllable: myTurn,
-          }}
-          bottomHand={{
+          finished={matchOver}
+          intro={battleIntro}
+          onBack={matchOver ? handleLeave : () => setLeaveConfirm(true)}
+          actions={matchOver ? <SettingsButton /> : battleActions}
+          hand={{
             cards: gameState.cards[myColor].hand,
             isActive: myTurn && !cardsLocked,
             selectedCardId: boardMode.type === 'card_targeting' ? boardMode.card.id : null,
             onCardClick: handleCardSelect,
           }}
-        />
+          boardOverlay={(
+            <>
+              {match.phase === 'battle' && gameState.drawOffer === oppColor && (
+                <div className="mx-banner" role="alertdialog">
+                  <span className={`ui-avatar md ${oppColor}`}><Piece type="king" color={oppColor} size={24} center thin /></span>
+                  <span className="mx-banner-text">{t('online.drawOffered', { name: names[oppColor] })}</span>
+                  <button className="ui-btn" onClick={() => getSocket().emit('answer_draw', { accept: false })}>{t('online.no')}</button>
+                  <button className="ui-btn primary" onClick={() => getSocket().emit('answer_draw', { accept: true })} data-testid="draw-accept">{t('online.accept')}</button>
+                </div>
+              )}
+              {opponentLeft && !matchOver && (
+                <div className="mx-opp-left">
+                  {t('online.opponentLeft')}
+                  <button className="ui-btn" onClick={handleLeave}>{t('online.leaveToMenu')}</button>
+                </div>
+              )}
+            </>
+          )}
+        >
+          {pendingPromotion && (
+            <PromotionPicker
+              color={myColor}
+              square={pendingPromotion.to}
+              onPick={handlePromotionPick}
+              onCancel={() => setPendingPromotion(null)}
+            />
+          )}
+          {drawConfirm && (
+            <ConfirmModal
+              icon="½"
+              tone="accent"
+              title={t('online.offerDrawTitle')}
+              confirmLabel={t('online.offer')}
+              onConfirm={() => { getSocket().emit('offer_draw'); setDrawConfirm(false) }}
+              onCancel={() => setDrawConfirm(false)}
+            />
+          )}
+          {surrenderConfirm && (
+            <ConfirmModal
+              icon={<IconFlag />}
+              tone="danger"
+              title={t('online.surrenderTitle')}
+              cancelLabel={t('online.playOn')}
+              confirmLabel={t('online.surrender')}
+              onConfirm={() => { getSocket().emit('surrender'); setSurrenderConfirm(false) }}
+              onCancel={() => setSurrenderConfirm(false)}
+            />
+          )}
+          {matchOver && (
+            <ResultModal
+              title={t(outcome === 'win' ? 'online.victory' : outcome === 'loss' ? 'online.defeat' : 'summary.drawTitle')}
+              reason={resultLine(match.lastRoundResult)}
+              outcome={outcome}
+              showDots={false}
+              me={{ color: myColor, name: names[myColor], score: match.scores[myColor] }}
+              opp={{ color: oppColor, name: names[oppColor], score: match.scores[oppColor] }}
+              secondary={{ label: t('online.toMenu'), onClick: handleLeave }}
+              primary={opponentLeft ? undefined : { label: rematch[myColor] ? t('common.waitingOpponent') : t('online.rematch'), onClick: () => getSocket().emit('rematch'), disabled: !!rematch[myColor] }}
+              note={!rematch[myColor] && rematch[oppColor] ? t('online.rematchAsked', { name: names[oppColor] }) : null}
+            />
+          )}
+        </GameView>
       </PageTransition>
+      {leaveModal}
     </>
   )
 }

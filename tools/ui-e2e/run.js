@@ -4,7 +4,7 @@
 //   node tools/ui-e2e/run.js                 # desktop + phone, all scenarios
 //   node tools/ui-e2e/run.js --all-profiles  # + laptop, small phone, tablet
 //   node tools/ui-e2e/run.js --headed        # watch it play
-//   node tools/ui-e2e/run.js --only online   # one scenario (menu|online|invite|monkey)
+//   node tools/ui-e2e/run.js --only online   # one scenario (menu|online|invite|bot|monkey)
 //   node tools/ui-e2e/run.js --no-build      # reuse client/dist
 import fs from 'fs'
 import path from 'path'
@@ -74,8 +74,9 @@ async function main() {
         try { await fn() } catch (e) { console.log(`    сценарий прерван: ${String(e?.message ?? e).split('\n')[0]}`) }
       }
       await run('menu', () => S.menuTour(browser, server.url, profile, rec, rng))
-      await run('online', () => S.onlineMatch(browser, server.url, profile, rec, rng, { letPlacementTimerRun: profile === 'desktop' }))
+      await run('online', () => S.onlineMatch(browser, server.url, profile, rec, rng, { letRecruitTimerRun: profile === 'desktop' }))
       await run('invite', () => S.inviteLink(browser, server.url, profile, rec))
+      await run('bot', () => S.botMatch(browser, server.url, profile, rec, rng))
       await run('monkey', () => S.monkey(browser, server.url, profile, rec, rng, { steps: Number(val('monkey') ?? 150) }))
     }
   } finally {

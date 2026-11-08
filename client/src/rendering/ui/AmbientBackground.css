@@ -1,0 +1,10 @@
+/* Sits right above the static .ui-bg gradient (the no-WebGL fallback) and
+   below every screen. Drawn on mount, before the first paint — no fade-in. */
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}

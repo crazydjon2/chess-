@@ -1,27 +1,47 @@
+import { useLayoutEffect, useState } from 'react'
 import { t } from '../i18n'
-import { PIECE_ICONS } from './pieceIcons'
+import { Piece } from '../skins/Piece'
 import { PROMOTION_TYPES } from '../game/chess'
-import { PIECE_LABEL as LABEL } from '../game/economy'
-import './PromotionPicker.css'
+import Overlay from './ui/Overlay'
+import { PIECE_LABEL } from '../game/economy'
 
-
-// Shown when your own pawn move reaches the far rank — the move itself
-// isn't sent to the server until a promotion piece is chosen here.
-export default function PromotionPicker({ color, onPick, onCancel }) {
+// Promotion: a strip of the four pieces right under the promotion square,
+// over a dimmed screen. Click outside / Esc cancels the move.
+export default function PromotionPicker({ color, square, onPick, onCancel }) {
+  const [pos, setPos] = useState(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = square && document.querySelector(`.mx-board .bd-cell[data-square="${square}"]`)
+      if (!el) { setPos({ left: window.innerWidth / 2, top: window.innerHeight / 2 - 50 }); return }
+      const r = el.getBoundingClientRect()
+      const w = Math.min(window.innerWidth - 16, 380)
+      const left = Math.min(window.innerWidth - w / 2 - 8, Math.max(w / 2 + 8, r.left + r.width / 2))
+      setPos({ left, top: r.bottom + 12, arrow: r.left + r.width / 2 - left, hole: r })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [square])
+  useLayoutEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onCancel?.() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
   return (
-    <div className="promo-overlay" onClick={onCancel}>
-      <div className="promo-card" onClick={e => e.stopPropagation()}>
-        <div className="promo-title">{t('promo.title')}</div>
-        <div className="promo-options">
+    <Overlay sheet={false} style={{ alignItems: 'flex-start' }} onClose={onCancel}>
+      {pos?.hole && (
+        <span className="pr-hole" style={{ left: pos.hole.left, top: pos.hole.top, width: pos.hole.width, height: pos.hole.height }} />
+      )}
+      {pos && (
+        <div className="pr-pop" style={{ left: pos.left, top: pos.top }} role="dialog" aria-label={t('promo.title')} onClick={e => e.stopPropagation()}>
           {PROMOTION_TYPES.map(type => (
-            <button key={type} className="promo-btn" onClick={() => onPick(type)}>
-              <span className="promo-glyph">{PIECE_ICONS[color][type]}</span>
-              <span className="promo-label">{LABEL[type]}</span>
+            <button key={type} className="pr-opt" onClick={() => onPick(type)} aria-label={PIECE_LABEL[type]} title={PIECE_LABEL[type]} data-promo={type}>
+              <Piece type={type} color={color} size={58} center />
             </button>
           ))}
+          <span className="pr-arrow" style={{ left: `calc(50% + ${pos.arrow ?? 0}px)` }} />
         </div>
-        <button className="promo-cancel" onClick={onCancel}>{t('common.cancel')}</button>
-      </div>
-    </div>
+      )}
+    </Overlay>
   )
 }

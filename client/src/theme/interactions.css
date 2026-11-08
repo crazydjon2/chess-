@@ -1,0 +1,196 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Interaction feedback: every clickable thing answers hover and press in
+   its own way. Hover effects only for real mouse pointers (no sticky hover
+   on touch); presses work everywhere. Tunable through the --fx-* tokens.
+   ───────────────────────────────────────────────────────────────────── */
+:root {
+  --fx-lift: -3px;              /* hover rise */
+  --fx-press: 3px;              /* press sink */
+  --fx-speed: 0.16s;
+  --fx-tilt: 5deg;              /* max lean towards the cursor */
+  --fx-glow: rgba(242, 181, 68, 0.35);
+}
+
+/* ── Buttons: rise on hover (the chunky drop grows), sink on press ──── */
+.ui-btn {
+  transition: transform var(--fx-speed) var(--ease-pop), box-shadow var(--fx-speed) ease, filter 0.15s ease, background 0.15s ease;
+}
+.ui-btn:active:not(:disabled) { transform: translateY(var(--fx-press)) scale(0.98); box-shadow: 0 1px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge); }
+.ui-btn.primary:active:not(:disabled) { box-shadow: 0 1px 0 var(--c-accent-depth); }
+.ui-btn.danger:active:not(:disabled) { box-shadow: 0 1px 0 var(--c-danger-depth); }
+.ui-btn .ic { transition: transform 0.3s var(--ease-pop); }
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-btn:hover:not(:disabled) { transform: translateY(var(--fx-lift)); filter: brightness(1.1); box-shadow: 0 7px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge); }
+  .ui-btn.primary:hover:not(:disabled) { box-shadow: 0 7px 0 var(--c-accent-depth), 0 10px 22px var(--fx-glow); filter: brightness(1.05); }
+  .ui-btn.danger:hover:not(:disabled) { box-shadow: 0 7px 0 var(--c-danger-depth), 0 10px 22px rgba(224, 97, 74, 0.35); }
+  .ui-btn.danger-text:hover:not(:disabled) { box-shadow: 0 7px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-danger); }
+
+  /* Each icon says what it does */
+  .ui-btn:hover .ic-settings { transform: rotate(90deg); }
+  .ui-btn:hover .ic-back { transform: translateX(-3px); }
+  .ui-btn:hover .ic-exit { transform: translateX(3px); }
+  .ui-btn:hover .ic-close { transform: rotate(90deg) scale(1.1); }
+  .ui-btn:hover .ic-refresh { transform: rotate(-180deg); }
+  .ui-btn:hover .ic-plus { transform: rotate(90deg); }
+  .ui-btn:hover .ic-check { transform: scale(1.2); }
+  .ui-btn:hover .ic-link { transform: rotate(-15deg) scale(1.1); }
+  .ui-btn:hover .ic-flag { animation: fx-wave 0.6s ease-in-out infinite; transform-origin: 20% 90%; }
+  .ui-btn:hover .bt-half { display: inline-block; animation: fx-flip 0.5s var(--ease-pop); }
+  .ui-btn:hover .bt-log-ic { display: inline-block; transform: scaleX(1.15); transition: transform 0.2s ease; }
+}
+@keyframes fx-wave { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-12deg) skewY(-4deg); } }
+@keyframes fx-flip { from { transform: rotateY(180deg); } to { transform: none; } }
+
+/* ── Tilt cards (main menu tiles, How-to-play cards) ─────────────────── */
+[data-tilt] {
+  --lift: 0px;
+  --press: 1;
+  transform: perspective(900px) rotateX(calc(var(--ty, 0) * var(--fx-tilt) * -1)) rotateY(calc(var(--tx, 0) * var(--fx-tilt))) translateY(var(--lift)) scale(var(--press));
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease, filter 0.18s ease;
+}
+[data-tilt]:active { --press: 0.97; --lift: var(--fx-press); }
+@media (hover: hover) and (pointer: fine) {
+  [data-tilt]:hover { --lift: -5px; }
+}
+
+/* Main menu */
+.mm-mode-art .ic, .mm-mi .ic { transition: transform 0.35s var(--ease-pop); }
+.mm-hero-art .pz { transition: transform 0.3s var(--ease-pop); }
+@media (hover: hover) and (pointer: fine) {
+  .mm-tile:hover { filter: brightness(1.06); }
+  .mm-tile.hero:hover { box-shadow: 0 8px 0 var(--c-accent-depth), 0 14px 0 var(--c-panel-depth), 0 18px 34px var(--fx-glow); }
+  .mm-tile.hero:hover .mm-hero-art .pz:nth-child(1) { animation: fx-hop 0.7s ease-in-out infinite; }
+  .mm-tile.hero:hover .mm-hero-art .pz:nth-child(2) { animation: fx-hop 0.7s ease-in-out 0.35s infinite; }
+  .mm-tile.mode:hover .mm-mode-art .ic { transform: rotate(-8deg) scale(1.12); }
+  .mm-tile.mode:hover .mm-mode-art { filter: brightness(1.08); }
+  .mm-minor:hover:not(:disabled) { transform: translateY(var(--fx-lift)); box-shadow: 0 6px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge); }
+  .mm-minor:hover:not(:disabled) .mm-mi .ic { transform: rotate(-10deg) scale(1.15); }
+  .mm-minor.off:hover .mm-soon { animation: fx-nudge 0.4s ease; }
+}
+.mm-minor { transition: transform var(--fx-speed) var(--ease-pop), box-shadow var(--fx-speed) ease, filter 0.15s ease; }
+.mm-minor:active:not(:disabled) { transform: translateY(var(--fx-press)) scale(0.98); }
+@keyframes fx-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px) rotate(-4deg); } 60% { transform: translateY(-14px) rotate(4deg); } }
+@keyframes fx-nudge { 0%, 100% { transform: none; } 30% { transform: translateX(-3px) rotate(-3deg); } 70% { transform: translateX(3px) rotate(3deg); } }
+
+/* ── Lobby rows: slide towards the chevron ─────────────────────────── */
+.po-row { transition: transform var(--fx-speed) var(--ease-pop), box-shadow 0.15s ease; }
+.po-row .ic-chevron, .po-row .ui-avatar { transition: transform 0.25s var(--ease-pop); }
+.po-row:active:not(:disabled) { transform: translateY(var(--fx-press)) scale(0.99); }
+@media (hover: hover) and (pointer: fine) {
+  .po-row:hover:not(:disabled) { transform: translateX(4px); }
+  .po-row:hover:not(:disabled) .ic-chevron { transform: translateX(5px); color: var(--c-accent); }
+  .po-row:hover:not(:disabled) .ui-avatar { transform: rotate(-6deg) scale(1.08); }
+  .po-me:hover { filter: brightness(1.12); }
+  .po-me:hover .po-me-ini { transform: rotate(-8deg); }
+  .po-code:hover:not(.typing) { box-shadow: inset 0 0 0 2px var(--c-text-mute); }
+}
+.po-me { transition: filter 0.15s ease, transform var(--fx-speed) var(--ease-pop); }
+.po-me:active { transform: translateY(var(--fx-press)); }
+.po-me-ini { transition: transform 0.25s var(--ease-pop); }
+
+/* ── Segmented choices, toggles ─────────────────────────────────────── */
+.ui-seg > button { transition: background 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-pop); }
+.ui-seg > button:active { transform: scale(0.95); }
+.ui-seg > button.on { animation: fx-pick 0.3s var(--ease-pop); }
+@media (hover: hover) and (pointer: fine) {
+  .ui-seg > button:not(.on):hover { background: rgba(255, 255, 255, 0.05); color: var(--c-text); }
+}
+@keyframes fx-pick { 0% { transform: scale(0.92); } 100% { transform: none; } }
+.set-toggle:active .set-toggle-knob { width: 32px; }
+.set-toggle.on:active .set-toggle-knob { transform: translateX(18px); }
+.set-toggle-knob { transition: transform 0.2s var(--ease-pop), background 0.18s ease, width 0.15s ease; }
+.set-lang-opt { transition: background 0.12s ease, padding 0.15s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .set-lang-opt:hover { padding-left: 10px; }
+  .set-lang-btn:hover:not(.open) { box-shadow: inset 0 0 0 2px var(--c-text-mute); }
+  .set-slider::-webkit-slider-thumb:hover { transform: scale(1.12); }
+}
+.set-slider::-webkit-slider-thumb { transition: transform 0.15s var(--ease-pop); }
+.set-slider:active::-webkit-slider-thumb { transform: scale(0.92); }
+
+/* ── Cards: rows (shop / hand), tray tiles, How-to-play tiles ───────── */
+.cd-row .card-icon, .cd-tile .card-icon, .htp-card .card-icon { transition: transform 0.3s var(--ease-pop), filter 0.2s ease; }
+.cd-row .ui-coin { transition: transform 0.45s var(--ease-pop); }
+.cd-row:not(.small):active:not(.off) { transform: translateY(var(--fx-press)) scale(0.99); }
+.cd-tile:active:not(.off) { transform: translateY(2px) scale(0.96); }
+.cd-row.sel .card-icon, .cd-tile.sel .card-icon { animation: fx-wiggle 0.45s var(--ease-pop); }
+@media (hover: hover) and (pointer: fine) {
+  .cd-row:not(.small):not(.off):hover { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--c-text-mute), 0 6px 0 var(--c-panel-depth); }
+  .cd-row.sel:hover { box-shadow: inset 0 0 0 3px var(--c-accent), 0 6px 0 var(--c-panel-depth), 0 10px 22px var(--fx-glow); }
+  .cd-row:not(.off):hover .card-icon { transform: rotate(-7deg) scale(1.08); }
+  .cd-row:not(.off):hover .ui-coin { transform: rotateY(360deg); }
+  .cd-row.small:hover { filter: brightness(1.12); }
+  .cd-tile:not(.off):not(.sel):hover { transform: translateY(-4px); }
+  .cd-tile:not(.off):hover .card-icon { transform: scale(1.06) rotate(-3deg); }
+  .htp-card:hover .card-icon { transform: scale(1.04); filter: brightness(1.08); }
+  .htp-card:hover .htp-card-q { transform: scale(1.15); }
+}
+.htp-card-q { transition: transform 0.2s var(--ease-pop); }
+@keyframes fx-wiggle { 0% { transform: rotate(0) scale(1); } 30% { transform: rotate(-10deg) scale(1.12); } 60% { transform: rotate(6deg) scale(1.05); } 100% { transform: none; } }
+
+/* ── Recruit piece picker ──────────────────────────────────────────── */
+.pk-opt, .pk-ok { transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease, background 0.15s ease; }
+.pk-opt .pz { transition: transform 0.3s var(--ease-pop); }
+.pk-opt:active:not(:disabled), .pk-ok:active:not(:disabled) { transform: translateY(2px) scale(0.95); }
+.pk-opt.on .pz { animation: fx-hop-once 0.4s var(--ease-pop); }
+@media (hover: hover) and (pointer: fine) {
+  .pk-opt:not(:disabled):not(.on):hover { transform: translateY(-3px); box-shadow: inset 0 0 0 2px var(--c-text-mute); }
+  .pk-opt:not(:disabled):hover .pz { transform: translateY(-3px) rotate(-5deg); }
+  .pk-ok:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 6px 0 var(--c-accent-depth), 0 10px 20px var(--fx-glow); }
+  .pk-ok:not(:disabled):hover .ic-check { transform: scale(1.25); }
+  .pr-opt:hover .pz { transform: translateY(-4px) scale(1.06); }
+}
+.pk-ok .ic-check, .pr-opt .pz { transition: transform 0.25s var(--ease-pop); }
+.pr-opt { transition: transform 0.15s var(--ease-pop); }
+.pr-opt:active { transform: scale(0.94); }
+@keyframes fx-hop-once { 0% { transform: none; } 45% { transform: translateY(-8px); } 100% { transform: none; } }
+
+/* ── Journal, chips, player cards ──────────────────────────────────── */
+.jr-row.btn { transition: transform 0.15s var(--ease-pop), filter 0.15s ease, box-shadow 0.15s ease; }
+.jr-row.btn:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) {
+  .jr-row.btn:hover { transform: translateX(3px); box-shadow: inset 3px 0 0 var(--c-accent); }
+  .jr-row.btn:hover .jr-chev { transform: translateX(3px); }
+  .jr-row.btn.group:hover .jr-chev.open { transform: rotate(90deg) translateY(-2px); }
+  .ui-chip:not(.empty):hover { filter: brightness(1.15); }
+  .ui-chip:not(.empty):hover .card-icon { transform: rotate(-8deg); }
+  .pc-card .ui-avatar:hover { transform: rotate(-6deg) scale(1.06); }
+}
+.ui-chip .card-icon, .pc-card .ui-avatar { transition: transform 0.25s var(--ease-pop); }
+
+/* ── Board ─────────────────────────────────────────────────────────── */
+/* Squares you can act on answer the cursor; your own pieces lift a little. */
+@media (hover: hover) and (pointer: fine) {
+  .bd-cell.can:hover { box-shadow: inset 0 0 0 4px var(--board-hl-select); background: rgba(242, 181, 68, 0.12); }
+  .bd-cell.can.cap:hover { box-shadow: inset 0 0 0 4px var(--c-danger); background: rgba(224, 97, 74, 0.12); }
+  .bd-piece.mine:not(.lifted):not(.dragging):has(.bd-art:hover) .bd-stand {
+    transform: rotateX(calc(-1 * var(--board-tilt) * var(--piece-lean))) translateY(-12%);
+  }
+  .bd-piece.mine .bd-art { cursor: grab; }
+}
+.bd-cell { transition: box-shadow 0.12s ease, background 0.12s ease; }
+
+/* ── Click burst ───────────────────────────────────────────────────── */
+.fx-burst {
+  position: fixed;
+  z-index: 999;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--c-accent);
+  animation: fx-burst 0.5s var(--ease-out) forwards;
+}
+.fx-burst.danger { box-shadow: 0 0 0 2px var(--c-danger); }
+@keyframes fx-burst {
+  0% { transform: scale(0.4); opacity: 1; }
+  100% { transform: scale(5); opacity: 0; box-shadow: 0 0 0 1px var(--c-accent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tilt] { transform: none !important; }
+  .fx-burst { display: none; }
+  .ui-btn .ic, .mm-hero-art .pz, .pk-opt .pz, .card-icon { animation: none !important; transition: none !important; }
+}

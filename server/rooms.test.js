@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createRoom, joinRoom, rejoinRoom, leaveRoom, handleDisconnect, ABANDONED_ROOM_MS, getRoomByCode, handlePlayCard, handlePlacement, handleUpdatePlacement, handleDraftPick, handleDraftDone, handleMove, handleSurrender, handleOfferDraw, handleAnswerDraw } from './rooms.js'
+import { createRoom, joinRoom, rejoinRoom, leaveRoom, handleDisconnect, ABANDONED_ROOM_MS, getRoomByCode, handlePlayCard, handleDraftPick, handleDraftDone, handleMove, handleSurrender, handleOfferDraw, handleAnswerDraw } from './rooms.js'
 import { getCaptured } from '../client/src/game/economy.js'
 import { createDraftState } from '../client/src/game/draftEngine.js'
 import { DRAFT_TIME_BY_ROUND } from '../client/src/game/draftPools.js'
@@ -573,63 +573,41 @@ describe('lastAction redaction for fog-hidden actions', () => {
   })
 })
 
-describe('open placement', () => {
-  function placementMatch() {
-    return {
-      phase: 'placement',
-      round: 1,
-      boardPattern: { rows: 6, cols: 6, blockedCells: [] },
-      draft: { picks: { white: { pieces: ['pawn', 'rook'], cards: [] }, black: { pieces: ['pawn'], cards: [] } } },
-      placement: {
-        white: { ready: false, map: {} },
-        black: { ready: false, map: {} },
-      },
-    }
+describe('recruit on the board', () => {
+  function recruitMatch() {
+    const pattern = { rows: 6, cols: 6, blockedCells: [] }
+    return { phase: 'draft', round: 1, scores: { white: 0, black: 0 }, boardPattern: pattern, draft: createDraftState(1, 'white', Date.now(), pattern) }
   }
 
-  it('shows each side\'s in-progress placement to the opponent live', () => {
-    const { io, emits, socketWhite, room } = makeRoom()
-    room.match = placementMatch()
-
-    handleUpdatePlacement(io, socketWhite, { b1: 'pawn' })
-    const blackSees = lastView(emits, 'sock-black').placement
-    expect(blackSees.white).toEqual({ ready: false, map: { b1: 'pawn' } })
+  it('shows a bought piece on its square to the opponent at once', () => {
+    const { io, emits, socketWhite, socketBlack, room } = makeRoom()
+    room.match = recruitMatch()
+    handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'king', square: 'd1' })
+    handleDraftPick(io, socketBlack, { kind: 'piece', pieceType: 'king', square: 'd6' })
+    handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'rook', square: 'a1' })
+    const blackSees = lastView(emits, 'sock-black').draft
+    expect(blackSees.placed.white.a1).toBe('rook')
+    expect(blackSees.log.at(-1)).toMatchObject({ color: 'white', kind: 'piece', pieceType: 'rook', square: 'a1' })
   })
 
-  it('rejects a live update placing more of a type than was drafted', () => {
+  it('rejects a square outside your home ranks', () => {
     const { io, socketWhite, room } = makeRoom()
-    room.match = placementMatch()
-    handleUpdatePlacement(io, socketWhite, { b1: 'pawn', c1: 'pawn' })
-    expect(room.match.placement.white.map).toEqual({})
+    room.match = recruitMatch()
+    handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'pawn', square: 'a4' })
+    expect(room.match.draft.placed.white.a4).toBeUndefined()
+    expect(room.match.draft.turn).toBe('white')
   })
 
-  it('locks a side in once ready — no further live updates', () => {
+  it('places the king as the first action and rejects anything else before it', () => {
     const { io, socketWhite, room } = makeRoom()
-    room.match = placementMatch()
-    handlePlacement(io, socketWhite, { b1: 'pawn', a1: 'rook' })
-    handleUpdatePlacement(io, socketWhite, { b2: 'pawn', a1: 'rook' })
-    expect(room.match.placement.white).toEqual({ ready: true, map: { b1: 'pawn', a1: 'rook' } })
+    room.match = recruitMatch()
+    handleDraftPick(io, socketWhite, { kind: 'card', cardId: 'meteor' })
+    expect(room.match.draft.picks.white.cards).toEqual([])
+    handleDraftPick(io, socketWhite, { kind: 'piece', pieceType: 'king', square: 'b2' })
+    expect(room.match.draft.placed.white).toEqual({ b2: 'king' })
+    expect(room.match.draft.turn).toBe('black')
   })
 
-  it('starts the battle at the deadline, keeping placed pieces and auto-placing the rest', () => {
-    vi.useFakeTimers()
-    try {
-      const { io, socketWhite, room } = makeRoom()
-      room.match = { ...placementMatch(), placementDeadline: Date.now() + 30_000 }
-      handleUpdatePlacement(io, socketWhite, { b1: 'pawn' }) // rook still unplaced; black placed nothing
-
-      vi.advanceTimersByTime(30_000)
-
-      expect(room.match.phase).toBe('battle')
-      const pieces = room.match.gameState.pieces
-      expect(pieces.b1).toEqual({ type: 'pawn', color: 'white', hp: 1 })
-      const types = color => Object.values(pieces).filter(p => p.color === color).map(p => p.type).sort()
-      expect(types('white')).toEqual(['pawn', 'rook'])
-      expect(types('black')).toEqual(['pawn'])
-    } finally {
-      vi.useRealTimers()
-    }
-  })
 })
 
 describe('AFK turn timeout', () => {

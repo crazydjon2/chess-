@@ -1,26 +1,34 @@
 .clock {
+  margin-left: auto;
+  width: 84px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  color: #5a4f40;
+  font-family: var(--f-display);
+  font-size: 18px;
+  font-weight: 800;
+  background: var(--c-inset);
+  color: var(--c-text-dim);
+  box-shadow: var(--sh-inset);
   font-variant-numeric: tabular-nums;
-  cursor: default;
-  margin-top: 1px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
-
-/* Actively counting down (this side's own turn). */
-.clock.ticking {
-  color: #241708;
+.clock.active {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+  box-shadow: var(--sh-accent);
 }
-
-/* Under 20s remaining, on the side whose clock is actually running. */
-.clock.ticking.low {
-  color: #d4302f;
-  animation: clock-low-pulse 1s ease-in-out infinite;
+.clock.low {
+  background: var(--c-danger);
+  color: var(--c-on-danger);
+  box-shadow: var(--sh-danger);
+  animation: clock-low 1s ease-in-out infinite;
 }
+@keyframes clock-low { 50% { transform: scale(1.06); } }
 
-@keyframes clock-low-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.4; }
+@media (max-width: 600px) {
+  .clock { width: 64px; height: 34px; font-size: 15px; }
 }

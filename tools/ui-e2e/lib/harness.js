@@ -77,7 +77,7 @@ export class Recorder {
       // message the game itself was showing them (often the real reason).
       const pages = (Array.isArray(page) ? page : [page]).filter(Boolean)
       for (const p of pages) {
-        const toast = await p.locator('.game-toast').first().innerText({ timeout: 300 }).catch(() => null)
+        const toast = await p.locator('.ui-toast').first().innerText({ timeout: 300 }).catch(() => null)
         if (toast) rec.error += `\n[${p.label}] игра показала: «${toast}»`
         const shot = await this.shot(p, `FAIL-${scenario}-${name}-${p.label}`)
         rec.shot ??= shot
@@ -115,6 +115,12 @@ export async function newPage(browser, profileName, rec, label) {
 
 // Layout sanity for whatever is on screen right now.
 export async function checkLayout(page, rec, screen, { noScroll = false, mustSee = [] } = {}) {
+  // Let entrance animations settle first — mid-slide elements sit a few px
+  // lower than where they end up and would read as "off screen".
+  await page.evaluate(() => Promise.race([
+    Promise.all(document.getAnimations().filter(a => a.effect?.getComputedTiming?.().iterations !== Infinity).map(a => a.finished.catch(() => {}))),
+    new Promise(r => setTimeout(r, 1500)),
+  ])).catch(() => {})
   const res = await page.evaluate(({ mustSee }) => {
     const de = document.documentElement
     const out = { overflowX: de.scrollWidth - window.innerWidth, overflowY: de.scrollHeight - window.innerHeight, blank: false, offscreen: [], covered: [], tiny: [] }

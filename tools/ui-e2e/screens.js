@@ -20,13 +20,6 @@ const val = k => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1]
 
 const MAIN_PROFILES = ['desktop', 'tablet', 'mobile']
 const OUT = path.join(HERE, 'reports', 'screens', val('out') ?? 'latest')
-// What each player buys, so the board has a real army and every threat
-// indicator comes up. B stops with coins left and presses "done" by hand.
-const DRAFT_PLANS = {
-  A: [/Метеор/, /Мина/, /Конь/, /Пешка/],
-  B: [/Дымовая/, /Конь/],
-}
-
 // One resolution's shots, numbered in the order a player meets them.
 class Atlas {
   constructor(profile) {
@@ -53,469 +46,219 @@ class Atlas {
   }
 }
 
-const isPhone = page => A.isPhoneLayout(page)
-
-async function closeDrawer(page) {
-  if (await A.visible(page, '.sd-panel-close')) {
-    await page.locator('.sd-panel-close').click()
-    await page.locator('.sd-backdrop').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {})
-  }
-}
-
-async function squares(page) {
-  const list = await page.locator('[data-testid=board] rect[data-piece]').evaluateAll(els => els.map(e => [e.getAttribute('data-square'), e.getAttribute('data-piece')]))
-  return new Map(list)
-}
-
-const clickSquare = (page, sq) => page.locator(`[data-testid=board] rect[data-square="${sq}"]`).first().click({ force: true, timeout: 3000 })
+const tray = page => A.isTrayLayout(page)
 const boardTargets = async (page, attr = 'data-targets') => ((await page.locator('[data-testid=board]').first().getAttribute(attr)) ?? '').split(' ').filter(Boolean)
 
-async function myColor(page) {
-  return page.evaluate(() => {
-    const tag = document.querySelector('.player-panel.mine .player-color-tag')
-    return tag ? (tag.className.includes('p-white') ? 'white' : 'black') : null
-  })
-}
-
-// Selects one of my pieces that has a quiet move, leaving it selected.
-// Quiet on purpose: a stray capture could end the round mid-walk.
+// Selects one of my pieces that has a move, leaving it selected.
 async function selectMovable(page) {
-  const color = await myColor(page)
-  const board = await squares(page)
-  for (const [sq, piece] of board) {
-    if (color && !piece.startsWith(color + '-')) continue
-    await clickSquare(page, sq)
-    const to = (await boardTargets(page)).find(t => !board.has(t))
-    if (to) return { from: sq, to }
-    await clickSquare(page, sq).catch(() => {})
+  const color = await A.myColor(page)
+  const mine = await page.locator(`[data-testid=board] .bd-piece[data-piece^="${color}-"]`).evaluateAll(els => els.map(e => e.getAttribute('data-square')))
+  for (const sq of mine) {
+    await A.clickSquare(page, sq)
+    if ((await boardTargets(page)).length) return sq
   }
-  return null
+  throw new Error('нет фигуры с ходом')
 }
-
-async function quietMove(page) {
-  const m = await selectMovable(page)
-  if (!m) return false
-  await clickSquare(page, m.to)
-  await sleep(250)
-  return true
-}
-
-const mover = async (a, b) => (await A.myBattleTurn(a)) ? [a, b] : [b, a]
 
 async function waitForTurn(a, b) {
-  for (let i = 0; i < 60; i++) {
-    if (await A.myBattleTurn(a) || await A.myBattleTurn(b)) return mover(a, b)
+  for (let i = 0; i < 100; i++) {
+    if (await A.myBattleTurn(a)) return a
+    if (await A.myBattleTurn(b)) return b
     await sleep(100)
   }
-  throw new Error('никто не ходит')
+  throw new Error('ни у кого нет хода')
 }
 
-// Opens the hand and picks a card by name; leaves it armed for targeting.
-async function armCard(page, nameRe) {
-  const phone = await isPhone(page)
-  if (phone) {
-    await page.locator('.sd-trigger:not(.sd-trigger-cancel)').first().click({ timeout: 2000 })
-    await page.locator('.sd-panel .gc-card').first().waitFor({ state: 'visible', timeout: 2500 })
-  }
-  const card = page.locator(phone ? '.sd-panel .gc-card:not(.gc-disabled)' : '.card-hand .gc-card:not(.gc-disabled)').filter({ hasText: nameRe }).first()
-  if (!(await card.count())) { await closeDrawer(page); return false }
-  await card.click({ timeout: 2000 })
-  if (phone) await page.locator('.sd-backdrop').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {})
-  await sleep(100)
-  return true
-}
-
-async function cancelCard(page) {
-  if (await isPhone(page)) await page.locator('.sd-trigger-cancel').click({ timeout: 2000 }).catch(() => {})
-  else await page.locator('.card-hand .gc-card.gc-selected').first().click({ timeout: 2000 }).catch(() => {})
-}
-
-// ── Menu and its windows ──────────────────────────────────────────────
 async function menuScreens(browser, base, atlas, rec) {
-  const G = 'Меню'
   const page = await newPage(browser, atlas.profile, rec, 'menu')
   await page.goto(base + '/')
-  await page.locator('.mm-hero').waitFor({ timeout: 10000 })
-  await atlas.shot(page, G, 'главное-меню', { settle: 1000 })
-
+  await page.locator('[data-testid=menu-online]').waitFor()
+  await atlas.shot(page, 'Меню', 'главное меню')
   await atlas.attempt('как играть', async () => {
-    await page.locator('.mm-card-howto').click()
-    const tabs = page.locator('.htp-tab')
-    for (let i = 0; i < await tabs.count(); i++) {
-      await tabs.nth(i).click()
-      const label = (await tabs.nth(i).innerText()).trim().toLowerCase()
-      await atlas.shot(page, G, `как-играть-${i + 1}-${label}`, { settle: 350 })
-    }
-    await page.locator('.htp-close').click()
-  })
-  await atlas.attempt('что нового', async () => {
-    await page.locator('.mm-card-patchnotes').click()
-    await atlas.shot(page, G, 'что-нового')
-    await page.locator('.pn-close').click()
+    await page.locator('[data-testid=menu-howto]').click()
+    const tabs = page.locator('.htp-tabs button')
+    await atlas.shot(page, 'Меню', 'как играть · партия')
+    await tabs.nth(1).click(); await page.locator('.ui-overlay:not(.leaving) .htp-card').nth(2).click()
+    await atlas.shot(page, 'Меню', 'как играть · карты')
+    await tabs.nth(2).click()
+    await atlas.shot(page, 'Меню', 'как играть · доски')
+    await page.locator('.htp-head .ui-btn').click()
   })
   await atlas.attempt('настройки', async () => {
-    await page.locator('.ml-settings-btn').click()
-    await atlas.shot(page, G, 'настройки')
-    await page.locator('.set-close').click()
+    await page.locator('.mm-top .ui-btn').click()
+    await atlas.shot(page, 'Меню', 'настройки')
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()
+    await atlas.shot(page, 'Меню', 'настройки · язык')
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()
+    await page.locator('.set-card .ui-modal-close').click()
+  })
+  await atlas.attempt('что нового', async () => {
+    await page.locator('[data-testid=menu-news]').click()
+    await atlas.shot(page, 'Меню', 'что нового')
+    await page.locator('.pn-head .ui-btn').click()
+  })
+  await atlas.attempt('против ИИ', async () => {
+    await page.locator('[data-testid=menu-bot]').click()
+    await atlas.shot(page, 'Меню', 'против ИИ · выбор')
   })
   await page.context().close()
 }
 
-// ── Sandbox: the only place a promotion and a finished hot-seat game are
-//    reachable on demand ──────────────────────────────────────────────
 async function sandboxScreens(browser, base, atlas, rec) {
-  const G = 'Песочница'
   const page = await newPage(browser, atlas.profile, rec, 'sandbox')
   await page.goto(base + '/sandbox')
-  await page.locator('[data-testid=board]').waitFor({ timeout: 10000 })
-  await atlas.shot(page, G, 'песочница', { settle: 1000 })
-
-  await atlas.attempt('превращение пешки', async () => {
-    await clickSquare(page, 'g7')
-    const to = (await boardTargets(page))[0]
-    if (!to) throw new Error('у пешки g7 нет ходов')
-    await clickSquare(page, to)
-    await page.locator('.promo-btn').first().waitFor({ timeout: 3000 })
-    await atlas.shot(page, G, 'превращение-пешки')
-    await page.locator('.promo-btn').first().click()
+  await page.locator('[data-testid=board]').waitFor()
+  await atlas.shot(page, 'Песочница', 'песочница')
+  await atlas.attempt('карта: цели', async () => {
+    const t = await tray(page)
+    await page.locator(t ? '.mx-tray .cd-tile[data-card=smoke_screen]' : '.mx-right .cd-panel.grow .cd-row[data-card=smoke_screen]').click()
+    if (t) { await atlas.shot(page, 'Песочница', 'карта · всплывашка'); await page.locator('.cd-pop-main').click() }
+    await atlas.shot(page, 'Песочница', 'карта · цели на доске')
+    await page.locator('[data-testid=board] .bd-cell[data-square="e2"]').click({ force: true })
+    await atlas.shot(page, 'Песочница', 'карта · заставка', { settle: 350 })
+    await atlas.shot(page, 'Песочница', 'дымовая завеса', { settle: 1800 })
   })
-
-  await atlas.attempt('конец партии', async () => {
-    for (let i = 0; i < 80 && !(await A.visible(page, '.result-overlay')); i++) {
-      const board = await squares(page)
-      let moved = false
-      for (const [sq, piece] of [...board].sort(() => Math.random() - 0.5)) {
-        await clickSquare(page, sq).catch(() => {})
-        const targets = await boardTargets(page).catch(() => [])
-        if (!targets.length) continue
-        const color = piece.split('-')[0]
-        const enemy = t => board.has(t) && !board.get(t).startsWith(color)
-        const to = targets.find(t => enemy(t) && board.get(t).endsWith('king')) ?? targets.find(enemy) ?? targets[0]
-        await clickSquare(page, to)
-        if (await A.visible(page, '.promo-btn')) await page.locator('.promo-btn').first().click()
-        moved = true
-        break
-      }
-      if (!moved) break
-      await sleep(60)
-    }
-    await page.locator('.result-overlay').waitFor({ timeout: 1500 })
-    await atlas.shot(page, G, 'конец-партии', { settle: 900 })
+  await atlas.attempt('превращение', async () => {
+    await A.clickSquare(page, 'g7')
+    const tg = await boardTargets(page)
+    const to = tg.find(s => s.endsWith('8'))
+    if (!to) throw new Error('пешке g7 некуда идти')
+    await page.locator(`[data-testid=board] .bd-cell[data-square="${to}"]`).click({ force: true })
+    await page.locator('[data-promo]').first().waitFor({ timeout: 3000 })
+    await atlas.shot(page, 'Песочница', 'превращение пешки')
+    await page.locator('[data-promo=queen]').click()
+  })
+  await atlas.attempt('журнал', async () => {
+    const j = await A.journal(page)
+    await atlas.shot(page, 'Песочница', 'журнал')
+    await j.locator('.jr-row.btn:not(.group)').first().click()
+    await atlas.shot(page, 'Песочница', 'журнал · просмотр истории')
+    await page.locator('.bt-history-back').click()
   })
   await page.context().close()
 }
 
-// ── Online lobby ──────────────────────────────────────────────────────
 async function lobbyScreens(browser, base, atlas, rec, a, b) {
-  const G = 'Лобби'
   await A.openOnline(a, base, 'Алиса')
-  await atlas.shot(a, G, 'онлайн-пустой-список', { settle: 900 })
-
-  await atlas.attempt('окно создания лобби', async () => {
-    await a.locator('.po-create-btn').first().click()
-    await atlas.shot(a, G, 'окно-создания-лобби')
-    await a.locator('.po-modal-close').click()
-  })
-  await atlas.attempt('окно игры с ИИ', async () => {
-    await a.locator('.po-bot-btn').click()
-    await atlas.shot(a, G, 'окно-игры-с-ИИ')
-    await a.locator('.po-modal-close').click()
-  })
-
-  const code = await A.createRoom(a, { visibility: 'public', color: 'white' })
-  await atlas.shot(a, G, 'ожидание-хост-один', { settle: 900 })
-
-  // A second open room, so the browser shows a real list.
-  const c = await newPage(browser, atlas.profile, rec, 'C')
-  await A.openOnline(c, base, 'Вика')
-  await A.createRoom(c, { visibility: 'public', color: 'black' })
-
+  await atlas.shot(a, 'Лобби', 'игра по сети')
+  await a.locator('[data-testid=code-input]').fill('3BN')
+  await atlas.shot(a, 'Лобби', 'ввод кода')
+  await a.locator('[data-testid=code-input]').fill('')
+  await a.locator('[data-testid=create-lobby]').click()
+  await atlas.shot(a, 'Лобби', 'новое лобби')
+  await a.locator('.po-modal-x').click()
+  const code = await A.createRoom(a, { visibility: 'public', color: 'random' })
+  await atlas.shot(a, 'Лобби', 'ожидание соперника')
   await A.openOnline(b, base, 'Борис')
-  await b.locator('.po-room').nth(1).waitFor({ timeout: 8000 }).catch(() => {})
-  await atlas.shot(b, G, 'онлайн-список-комнат')
-
-  await atlas.attempt('ошибка входа по коду', async () => {
-    await b.locator('.po-code-input').fill('ZZZZZ')
-    await b.locator('.po-code-btn').click()
-    await b.locator('.game-toast, .po-error').first().waitFor({ timeout: 3000 })
-    await atlas.shot(b, G, 'онлайн-ошибка-кода', { settle: 200 })
-    await b.locator('.po-code-input').fill('')
-  })
-
+  await atlas.shot(b, 'Лобби', 'список с открытым лобби')
   await A.joinFromList(b, code)
-  await a.waitForFunction(() => !document.querySelector('.wr-start-btn')?.disabled, null, { timeout: 8000 })
-  await atlas.shot(a, G, 'ожидание-хост-готов')
-  await atlas.shot(b, G, 'ожидание-гость', { settle: 0 })
-  await c.context().close()
-
+  await a.locator('[data-testid=start-game]').waitFor()
+  await atlas.shot(a, 'Лобби', 'соперник зашёл')
   await A.startMatch(a)
-  await a.locator('.dr-catalog').waitFor({ timeout: 10000 })
-  await b.locator('.dr-catalog').waitFor({ timeout: 10000 })
+  await a.locator('.mx-screen.recruit').waitFor()
 }
 
-// ── Draft ─────────────────────────────────────────────────────────────
-// Next affordable item of this player's plan; false once the plan is spent.
-async function pickFromPlan(page, plan) {
-  while (plan.length) {
-    const tile = page.locator('.dr-catalog .gc-card:not(.gc-disabled)').filter({ hasText: plan.shift() }).first()
-    if (!(await tile.count())) continue
-    await tile.scrollIntoViewIfNeeded().catch(() => {})
-    await tile.click({ timeout: 2000 })
-    return true
-  }
-  return false
-}
-
-async function draftScreens(atlas, a, b, { shots = true } = {}) {
-  const G = 'Драфт'
-  if (shots) {
-    await sleep(500)
-    const [me, opp] = (await A.myDraftTurn(a)) ? [a, b] : [b, a]
-    await atlas.shot(me, G, 'драфт-мой-ход')
-    await atlas.shot(opp, G, 'драфт-ход-соперника', { settle: 0 })
-    await atlas.attempt('подсказка карты', async () => {
-      const help = me.locator('.dr-card-grid .gc-help').first()
-      await help.scrollIntoViewIfNeeded()
-      await help.hover({ timeout: 2000 })
-      await atlas.shot(me, G, 'драфт-подсказка-карты', { settle: 250 })
-      await me.mouse.move(0, 0)
-    })
-    await atlas.attempt('каталог прокручен к картам', async () => {
-      await me.locator('.dr-catalog-scroll').evaluate(el => el.scrollTo(0, el.scrollHeight))
-      await atlas.shot(me, G, 'драфт-каталог-низ', { settle: 250 })
-      await me.locator('.dr-catalog-scroll').evaluate(el => el.scrollTo(0, 0))
-    })
-  }
-
-  const plans = new Map([a, b].map(p => [p, [...DRAFT_PLANS[p.label]]]))
-  let picks = 0, midShot = !shots, doneShot = !shots
-  const t0 = Date.now()
-  while (Date.now() - t0 < 90000) {
-    if (await A.onPlacement(a) && await A.onPlacement(b)) return
-    for (const p of [a, b]) {
-      if (!(await A.onDraft(p)) || !(await A.myDraftTurn(p))) continue
-      if (await pickFromPlan(p, plans.get(p))) {
-        await sleep(150)
-        if (!midShot && ++picks === 3) { midShot = true; await atlas.shot(p, G, 'драфт-с-покупками', { settle: 300 }) }
-        continue
-      }
-      const done = p.locator('.dr-tray-done-btn')
-      if (await done.isEnabled().catch(() => false)) {
-        await done.click()
-        await sleep(200)
-        if (!doneShot) { doneShot = true; await atlas.shot(p, G, 'драфт-игрок-готов', { settle: 300 }) }
-      }
+// Recruit: the first player opens the picker, the second the card shop; then
+// both buy a few things and finish.
+async function recruitScreens(atlas, a, b, rng, { shots = true } = {}) {
+  const mover = async () => {
+    for (let i = 0; i < 60; i++) {
+      if (await A.myRecruitTurn(a)) return a
+      if (await A.myRecruitTurn(b)) return b
+      await sleep(100)
     }
-    await sleep(60)
+    return null
   }
-  throw new Error('драфт не закончился за 90 с')
+  let p = await mover()
+  if (shots && p) {
+    await atlas.shot(p, 'Набор', 'набор · твой ход')
+    const other = p === a ? b : a
+    await atlas.shot(other, 'Набор', 'набор · ход соперника')
+    const free = await boardTargets(p)
+    await p.locator(`[data-testid=board] .bd-cell[data-square="${free[0]}"]`).click({ force: true })
+    await p.locator('.pk-pop').waitFor()
+    await atlas.shot(p, 'Набор', 'набор · выбор фигуры над клеткой')
+    await p.locator('[data-testid=recruit-confirm]').click()
+    p = await mover()
+    const t = await tray(p)
+    await p.locator(t ? '.mx-tray .cd-tile:not(.off)' : '.mx-right .cd-row:not(.off)').first().click()
+    await atlas.shot(p, 'Набор', 'набор · покупка карты')
+    await p.locator(t ? '.cd-pop-main' : '[data-testid=buy-card]').first().click()
+  }
+  for (let i = 0; i < 40; i++) {
+    if (await A.onBattle(a) && await A.onBattle(b)) break
+    p = await mover()
+    if (!p) break
+    const picks = Number(await p.locator('.jr-row').count())
+    await A.recruitStep(p, rng, { preferDone: picks > 8 ? 0.6 : 0 })
+    await sleep(120)
+  }
+  await a.locator('[data-testid=surrender-btn]').waitFor({ timeout: 15000 })
 }
 
-// ── Placement (30 s shared clock — short settles) ────────────────────
-async function placementScreens(atlas, a, b, rng, { shots = true } = {}) {
-  const G = 'Расстановка'
-  await a.locator('.pl-board').waitFor({ timeout: 10000 })
-  await b.locator('.pl-board').waitFor({ timeout: 10000 })
-  if (shots) {
-    await atlas.shot(a, G, 'расстановка-пустая', { settle: 500 })
-    await atlas.attempt('панель фигур и выбор', async () => {
-      if (await isPhone(a)) {
-        await a.locator('.sd-trigger:not(.sd-trigger-cancel)').first().click({ timeout: 2000 })
-        await a.locator('.sd-panel .gc-card').first().waitFor({ state: 'visible', timeout: 2500 })
-        await atlas.shot(a, G, 'расстановка-панель-фигур', { settle: 350 })
-        await a.locator('.sd-panel .gc-card:not(.gc-disabled)').first().click()
-        await a.locator('.sd-backdrop').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {})
-      } else await a.locator('.pl-piece-rail .gc-card:not(.gc-disabled)').first().click({ timeout: 2000 })
-      await atlas.shot(a, G, 'расстановка-фигура-выбрана', { settle: 200 })
-      const cells = a.locator('.pl-cell.mine:not(.occupied)')
-      await cells.nth(Math.floor(rng() * await cells.count())).click({ timeout: 2000 })
-    })
-  }
-  await A.placeAll(a, rng)
-  if (shots) {
-    await atlas.shot(b, G, 'расстановка-видно-соперника', { settle: 250 })
-    await atlas.shot(a, G, 'расстановка-всё-расставлено', { settle: 0 })
-  }
-  await a.locator('.pl-submit-btn').click({ timeout: 2000 })
-  if (shots) await atlas.shot(a, G, 'расстановка-ждём-соперника', { settle: 250 })
-  await A.placeAll(b, rng)
-  if (shots) await atlas.shot(b, G, 'расстановка-соперник-готов', { settle: 150 })
-  await b.locator('.pl-submit-btn').click({ timeout: 2000 })
-  await a.locator('[data-testid=board]').waitFor({ timeout: 40000 })
-  await b.locator('[data-testid=board]').waitFor({ timeout: 40000 })
-  await sleep(700)
-}
-
-// ── Battle ────────────────────────────────────────────────────────────
-// Cards first: the opponent's view of each is a state of its own (toast,
-// threat badge, fog).
-async function playCardFor(atlas, page, viewer, nameRe, label) {
-  if (!(await armCard(page, nameRe))) return false
-  const targets = await boardTargets(page, 'data-card-targets')
-  if (!targets.length) { await cancelCard(page); return false }
-  await clickSquare(page, targets[Math.floor(targets.length / 2)])
-  await atlas.shot(viewer, 'Бой', `бой-соперник-сыграл-${label}`, { settle: 250 })
-  return true
-}
-
-async function battleScreens(atlas, a, b) {
-  const G = 'Бой'
-  let [me, opp] = await waitForTurn(a, b)
-  await atlas.shot(me, G, 'бой-мой-ход')
-  await atlas.shot(opp, G, 'бой-ход-соперника', { settle: 0 })
-
+async function battleScreens(atlas, a, b, rng) {
+  let p = await waitForTurn(a, b)
+  await atlas.shot(p, 'Бой', 'бой · твой ход')
+  await atlas.shot(p === a ? b : a, 'Бой', 'бой · ход соперника')
   await atlas.attempt('выбор фигуры', async () => {
-    const m = await selectMovable(me)
-    if (!m) throw new Error('нет ходов')
-    await atlas.shot(me, G, 'бой-фигура-выбрана', { settle: 200 })
-    await clickSquare(me, m.from).catch(() => {})
+    await selectMovable(p)
+    await atlas.shot(p, 'Бой', 'бой · выбрана фигура', { settle: 300 })
+    await A.makeMove(p, rng)
   })
-
-  await atlas.attempt('рука карт', async () => {
-    if (await isPhone(me)) {
-      await me.locator('.sd-trigger:not(.sd-trigger-cancel)').first().click({ timeout: 2000 })
-      await me.locator('.sd-panel .gc-card').first().waitFor({ state: 'visible', timeout: 2500 })
-      await atlas.shot(me, G, 'бой-панель-карт', { settle: 400 })
-      await closeDrawer(me)
+  p = await waitForTurn(a, b)
+  await atlas.attempt('карта', async () => {
+    const t = await tray(p)
+    const card = p.locator(t ? '.mx-tray .cd-tile:not(.off)' : '.mx-right .cd-panel.grow .cd-row:not(.off)').first()
+    if (!(await card.count())) throw new Error('нет карт в руке')
+    await card.click()
+    if (t) await p.locator('.cd-pop-main').click()
+    await atlas.shot(p, 'Бой', 'бой · выбрана карта', { settle: 300 })
+    const tg = await boardTargets(p, 'data-card-targets')
+    if (tg.length) {
+      await p.locator(`[data-testid=board] .bd-cell[data-square="${tg[0]}"]`).first().click({ force: true })
+      await atlas.shot(p === a ? b : a, 'Бой', 'бой · карта соперника', { settle: 400 })
     }
-    if (!(await armCard(me, /./))) throw new Error('нет карт')
-    await atlas.shot(me, G, 'бой-карта-выбрана-цели', { settle: 250 })
-    await cancelCard(me)
   })
-
-  // Each side plays one threat per turn, so both views of it get captured.
-  const played = new Set()
-  for (let ply = 0; ply < 8; ply++) {
-    ;[me, opp] = await waitForTurn(a, b)
-    for (const [re, label] of [[/Метеор/, 'метеор'], [/Мина/, 'мина'], [/Дымовая/, 'дым']]) {
-      if (played.has(label)) continue
-      const ok = await playCardFor(atlas, me, opp, re, label).catch(() => false)
-      if (ok) { played.add(label); await atlas.shot(me, G, `бой-я-сыграл-${label}`, { settle: 0 }) }
-      if (ok) break
-    }
-    if (!(await quietMove(me))) break
-    await sleep(300)
-    if (ply === 1) await atlas.shot(opp, G, 'бой-последний-ход-подсвечен', { settle: 100 })
-    if (played.size >= 3 && ply >= 3) break
-  }
-
-  await atlas.attempt('предход', async () => {
-    ;[me, opp] = await waitForTurn(a, b)
-    const m = await selectMovable(opp)
-    if (!m) throw new Error('нет ходов')
-    await clickSquare(opp, m.to)
-    await atlas.shot(opp, G, 'бой-предход', { settle: 200 })
-    await opp.locator('[data-testid=board]').first().click({ button: 'right', timeout: 1000 }).catch(() => {})
+  await atlas.attempt('ничья', async () => {
+    const q = await waitForTurn(a, b)
+    await q.locator('[data-testid=draw-btn]').click()
+    await atlas.shot(q, 'Окна боя', 'предложить ничью?')
+    await q.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn.primary').click()
+    const other = q === a ? b : a
+    await other.locator('.mx-banner').waitFor()
+    await atlas.shot(other, 'Окна боя', 'соперник предлагает ничью')
+    await other.locator('.mx-banner .ui-btn:not(.primary)').click()
   })
-
-  await atlas.attempt('журнал', async () => {
-    await me.locator('.bt-log-btn').click()
-    await me.locator('.bl-entry').first().waitFor({ timeout: 3000 })
-    await atlas.shot(me, G, 'бой-журнал')
-    await me.locator('.bl-entry').nth(0).click()
-    await atlas.shot(me, G, 'бой-журнал-история', { settle: 300 })
-    await me.locator('.bl-return').click({ timeout: 2000 })
-    await me.locator('.bl-close').click({ timeout: 2000 })
-    await sleep(250)
-  })
-
-  await atlas.attempt('подтверждение сдачи', async () => {
-    await me.locator('.surrender-btn').click({ timeout: 2000 })
-    await me.locator('.confirm-overlay').waitFor({ timeout: 2000 })
-    await atlas.shot(me, G, 'окно-сдаться')
-    await me.locator('.confirm-btn.cancel').click()
-  })
-
-  await atlas.attempt('предложение ничьей', async () => {
-    ;[me, opp] = await waitForTurn(a, b)
-    await opp.locator('.draw-btn').click({ timeout: 2000 })
-    await me.locator('.confirm-overlay').waitFor({ timeout: 4000 })
-    await atlas.shot(me, G, 'окно-предложена-ничья')
-    await me.locator('.confirm-btn.cancel').click()
-    await opp.getByText('Соперник отклонил ничью').waitFor({ timeout: 4000 })
-    await atlas.shot(opp, G, 'бой-уведомление-отказ-от-ничьей', { settle: 100 })
-  })
-
-  await atlas.attempt('выход назад', async () => {
-    await a.goBack()
-    await a.locator('.confirm-overlay').waitFor({ timeout: 4000 })
-    await atlas.shot(a, G, 'окно-выйти-из-матча')
-    await a.locator('.confirm-btn.cancel').click()
-    await a.locator('[data-testid=board]').waitFor({ timeout: 4000 })
-  })
-
-  await atlas.attempt('соперник вышел', async () => {
-    const url = b.url()
-    await b.goto('about:blank')
-    await a.locator('.opponent-left-banner').waitFor({ timeout: 5000 })
-    await atlas.shot(a, G, 'бой-соперник-вышел')
-    await b.goto(url)
-    await b.locator('[data-testid=board]').waitFor({ timeout: 10000 })
-    await a.locator('.opponent-left-banner').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
-    await sleep(400)
+  await atlas.attempt('сдаться', async () => {
+    await a.locator('[data-testid=surrender-btn]').click()
+    await atlas.shot(a, 'Окна боя', 'сдаться?')
+    await a.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn.danger').click()
   })
 }
 
-async function surrender(loser) {
-  await loser.locator('.surrender-btn').click({ timeout: 3000 })
-  await loser.locator('.confirm-btn.danger').click({ timeout: 3000 })
-}
-
-async function drawByAgreement(a, b) {
-  const [me, opp] = await waitForTurn(a, b)
-  await opp.locator('.draw-btn').click({ timeout: 3000 })
-  await me.locator('.confirm-overlay').waitFor({ timeout: 4000 })
-  await me.locator('.confirm-btn:not(.cancel)').click()
-}
-
-async function continueRound(a, b) {
-  for (const p of [a, b]) {
-    await p.locator('.restart-btn').first().waitFor({ timeout: 8000 })
-    await p.locator('.restart-btn').first().click()
-  }
-  await a.locator('.dr-catalog').waitFor({ timeout: 10000 })
-  await b.locator('.dr-catalog').waitFor({ timeout: 10000 })
-}
-
-// ── A full match: lose, draw, lose — every outcome screen comes up ───
 async function matchScreens(browser, base, atlas, rec, rng) {
   const a = await newPage(browser, atlas.profile, rec, 'A')
   const b = await newPage(browser, atlas.profile, rec, 'B')
-  try {
-    await lobbyScreens(browser, base, atlas, rec, a, b)
-    await draftScreens(atlas, a, b)
-    await placementScreens(atlas, a, b, rng)
-    await battleScreens(atlas, a, b)
-
-    const G = 'Итоги'
-    await surrender(a)
-    await a.locator('.result-inline').waitFor({ timeout: 8000 })
-    await b.locator('.result-inline').waitFor({ timeout: 8000 })
-    await atlas.shot(a, G, 'итоги-раунда-поражение', { settle: 900 })
-    await atlas.shot(b, G, 'итоги-раунда-победа', { settle: 0 })
-    await continueRound(a, b)
-
-    await draftScreens(atlas, a, b, { shots: false })
-    await placementScreens(atlas, a, b, rng, { shots: false })
-    await drawByAgreement(a, b)
-    await a.locator('.result-inline').waitFor({ timeout: 8000 })
-    await atlas.shot(a, G, 'итоги-раунда-ничья', { settle: 900 })
-    await continueRound(a, b)
-
-    await draftScreens(atlas, a, b, { shots: false })
-    await placementScreens(atlas, a, b, rng, { shots: false })
-    await surrender(a)
-    await a.locator('.result-overlay').waitFor({ timeout: 8000 })
-    await b.locator('.result-overlay').waitFor({ timeout: 8000 })
-    await atlas.shot(a, G, 'матч-окончен-поражение', { settle: 900 })
-    await atlas.shot(b, G, 'матч-окончен-победа', { settle: 0 })
-  } finally {
-    await a.context().close().catch(() => {})
-    await b.context().close().catch(() => {})
+  await lobbyScreens(browser, base, atlas, rec, a, b)
+  await recruitScreens(atlas, a, b, rng)
+  await battleScreens(atlas, a, b, rng)
+  await a.locator('[data-testid=result-primary]').waitFor()
+  await atlas.shot(a, 'Итоги', 'итог раунда')
+  await a.locator('[data-testid=result-primary]').click()
+  await b.locator('[data-testid=result-primary]').click()
+  await recruitScreens(atlas, a, b, rng, { shots: false })
+  await a.locator('[data-testid=surrender-btn]').click()
+  await a.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn.danger').click()
+  await a.locator('.ui-overlay:not(.leaving) .rs-card').waitFor()
+  await sleep(600)
+  const finalOver = !/раунд/i.test(await a.locator('[data-testid=result-primary]').innerText())
+  if (finalOver) {
+    await atlas.shot(a, 'Итоги', 'матч · поражение')
+    await atlas.shot(b, 'Итоги', 'матч · победа')
   }
+  await a.context().close(); await b.context().close()
 }
 
-// ── index.html: all three resolutions side by side, by screen ────────
 function writeIndex(atlases) {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
   const groups = new Map()

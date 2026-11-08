@@ -1,51 +1,46 @@
 import { t } from '../i18n'
+import { useEffect } from 'react'
 import { PATCH_NOTES } from '../game/patchNotes'
 import { patchNoteText } from '../i18n/patchNotes'
+import { IconClose } from './ui/Icons'
+import Overlay from './ui/Overlay'
 import './PatchNotes.css'
 
-// Older entries fade out (background, opacity, text/icon color all mute
-// together) so the list visually reads "recent -> history" at a glance,
-// not just via the version-number tag — see PatchNotes.css's tier rules.
-// Only the two newest keep their own card's accent color on the icon;
-// everything older than that shares one flat muted grey, the same way a
-// real patch history stops mattering which color a fix "was" once it's old.
-function tierFor(index) {
-  if (index < 2) return 'fresh'
-  if (index === 2) return 'recent'
-  if (index === 3) return 'aging'
-  return 'old'
-}
-
+// "Что нового": newest first; older entries are muted (see .old).
 export default function PatchNotes({ onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
-    <div className="pn-overlay" onClick={onClose}>
-      <div className="pn-card" onClick={e => e.stopPropagation()}>
-        <div className="pn-header">
-          <span className="pn-title">{t('menu.whatsNew')}</span>
-          <button className="pn-close" onClick={onClose} title={t('common.close')}>✕</button>
+    <Overlay onClose={onClose}>
+      <div className="ui-modal pn-modal" role="dialog" aria-label={t('menu.whatsNew')} onClick={e => e.stopPropagation()}>
+        <div className="pn-head">
+          <h2 className="ui-modal-title">{t('menu.whatsNew')}</h2>
+          <button className="ui-btn icon" onClick={onClose} aria-label={t('common.close')}><IconClose /></button>
         </div>
-
-        <div className="pn-list">
+        <div className="pn-list ui-scroll">
           {PATCH_NOTES.map((entry, i) => {
             const text = patchNoteText(entry.id)
             return (
-              <div className={`pn-entry pn-entry-${tierFor(i)}`} key={entry.id} style={{ '--accent': entry.accent }}>
-                {i === 0 && <span className="pn-entry-new">{t('patch.new')}</span>}
-                <span className="pn-entry-glyph">{entry.glyph}</span>
-                <div className="pn-entry-body">
+              <article className={`pn-entry${i > 1 ? ' old' : ''}`} key={entry.id}>
+                <span className="pn-glyph" style={{ background: i > 1 ? undefined : entry.accent }}>{entry.glyph}</span>
+                <div className="pn-body">
                   <div className="pn-entry-head">
-                    <span className="pn-entry-title">{text.title}</span>
-                    <span className="pn-entry-version">{entry.version}</span>
+                    <span className="pn-title">{text.title}</span>
+                    {i === 0 && <span className="pn-new">{t('patch.new')}</span>}
+                    <span className="pn-ver">{entry.version}</span>
                   </div>
                   <ul className="pn-changes">
                     {text.changes.map(change => <li key={change}>{change}</li>)}
                   </ul>
                 </div>
-              </div>
+              </article>
             )
           })}
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }

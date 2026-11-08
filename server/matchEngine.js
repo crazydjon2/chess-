@@ -1,11 +1,12 @@
-// Orchestrates a Bo3 draft match: draft -> open placement -> battle ->
-// round result -> next round (or match over). Reuses the exact same pure
-// client/src/game modules the client renders with, same as gameEngine.js.
-import { createDraftState, submitPick, submitDone, timeoutDraft, isDraftComplete } from '../client/src/game/draftEngine.js'
+// Orchestrates a Bo3 draft match: recruit (turn-based buying straight onto
+// the board — phase 'draft') -> battle -> round result -> next round (or
+// match over). Reuses the exact same pure client/src/game modules the
+// client renders with, same as gameEngine.js.
+import { createDraftState, submitPick, submitDone, timeoutDraft, isDraftComplete, withKings } from '../client/src/game/draftEngine.js'
 import { pickBoardPattern } from '../client/src/game/boardPatterns.js'
-import { validatePlacement, autoCompletePlacement, buildPlacementPieces } from '../client/src/game/placementEngine.js'
+import { buildPlacementPieces } from '../client/src/game/placementEngine.js'
 import { createDraftRoundState } from '../client/src/game/initialState.js'
-import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, PLACEMENT_TIME_BY_ROUND } from '../client/src/game/draftPools.js'
+import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND } from '../client/src/game/draftPools.js'
 
 const ROUNDS_TO_WIN  = 2
 const MAX_POOL_ROUND = 3   // round 4+ (draw-extended matches) reuse round 3's tier
@@ -14,24 +15,22 @@ const HARD_ROUND_CAP = 5   // safety valve so an all-draws match still terminate
 // before starting the next draft's clocks anyway (see summaryContinue).
 export const SUMMARY_MAX_SECONDS = 30
 
-// Every round is a clean slate: fresh draft, fresh army, fresh hand.
+// Every round is a clean slate: fresh recruit, fresh army, fresh hand.
 // Nothing survives a round ending — not the pieces still standing, not
 // unused cards, nothing (see applyRoundResult, which never reads anything
-// off the finished gameState to seed the next round). Unspent draft budget
+// off the finished gameState to seed the next round). Unspent budget
 // doesn't carry into the battle either — it's simply lost.
 export function startRound(scores, roundNumber, firstColor) {
   const poolRound = Math.min(roundNumber, MAX_POOL_ROUND)
+  const boardPattern = pickBoardPattern(poolRound)
   return {
     scores,
     round: roundNumber,
-    boardPattern: pickBoardPattern(poolRound),
+    boardPattern,
     // Every round gets the same flat budget — coins never carry over
-    // between rounds (see draftEngine.js's createDraftState).
-    draft: createDraftState(poolRound, firstColor),
-    placement: {
-      white: { ready: false, map: {} },
-      black: { ready: false, map: {} },
-    },
+    // between rounds (see draftEngine.js's createDraftState). The board
+    // pattern turns on on-board placement: pieces are bought onto squares.
+    draft: createDraftState(poolRound, firstColor, Date.now(), boardPattern),
     phase: 'draft',
     gameState: null,
     lastRoundResult: null,
@@ -42,20 +41,17 @@ export function createMatch() {
   return startRound({ white: 0, black: 0 }, 1, 'white')
 }
 
-// Draft done -> placement starts, with its shared countdown (see
-// draftPools.js's PLACEMENT_TIME_BY_ROUND and rooms.js, which fires
-// forcePlacement once `placementDeadline` passes).
-function finalizeDraftStep(match, draft, now) {
+// Recruit done (both sides finished or out of time/money) -> the armies
+// already stand on the board, so the battle starts straight away.
+function finalizeDraftStep(match, draft) {
   if (!isDraftComplete(draft)) return { match: { ...match, draft } }
-  const poolRound = Math.min(match.round, MAX_POOL_ROUND)
-  const placementDeadline = now + PLACEMENT_TIME_BY_ROUND[poolRound] * 1000
-  return { match: { ...match, draft, phase: 'placement', placementDeadline } }
+  return { match: startBattle({ ...match, draft: withKings(draft) }) }
 }
 
-// Between rounds the next draft exists but its clocks are paused until
+// Between rounds the next recruit exists but its clocks are paused until
 // both players have pressed "continue" on the round summary (or the
-// SUMMARY_MAX_SECONDS cap runs out) — otherwise the first picker's draft
-// time would drain while they're still looking at how the last round ended.
+// SUMMARY_MAX_SECONDS cap runs out) — otherwise the first picker's time
+// would drain while they're still looking at how the last round ended.
 function summaryPending(match) {
   return !!match.summaryReady && !(match.summaryReady.white && match.summaryReady.black)
 }
@@ -66,7 +62,7 @@ export function trySummaryContinue(match, color, now = Date.now()) {
   return { match: startDraftIfReady({ ...match, summaryReady }, now) }
 }
 
-// The summary cap ran out — start the draft regardless of who's still on it.
+// The summary cap ran out — start the recruit regardless of who's still on it.
 export function summaryTimeout(match, now = Date.now()) {
   if (match.phase !== 'draft' || !summaryPending(match)) return match
   return startDraftIfReady({ ...match, summaryReady: { white: true, black: true } }, now)
@@ -77,18 +73,19 @@ function startDraftIfReady(match, now) {
   return { ...match, summaryDeadline: null, draft: { ...match.draft, turnStartedAt: now } }
 }
 
+// item: { kind: 'piece', pieceType, square } | { kind: 'card', cardId }
 export function tryDraftPick(match, color, item, now = Date.now()) {
   if (match.phase !== 'draft') return { error: 'err.notDraft' }
   if (summaryPending(match)) return { error: 'err.waitingOpponent' }
   const res = submitPick(match.draft, color, item, now)
   if (res.error) return { error: res.error }
-  return finalizeDraftStep(match, res.draftState, now)
+  return finalizeDraftStep(match, res.draftState)
 }
 
-// The player on turn ran out of draft time (see rooms.js's draft timer).
+// The player on turn ran out of recruit time (see rooms.js's draft timer).
 export function draftTimeout(match, now = Date.now()) {
   if (match.phase !== 'draft' || summaryPending(match)) return match
-  return finalizeDraftStep(match, timeoutDraft(match.draft, now), now).match
+  return finalizeDraftStep(match, timeoutDraft(match.draft, now)).match
 }
 
 export function tryDraftDone(match, color, now = Date.now()) {
@@ -96,56 +93,12 @@ export function tryDraftDone(match, color, now = Date.now()) {
   if (summaryPending(match)) return { error: 'err.waitingOpponent' }
   const res = submitDone(match.draft, color, now)
   if (res.error) return { error: res.error }
-  return finalizeDraftStep(match, res.draftState, now)
+  return finalizeDraftStep(match, res.draftState)
 }
 
-// Placement is open and simultaneous: every rearrangement is pushed here
-// as it happens (partial — not every piece has to be down yet) and shown
-// live to the opponent (see rooms.js's viewFor). Locked once that side
-// hits "ready" (see tryPlacement).
-export function tryUpdatePlacement(match, color, placementMap) {
-  if (match.phase !== 'placement') return { error: 'err.notPlacement' }
-  if (match.placement[color].ready) return { error: 'err.alreadyReady' }
-
-  const draftedTypes = match.draft.picks[color].pieces
-  const check = validatePlacement(match.boardPattern, color, placementMap, draftedTypes, { partial: true })
-  if (check.error) return { error: check.error }
-
-  const placement = { ...match.placement, [color]: { ready: false, map: placementMap } }
-  return { match: { ...match, placement } }
-}
-
-export function tryPlacement(match, color, placementMap) {
-  if (match.phase !== 'placement') return { error: 'err.notPlacement' }
-  if (match.placement[color].ready) return { error: 'err.alreadyReady' }
-
-  const draftedTypes = match.draft.picks[color].pieces
-  const check = validatePlacement(match.boardPattern, color, placementMap, draftedTypes)
-  if (check.error) return { error: check.error }
-
-  const placement = { ...match.placement, [color]: { ready: true, map: placementMap } }
-  if (!placement.white.ready || !placement.black.ready) {
-    return { match: { ...match, placement } }
-  }
-  return { match: startBattle(match, placement) }
-}
-
-// The placement timer ran out: whatever each side has on the board locks
-// in as-is, and any pieces still unplaced drop onto random free home
-// squares — then the battle starts.
-export function forcePlacement(match) {
-  const placement = {}
-  ;['white', 'black'].forEach(color => {
-    const { map } = match.placement[color]
-    const drafted = match.draft.picks[color].pieces
-    placement[color] = { ready: true, map: autoCompletePlacement(match.boardPattern, color, map ?? {}, drafted) }
-  })
-  return startBattle(match, placement)
-}
-
-function startBattle(match, placement) {
-  const whitePieces = buildPlacementPieces('white', placement.white.map)
-  const blackPieces = buildPlacementPieces('black', placement.black.map)
+function startBattle(match) {
+  const whitePieces = buildPlacementPieces('white', match.draft.placed.white)
+  const blackPieces = buildPlacementPieces('black', match.draft.placed.black)
   const whiteCardIds = match.draft.picks.white.cards
   const blackCardIds = match.draft.picks.black.cards
   const poolRound   = Math.min(match.round, MAX_POOL_ROUND)
@@ -158,7 +111,7 @@ function startBattle(match, placement) {
     undefined, timeIncrement
   )
 
-  return { ...match, placement, phase: 'battle', placementDeadline: null, gameState }
+  return { ...match, phase: 'battle', gameState }
 }
 
 // Either player may offer a draw at any time during the battle — at most

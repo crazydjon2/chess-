@@ -1,6 +1,6 @@
 // AI opponent. The bot takes the second seat of a private room and plays
 // through the very same handlers a human socket triggers (draft picks,
-// placement, moves, cards, draw answers) — so a game against it exercises
+// placed straight onto the board, moves, cards, draw answers) — so a game against it exercises
 // the real match flow end to end: timers, round summaries, reconnects.
 //
 // Its brain is the balance lab's AI (tools/balance/lib/ai): the same
@@ -9,7 +9,8 @@
 import * as rooms from './rooms.js'
 import { decide, searchMoves, STRENGTHS } from '../tools/balance/lib/ai/search.js'
 import { resolveDraftPolicy } from '../tools/balance/lib/ai/draftAI.js'
-import { placeAgainst } from '../tools/balance/lib/ai/placementAI.js'
+import { squareForPick, kingSquareFor } from '../tools/balance/lib/ai/placementAI.js'
+import { defaultKingSquare } from '../client/src/game/draftEngine.js'
 import { newMemory, perceive, relook } from '../tools/balance/lib/ai/perception.js'
 import { evaluate } from '../tools/balance/lib/ai/eval.js'
 
@@ -99,17 +100,24 @@ function act(io, room) {
       bot.mem = newMemory()
       bot.draftPolicy = resolveDraftPolicy(bot.cfg.drafts[Math.floor(Math.random() * bot.cfg.drafts.length)])
     }
+    const smart = { smart: bot.cfg.smartPlacement }
+    const mine = ds.placed?.[color] ?? {}
+    const theirs = ds.placed?.[opp(color)] ?? {}
+    // First recruit action is always the king (free, then fixed).
+    if (ds.placed && !Object.values(mine).includes('king')) {
+      const ksq = kingSquareFor(m.boardPattern, color, mine, theirs, bot.rng, smart) ?? defaultKingSquare(ds, color)
+      rooms.handleDraftPick(io, sock, { kind: 'piece', pieceType: 'king', square: ksq })
+      return true
+    }
     const item = bot.draftPolicy(ds, color, bot.draftState, bot.rng, { pattern: m.boardPattern })
+    const now = room.match?.draft
+    if (item?.kind === 'piece' && now?.placed) {
+      item.square = squareForPick(m.boardPattern, color, now.placed[color], now.placed[opp(color)], item.pieceType, bot.rng, smart)
+    }
+    sock.lastError = null
     if (item) rooms.handleDraftPick(io, sock, item)
     else rooms.handleDraftDone(io, sock)
     if (sock.lastError) rooms.handleDraftDone(io, sock)
-    return true
-  }
-
-  if (m.phase === 'placement') {
-    if (m.placement[color].ready) return false
-    const map = placeAgainst(m.boardPattern, color, m.draft.picks[color].pieces, m.placement[opp(color)].map ?? {}, bot.rng, { smart: bot.cfg.smartPlacement })
-    rooms.handlePlacement(io, sock, map)
     return true
   }
 

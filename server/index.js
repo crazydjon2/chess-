@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 import {
   createRoom, joinRoom, rejoinRoom, getRoomByCode,
   broadcastRoom, handleStartMatch,
-  handleSummaryContinue, handleDraftPick, handleDraftDone, handleUpdatePlacement, handlePlacement,
+  handleSummaryContinue, handleDraftPick, handleDraftDone, handleRematch,
   handleMove, handlePlayCard, handleSurrender, handleOfferDraw, handleAnswerDraw,
   leaveRoom, handleDisconnect,
   subscribeLobby, unsubscribeLobby, broadcastLobbyList, broadcastMatchTo,
@@ -155,14 +155,13 @@ io.on('connection', (socket) => {
   on(socket, 'summary_continue', () => handleSummaryContinue(io, socket))
   on(socket, 'draft_pick', (item) => handleDraftPick(io, socket, item))
   on(socket, 'draft_done', () => handleDraftDone(io, socket))
-  on(socket, 'update_placement', ({ map }) => handleUpdatePlacement(io, socket, map))
-  on(socket, 'submit_placement', ({ map }) => handlePlacement(io, socket, map))
 
   on(socket, 'move', (move) => handleMove(io, socket, move))
   on(socket, 'play_card', (play) => handlePlayCard(io, socket, play))
   on(socket, 'surrender', () => handleSurrender(io, socket))
   on(socket, 'offer_draw', () => handleOfferDraw(io, socket))
   on(socket, 'answer_draw', (answer) => handleAnswerDraw(io, socket, answer))
+  on(socket, 'rematch', () => handleRematch(io, socket))
   on(socket, 'leave_room', () => leaveRoom(io, socket))
 
   socket.on('disconnect', () => {

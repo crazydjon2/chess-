@@ -142,3 +142,30 @@ export function placeAgainst(pattern, me, pieces, oppMap, rng, { smart = true, s
   if (chk.error) throw new Error('placement invalid: ' + chk.error)
   return maps[me]
 }
+
+// Recruit (on-board drafting): where to put a piece bought right now, given
+// what both sides already have standing. Plans the whole current army with
+// placeAgainst and takes the square it gives the new piece among the ones
+// still free; falls back to a random free home square.
+export function squareForPick(pattern, me, placedMine, placedOpp, pieceType, rng, { smart = true } = {}) {
+  const free = homeSquares(pattern, me).filter(sq => !placedMine[sq])
+  if (free.length === 0) return null
+  try {
+    const army = [...Object.values(placedMine), pieceType]
+    const plan = placeAgainst(pattern, me, army, placedOpp, rng, { smart })
+    const hit = free.find(sq => plan[sq] === pieceType)
+    if (hit) return hit
+  } catch { /* fall through */ }
+  return free[Math.floor(rng() * free.length)]
+}
+
+// Where the king would like to stand against the opponent's current army
+// (only free squares count). Null when it's already fine where it is.
+export function kingSquareFor(pattern, me, placedMine, placedOpp, rng, { smart = true } = {}) {
+  try {
+    const plan = placeAgainst(pattern, me, ['king', ...Object.values(placedMine).filter(t => t !== 'king')], placedOpp, rng, { smart })
+    const want = Object.keys(plan).find(sq => plan[sq] === 'king')
+    if (want && !placedMine[want]) return want
+  } catch { /* keep it */ }
+  return null
+}

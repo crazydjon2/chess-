@@ -1,114 +1,89 @@
-import { useLayoutEffect, useEffect, useRef, useState } from 'react'
+import { Component, createRef } from 'react'
 import './PageTransition.css'
 
-// Safety net only, not a duration guess — see the getAnimations effect
-// below. If a screen's CSS somehow never actually starts an animation on
-// its exit ghost (a selector typo, an element with no matching rule),
-// this guarantees the ghost still gets cleared instead of sitting inert
-// forever.
-const EXIT_FALLBACK_MS = 900
+// Safety net only: the exit normally ends when its own pt-* animations do.
+const EXIT_FALLBACK_MS = 450
+const FRESH_MS = 700
 
-// Crossfades between screens on `pageKey` change instead of the instant
-// unmount/mount swap React does by default — that hard jump-cut was the
-// "дёрганые переходы" complaint. The outgoing and incoming screen briefly
-// stack in the same CSS grid cell (see .pt-stack) so neither has to know
-// about or resize for the other while they overlap.
+// Crossfades between screens on `pageKey` change. The outgoing and incoming
+// screen briefly stack in the same CSS grid cell (see .pt-stack).
 //
-// Mount this ONCE at a stable position in the tree (see App.jsx /
-// OnlineApp.jsx) — every `return` branch that renders through it wraps its
-// own JSX in `<PageTransition pageKey="...">`, and because they all sit at
-// the exact same spot in the render tree, React treats them as the same
-// component instance across branches, so its internal state (and the
-// transition it drives) survives the swap.
+// The outgoing page is a FROZEN DOM SNAPSHOT (cloneNode of the last
+// rendered page, taken just before React swaps it), not a second React
+// render of it. A re-render remounted the old page: its mount animations
+// (menu card deal, code tiles…), mount sounds (round result) and portaled
+// modals (round result, settings) all ran again over the next page — the
+// "elements from the previous page stay / something hangs" report. A
+// static clone has no effects, no portals and no state; CSS in
+// PageTransition.css switches off every animation inside it except the
+// exit choreography, and it's removed as soon as that finishes.
 //
-// The "current" page is rendered straight from live props (not copied into
-// state) so prop-only updates on the same page — a game-state tick, a
-// nickname edit — never touch the leaving/entering machinery at all; only
-// an actual pageKey change does. Only the OUTGOING page is ever snapshotted
-// into state, as a frozen copy of its last render to fade out.
+// Mount this ONCE at a stable position (App.jsx / OnlineApp.jsx): every
+// branch wraps its JSX in <PageTransition pageKey="…"> at the same spot so
+// React keeps this one instance across branches.
 //
-// `noExitSnapshotFor` — pageKeys that should NEVER get an exit ghost.
-// Snapshotting works by rendering the outgoing `children` a second time at
-// a new position in the tree (inside .pt-exit instead of .pt-enter) — for
-// a plain presentational screen that's harmless, but for something with
-// real side effects on mount (OnlineApp's socket connection, say) it means
-// a whole SECOND live instance briefly exists, reconnecting a socket, etc.
-// It also has its OWN nested PageTransition starting fresh, so its
-// children get `.pt-enter` classes while the outer wrapper is animating
-// them as `.pt-exit` — the two fight each other (visible as a flicker).
-// Pages listed here just skip the ghost and vanish instantly; only the
-// incoming page still animates in.
-export default function PageTransition({ pageKey, children, noExitSnapshotFor = [] }) {
-  const [leaving, setLeaving] = useState(null) // { key, node } | null
-  const prevKeyRef      = useRef(pageKey)
-  const prevChildrenRef = useRef(children)
-  const exitRef         = useRef(null)
+// `noExitSnapshotFor` — pageKeys that run their own exit (sandbox) and must
+// not get a ghost.
+export default class PageTransition extends Component {
+  state = { staleKey: null }
+  enterRef = createRef()
+  exitHostRef = createRef()
+  freshTimer = null
+  exitTimer = null
 
-  // useLayoutEffect, not useEffect — this has to resolve BEFORE the
-  // browser paints. A plain useEffect runs after the pageKey-change
-  // render has already been painted (old "enter" div gone, `leaving`
-  // still stale/null from before), so the outgoing page would flash to
-  // nothing for a frame and only then pop back in as the exit ghost —
-  // read as "no animation" at best and a visible blink at worst.
-  // useLayoutEffect lets React fold the `leaving` update into the same
-  // commit before anything reaches the screen.
-  useLayoutEffect(() => {
-    if (prevKeyRef.current !== pageKey) {
-      if (noExitSnapshotFor.includes(prevKeyRef.current)) {
-        setLeaving(null)
-      } else {
-        setLeaving({ key: prevKeyRef.current, node: prevChildrenRef.current })
-      }
-    }
-    prevKeyRef.current = pageKey
-    prevChildrenRef.current = children
-  })
+  componentDidMount() { this.scheduleStale() }
 
-  // Clears the exit ghost exactly when its OWN CSS animation(s) actually
-  // finish, instead of a fixed timeout guessing how long that'll take.
-  // Different screens exit with very different total durations — a plain
-  // whole-page slide, a per-section stagger, MainMenu's per-card random
-  // scatter — and a single hardcoded number here was guaranteed to be
-  // wrong for most of them: too short and the ghost gets yanked out from
-  // under its own still-running animation (a visible snap mid-flight);
-  // too long and it just sits there, already finished, doing nothing,
-  // reading as "the old page won't go away". getAnimations({subtree:true})
-  // asks the browser what's actually running on it right now and waits
-  // for exactly that.
-  //
-  // Infinite ones are filtered out first — the frozen snapshot still
-  // carries whatever decorative always-on animation the live page had
-  // (a "your turn" glow pulse, say), and an infinite animation's
-  // `.finished` promise never resolves at all, which silently hung this
-  // on the fallback timeout every single time regardless of how fast the
-  // real exit animation actually was.
-  useEffect(() => {
-    if (!leaving || !exitRef.current) return
-    const anims = exitRef.current.getAnimations({ subtree: true }).filter(a => {
-      const timing = a.effect?.getComputedTiming?.()
-      return !timing || timing.iterations !== Infinity
+  componentWillUnmount() {
+    clearTimeout(this.freshTimer)
+    clearTimeout(this.exitTimer)
+  }
+
+  scheduleStale() {
+    clearTimeout(this.freshTimer)
+    const key = this.props.pageKey
+    this.freshTimer = setTimeout(() => this.setState({ staleKey: key }), FRESH_MS)
+  }
+
+  // Runs before React touches the DOM — the old page is still there to copy.
+  getSnapshotBeforeUpdate(prev) {
+    if (prev.pageKey === this.props.pageKey) return null
+    if ((prev.noExitSnapshotFor ?? []).includes(prev.pageKey)) return null
+    const el = this.enterRef.current
+    return el ? el.cloneNode(true) : null
+  }
+
+  componentDidUpdate(prev, _state, clone) {
+    if (prev.pageKey === this.props.pageKey) return
+    this.scheduleStale()
+    const host = this.exitHostRef.current
+    if (!host) return
+    clearTimeout(this.exitTimer)
+    host.replaceChildren()
+    if (!clone) return
+    clone.className = 'pt-exit'
+    clone.setAttribute('aria-hidden', 'true')
+    clone.inert = true
+    host.appendChild(clone)
+    const done = () => { clearTimeout(this.exitTimer); if (clone.parentNode === host) host.removeChild(clone) }
+    const anims = clone.getAnimations({ subtree: true }).filter(a => {
+      if (a.animationName && !a.animationName.startsWith('pt-')) return false
+      return a.effect?.getComputedTiming?.().iterations !== Infinity
     })
-    if (anims.length === 0) {
-      setLeaving(null)
-      return
-    }
-    let done = false
-    const finish = () => { if (!done) { done = true; setLeaving(null) } }
-    Promise.all(anims.map(a => a.finished.catch(() => {}))).then(finish)
-    const fallback = setTimeout(finish, EXIT_FALLBACK_MS)
-    return () => { done = true; clearTimeout(fallback) }
-  }, [leaving])
+    this.exitTimer = setTimeout(done, EXIT_FALLBACK_MS)
+    if (anims.length === 0) { done(); return }
+    Promise.all(anims.map(a => a.finished.catch(() => {}))).then(done)
+  }
 
-  return (
-    <div className="pt-stack">
-      {leaving && (
-        <div key={`exit-${leaving.key}`} className="pt-exit" ref={exitRef}>
-          {leaving.node}
+  render() {
+    const { pageKey, children } = this.props
+    const fresh = this.state.staleKey !== pageKey
+    return (
+      <div className="pt-stack">
+        <div className="pt-exit-host" ref={this.exitHostRef} />
+        <div key={`enter-${pageKey}`} ref={this.enterRef} className={`pt-enter${fresh ? ' fresh' : ''}`}>
+          {children}
         </div>
-      )}
-      <div key={`enter-${pageKey}`} className="pt-enter">
-        {children}
       </div>
-    </div>
-  )
+    )
+  }
 }

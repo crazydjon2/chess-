@@ -1,10 +1,10 @@
 // Server fuzzer: hammers the REAL socket handlers (server/rooms.js) with a
 // mix of sensible and garbage events from several fake players, under a
-// fake clock so every timer (draft, placement, battle, summary, abandoned
+// fake clock so every timer (recruit, battle, summary, abandoned
 // room) actually fires. Checks that nothing throws and nothing secret ever
 // leaves the server.
 import * as rooms from '../../../server/rooms.js'
-import { chess, cards, draft as draftEngine, boards, placement as placementEngine, legalMoves, opp } from './engine.js'
+import { chess, cards, draft as draftEngine, boards, legalMoves, opp } from './engine.js'
 import { mulberry32 } from './rng.js'
 
 const GARBAGE = [null, undefined, 0, 42, '', 'x', [], {}, { kind: 'piece' }, { kind: 'card', cardId: 'nope' }, { from: 'z9', to: '' }, { map: null }, '__proto__', { constructor: 1 }, { cardId: 'meteor', target: { evil: true } }]
@@ -70,7 +70,7 @@ export function serverFuzz({ iterations = 20000, seed = 1 } = {}) {
     try { return fn() } catch (e) {
       const msg = String(e?.message ?? e)
       // create/join/rejoin report user errors by throwing on purpose
-      if (['create', 'join', 'rejoin'].includes(name) && /Комната|Игра|заполнена|участник/.test(msg)) return null
+      if (['create', 'join', 'rejoin'].includes(name) && /Комната|Игра|заполнена|участник|err.room|err.seat|err.game|err.token/.test(msg)) return null
       issue('handler threw', `${name}: ${String(e?.stack ?? e).split('\n').slice(0, 3).join(' | ')}`)
       return null
     }
@@ -103,19 +103,12 @@ export function serverFuzz({ iterations = 20000, seed = 1 } = {}) {
       if (m.summaryReady && !m.summaryReady[me]) return ['summary', () => rooms.handleSummaryContinue(io, s)]
       const ds = m.draft
       if (ds.turn !== me || ds.done[me]) return ['wait', () => advance(500)]
-      const items = [...draftEngine.ALL_PIECE_TYPES.map(t => ({ kind: 'piece', pieceType: t })), ...Object.keys(cards.CARD_DEFS).map(c => ({ kind: 'card', cardId: c }))]
+      const free = draftEngine.freeHomeSquares(ds, me)
+      const sq = () => (rng() < 0.9 && free.length ? pick(free) : pick(['a1', 'z9', 'd4', undefined]))
+      const items = [...draftEngine.ALL_PIECE_TYPES.map(t => ({ kind: 'piece', pieceType: t, square: sq() })), ...Object.keys(cards.CARD_DEFS).map(c => ({ kind: 'card', cardId: c }))]
       const it = pick(items)
+      if (!Object.values(ds.placed?.[me] ?? {}).includes('king') && rng() < 0.8) return ['king', () => rooms.handleDraftPick(io, s, { kind: 'piece', pieceType: 'king', square: sq() })]
       return rng() < 0.15 ? ['done', () => rooms.handleDraftDone(io, s)] : ['pick', () => rooms.handleDraftPick(io, s, it)]
-    }
-    if (m.phase === 'placement') {
-      if (m.placement[me].ready) return ['wait', () => advance(rng() < 0.3 ? 40_000 : 1000)]
-      const pieces = m.draft.picks[me].pieces
-      const map = placementEngine.autoCompletePlacement(m.boardPattern, me, {}, pieces, rng)
-      if (rng() < 0.5) {
-        const partial = Object.fromEntries(Object.entries(map).slice(0, Math.floor(rng() * pieces.length)))
-        return ['placeLive', () => rooms.handleUpdatePlacement(io, s, partial)]
-      }
-      return ['ready', () => rooms.handlePlacement(io, s, map)]
     }
     if (m.phase === 'battle') {
       const gs = m.gameState
@@ -144,8 +137,6 @@ export function serverFuzz({ iterations = 20000, seed = 1 } = {}) {
       ['g:join', () => rooms.joinRoom(s, g, g)],
       ['g:rejoin', () => rooms.rejoinRoom(s, g, g)],
       ['g:pick', () => rooms.handleDraftPick(io, s, g)],
-      ['g:placeLive', () => rooms.handleUpdatePlacement(io, s, g)],
-      ['g:ready', () => rooms.handlePlacement(io, s, g)],
       ['g:move', () => rooms.handleMove(io, s, g)],
       ['g:card', () => rooms.handlePlayCard(io, s, g)],
       ['g:answer', () => rooms.handleAnswerDraw(io, s, g)],

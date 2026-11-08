@@ -39,4 +39,4 @@ export const PLACEMENT_TIME_BY_ROUND = { 1: 30, 2: 40, 3: 50 }
 // clock, not a per-pick timer: it only runs on that player's turn (see
 // draftEngine.js). Running out simply ends that player's draft with
 // whatever they've bought so far (see timeoutDraft).
-export const DRAFT_TIME_BY_ROUND = { 1: 30, 2: 40, 3: 50 }
+export const DRAFT_TIME_BY_ROUND = { 1: 40, 2: 50, 3: 60 }

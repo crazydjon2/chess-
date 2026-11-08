@@ -8,7 +8,8 @@ import MainMenu from './rendering/MainMenu'
 import MenuLayout from './rendering/MenuLayout'
 import PageTransition from './rendering/PageTransition'
 import { PATCH_NOTES } from './game/patchNotes'
-import './App.css'
+// last on purpose: hover/press feedback overrides the screens' own styles
+import './theme/interactions.css'
 
 const PATCH_SEEN_KEY = 'chessplus_patchnotes_seen'
 const latestPatchId = PATCH_NOTES[0].id
@@ -72,7 +73,7 @@ export default function App() {
   // (not absent) whenever those are active.
   return (
     <MenuLayout>
-      <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['online', 'sandbox']}>
+      <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['sandbox']}>
         {mode === 'online' && <OnlineApp onExit={() => navigate('/')} />}
         {mode === 'sandbox' && <SandboxApp onExit={() => navigate('/')} />}
         {mode === null && (
@@ -80,6 +81,7 @@ export default function App() {
             {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
             <MainMenu
               onPlayOnline={() => navigate('/online')}
+              onPlayBot={() => navigate('/online', { state: { bot: true } })}
               onSandbox={() => navigate('/sandbox')}
               onOpenPatchNotes={openPatchNotes}
               unseenPatch={unseenPatch}

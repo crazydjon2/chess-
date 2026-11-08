@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { startRound, applyRoundResult, tryDraftPick, tryDraftDone, trySummaryContinue, summaryTimeout } from './matchEngine.js'
+import { draftTimeout, startRound, applyRoundResult, tryDraftPick, tryDraftDone, trySummaryContinue, summaryTimeout } from './matchEngine.js'
+import { freeHomeSquares } from '../client/src/game/draftEngine.js'
+
+const pawnOn = (match, color) => ({ kind: 'piece', pieceType: 'pawn', square: freeHomeSquares(match.draft, color)[0] })
+const kingOn = (match, color) => ({ kind: 'piece', pieceType: 'king', square: freeHomeSquares(match.draft, color)[0] })
+// Both players' mandatory first action: their king.
+function withKingsPlaced(match) {
+  match = tryDraftPick(match, match.draft.turn, kingOn(match, match.draft.turn)).match
+  return tryDraftPick(match, match.draft.turn, kingOn(match, match.draft.turn)).match
+}
 import { shopPieceCost } from '../client/src/game/economy.js'
 
 function matchWithGameState(gameState) {
@@ -14,27 +23,65 @@ describe('turn-based draft', () => {
     expect(res.error).toBeTruthy()
   })
 
-  it('moves to placement once both sides finish the draft', () => {
-    let match = startRound({ white: 0, black: 0 }, 1, 'white')
+  it('starts the battle with the recruited armies once both sides finish', () => {
+    let match = withKingsPlaced(startRound({ white: 0, black: 0 }, 1, 'white'))
     const budget = match.draft.budgets.white
     expect(match.draft.budgets.black).toBe(budget) // identical starting budgets
 
     // Each side buys the cheapest possible piece (a pawn) then declares
     // done — whatever budget is left simply goes unspent.
-    match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).match
-    match = tryDraftPick(match, 'black', { kind: 'piece', pieceType: 'pawn' }).match
+    const wSq = freeHomeSquares(match.draft, 'white')[0]
+    match = tryDraftPick(match, 'white', pawnOn(match, 'white')).match
+    const bSq = freeHomeSquares(match.draft, 'black')[0]
+    match = tryDraftPick(match, 'black', pawnOn(match, 'black')).match
     match = tryDraftDone(match, 'white').match
     const res = tryDraftDone(match, 'black')
     expect(res.error).toBeUndefined()
     match = res.match
 
-    expect(match.phase).toBe('placement')
+    expect(match.phase).toBe('battle')
+    expect(match.gameState.pieces[wSq]).toMatchObject({ type: 'pawn', color: 'white' })
+    expect(match.gameState.pieces[bSq]).toMatchObject({ type: 'pawn', color: 'black' })
+    const kings = Object.values(match.gameState.pieces).filter(p => p.type === 'king')
+    expect(kings).toHaveLength(2)
   })
 
-  it('a color with no budget left for anything is auto-skipped without needing to declare done', () => {
+  it('rejects a piece without a free home square', () => {
+    const match = withKingsPlaced(startRound({ white: 0, black: 0 }, 1, 'white'))
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).error).toBe('err.notYourHalf')
+    const kingSq = Object.keys(match.draft.placed.white)[0]
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn', square: kingSq }).error).toBe('err.notYourHalf')
+    const enemySq = freeHomeSquares(match.draft, 'black')[0]
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn', square: enemySq }).error).toBe('err.notYourHalf')
+  })
+
+  it('the first action must be the king; it is free, ends the turn and stays put', () => {
     let match = startRound({ white: 0, black: 0 }, 1, 'white')
+    expect(tryDraftPick(match, 'white', pawnOn(match, 'white')).error).toBe('err.placeKingFirst')
+    expect(tryDraftDone(match, 'white').error).toBe('err.placeKingFirst')
+    const budget = match.draft.budgets.white
+    const sq = freeHomeSquares(match.draft, 'white')[3]
+    match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'king', square: sq }).match
+    expect(match.draft.placed.white).toEqual({ [sq]: 'king' })
+    expect(match.draft.budgets.white).toBe(budget)
+    expect(match.draft.turn).toBe('black')
+    match = tryDraftPick(match, 'black', kingOn(match, 'black')).match
+    // a second king is not for sale
+    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'king', square: freeHomeSquares(match.draft, 'white')[0] }).error).toBeTruthy()
+  })
+
+  it('a player who times out before placing the king gets it on the default square', () => {
+    let match = startRound({ white: 0, black: 0 }, 1, 'white')
+    match = draftTimeout(match, match.draft.turnStartedAt + 1e6)
+    expect(Object.values(match.draft.placed.white)).toEqual(['king'])
+    expect(match.draft.done.white).toBe(true)
+  })
+
+
+  it('a color with no budget left for anything is auto-skipped without needing to declare done', () => {
+    let match = withKingsPlaced(startRound({ white: 0, black: 0 }, 1, 'white'))
     match = { ...match, draft: { ...match.draft, budgets: { ...match.draft.budgets, white: shopPieceCost('pawn') } } }
-    match = tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }).match
+    match = tryDraftPick(match, 'white', pawnOn(match, 'white')).match
     expect(match.draft.done.white).toBe(true)
     expect(match.draft.turn).toBe('black')
   })
@@ -137,7 +184,7 @@ describe('round summary wait before the next draft', () => {
     expect(match.draft.turnStartedAt).toBeNull() // still waiting on black
     match = trySummaryContinue(match, 'black', 3_000).match
     expect(match.draft.turnStartedAt).toBe(3_000)
-    expect(tryDraftPick(match, 'white', { kind: 'piece', pieceType: 'pawn' }, 4_000).error).toBeUndefined()
+    expect(tryDraftPick(match, 'white', kingOn(match, 'white'), 4_000).error).toBeUndefined()
   })
 
   it('starts the draft anyway once the cap runs out', () => {

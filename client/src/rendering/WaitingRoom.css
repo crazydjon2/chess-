@@ -1,514 +1,118 @@
-/* Same felt-table language as MainMenu/PlayOnlineMenu/PatchNotes. No
-   background of its own — see MainMenu.css's .mm-screen comment, same
-   MenuLayout.css .ml-bg underneath. */
 .wr-screen {
   position: relative;
-  z-index: 1;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 40px 24px 48px;
-  font-family: 'Nunito', system-ui, sans-serif;
+  padding: 24px;
 }
+.po-me.static { cursor: default; }
 
-.wr-title {
-  position: relative;
-  z-index: 2;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 800;
-  font-size: 32px;
-  color: #fdf6e8;
-  -webkit-text-stroke: 4px #241708;
-  paint-order: stroke fill;
-  text-shadow: 0 6px 0 rgba(0,0,0,0.3);
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.wr-subtitle {
-  position: relative;
-  z-index: 2;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: #c9e8d6;
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-/* ── Main panel ───────────────────────────────────────────────────── */
-.wr-panel {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 440px;
-  background: #fdf6e8;
-  border: 4px solid #241708;
-  border-radius: 22px;
-  box-shadow: 0 9px 0 0 #241708, 0 16px 26px rgba(0,0,0,0.4);
-  padding: 28px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-}
-
-.wr-divider {
-  width: 100%;
-  height: 2px;
-  background: #e6ddc8;
-}
-
-/* ── Room code ────────────────────────────────────────────────────── */
-.wr-code-block {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.wr-code-labelrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.wr-code-label {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #8a7658;
-  text-align: center;
-}
-
-/* Who can walk in — the one thing about a room that isn't obvious from
-   looking at it (see rooms.js's visibility / listOpenRooms). */
-.wr-vis-badge {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 9.5px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  border: 2px solid #241708;
-  border-radius: 999px;
-  padding: 2px 9px;
-  white-space: nowrap;
-}
-
-.wr-vis-badge.public  { background: #d7ecdd; color: #1c5c3c; }
-.wr-vis-badge.private { background: #efe8d6; color: #5a4f40; }
-
-/* Secondary to the big code box above it — same chunky language, quieter
-   fill, so the two copy actions read as a pair without competing. */
-.wr-link-btn {
-  width: 100%;
-  background: #f7f0de;
-  color: #241708;
-  border: 3px solid #241708;
-  border-radius: 12px;
-  box-shadow: 0 4px 0 0 #241708;
-  padding: 10px 12px;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.wr-link-btn:hover:not(:active) { transform: translateY(-2px); }
-.wr-link-btn:active { transform: translateY(4px); box-shadow: none; }
-
-.wr-code-box {
-  width: 100%;
-  background: #fdf6e8;
-  border: 3px solid #241708;
-  border-radius: 14px;
-  padding: 14px 16px;
-  box-shadow: 0 5px 0 0 #241708;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.wr-code-box:hover {
-  transform: translateY(-2px);
-}
-
-.wr-code-box:active {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
-.wr-code-value {
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 32px;
-  letter-spacing: 8px;
-  color: #241708;
-}
-
-.wr-copy-icon {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  background: #f0b429;
-  border: 2.5px solid #241708;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.wr-copy-icon span {
-  width: 11px;
-  height: 13px;
-  border: 2px solid #241708;
-  border-radius: 2px;
-  position: relative;
-}
-
-.wr-copy-icon span::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 11px;
-  height: 13px;
-  border: 2px solid #241708;
-  border-radius: 2px;
-  background: #f0b429;
-}
-
-/* Fixed height (not min-height) around the hint/copied swap — the two
-   states render at different box sizes (one's a bordered badge, the
-   other plain text) and min-height only stopped the slot shrinking below
-   the badge's height, not growing to it: showing the badge still made
-   the slot taller than the hint's resting size, so the panel below
-   (player rows, cancel button) still jumped up/down on every copy. A
-   fixed height that already fits the taller (badge) state absorbs both. */
-.wr-copy-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-}
-
-.wr-copied {
-  animation: wr-pop-in 0.18s ease;
-  background: #5c9a6f;
-  color: #fdf6e8;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  padding: 5px 14px;
-  border-radius: 10px;
-  border: 2px solid #241708;
-  box-sizing: border-box;
-}
-
-@keyframes wr-pop-in {
-  from { transform: scale(0.85); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-
-.wr-copy-hint {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 600;
-  font-size: 11px;
-  color: #b8a888;
-}
-
-/* ── Player rows ──────────────────────────────────────────────────── */
-.wr-players {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.wr-player-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  /* Fixed — the waiting ("Ждём игрока…") and connected (name + ВЫ badge)
-     states render a few px apart in natural height, which nudged the
-     whole panel every time a seat filled. */
-  height: 62px;
-  padding: 0 14px;
-  border-radius: 14px;
-}
-
-.wr-player-row.connected {
-  border: 3px solid #241708;
-  background: #fdf6e8;
-}
-
-.wr-player-row.is-me {
-  border-color: #f0b429;
-  box-shadow: 0 0 0 2px #241708;
-}
-
-.wr-player-row.waiting {
-  border: 3px dashed #b8a888;
-  background: #f5f0e3;
-}
-
-.wr-player-dot {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 3px solid #241708;
-}
-
-.wr-player-dot.p-white { background: #fdf6e8; }
-.wr-player-dot.p-black { background: #241708; }
-
-.wr-player-row.waiting .wr-player-dot {
-  animation: wr-pulse-ring 1.6s ease-out infinite;
-}
-
-@keyframes wr-pulse-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(36,23,8,0.35); }
-  100% { box-shadow: 0 0 0 10px rgba(36,23,8,0); }
-}
-
-.wr-player-info {
+.wr-main {
   flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 0 60px;
+}
+.wr-panel { padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 22px; border-radius: 22px; }
+.wr-vis {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--c-inset);
+  box-shadow: inset 0 0 0 2px var(--c-edge);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-text-dim);
+}
+.wr-code { display: flex; gap: 12px; }
+.wr-tile {
+  width: 84px;
+  height: 100px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--board-sq-light);
+  color: var(--c-on-accent);
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 44px;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,0.45), inset 0 -6px 0 rgba(60,30,15,0.18), 0 5px 0 var(--c-panel-depth);
+  animation: wr-flip 0.4s var(--ease-pop) both;
+  animation-delay: calc(var(--i) * 60ms);
+}
+.wr-tile.d { background: var(--board-sq-dark); }
+@keyframes wr-flip { from { opacity: 0; transform: translateY(14px) rotateX(70deg); } }
+.wr-copy { height: 64px; }
+
+.wr-seats { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.wr-seat {
+  height: 96px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
   min-width: 0;
 }
-
-.wr-player-name {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  color: #241708;
-}
-
-.wr-you-badge {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 9px;
-  letter-spacing: 0.5px;
-  color: #241708;
-  background: #f0b429;
-  border: 2px solid #241708;
-  border-radius: 7px;
-  padding: 1px 7px;
-}
-
-.wr-player-row.waiting .wr-player-name { color: #8a7658; }
-
-.wr-player-sub {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #5c9a6f;
-}
-
-.wr-player-row.waiting .wr-player-sub { color: #a89670; }
-
-.wr-status-dot {
-  width: 9px;
-  height: 9px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #5c9a6f;
-}
-
-.wr-player-row.waiting .wr-status-dot { background: #c9bca0; }
-
-/* Fixed-height slot the loader / start button / "host will start" line all
-   share, so the panel never resizes when the room fills or the host starts
-   (the "interface must not jump" requirement). Sized to the tallest state
-   (the bobbing-pieces loader). */
-.wr-action {
-  width: 100%;
-  min-height: 68px;
+.wr-seat.me, .wr-seat.filled { background: var(--c-panel); box-shadow: 0 6px 0 var(--c-panel-depth), inset 0 0 0 3px var(--c-accent); }
+.wr-seat.filled { box-shadow: 0 6px 0 var(--c-panel-depth), inset 0 0 0 3px var(--c-edge); animation: ui-pop-in 0.3s var(--ease-pop) both; }
+.wr-seat.free { border: 3px dashed var(--c-edge); }
+.wr-seat .ui-avatar { width: 56px; height: 56px; border-radius: 14px; }
+.wr-seat-name { font-size: 19px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-seat-ghost {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: inset 0 0 0 3px var(--c-accent-depth);
+  opacity: 0.55;
+  animation: wr-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
 }
-
-.wr-start-btn {
-  width: 100%;
-  background: #f0b429;
-  color: #241708;
-  border: 3px solid #241708;
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 5px 0 0 #241708;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 800;
-  font-size: 17px;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.wr-start-btn:hover:not(:active):not(:disabled) { transform: translateY(-2px); }
-.wr-start-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
-.wr-start-btn:disabled { opacity: 0.6; cursor: default; }
-
-/* ── Loading flavor — bobbing pieces, not cards (this screen is about
-   finding an opponent to play chess against, not about the draft) ────── */
-.wr-deal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-
-.wr-deal-pieces {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-}
-
-.wr-deal-piece {
-  width: 26px;
-  height: 34px;
-  display: block;
-  animation: wr-piece-bob 1.2s ease-in-out infinite;
-}
-
-.wr-deal-piece svg { width: 100%; height: 100%; display: block; }
-
-@keyframes wr-piece-bob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-14px); }
-}
-
-.wr-deal-text {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  color: #8a7658;
-}
-
-.wr-cancel-btn {
-  width: 100%;
-  background: #fdf6e8;
-  color: #241708;
-  border: 3px solid #241708;
-  border-radius: 12px;
-  padding: 13px;
-  box-shadow: 0 5px 0 0 #241708;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.wr-cancel-btn:hover {
-  transform: translateY(-2px);
-}
-
-.wr-cancel-btn:active {
-  transform: translateY(5px);
-  box-shadow: none;
-}
-
-/* ── Error ────────────────────────────────────────────────────────── */
-.wr-error-slot {
-  position: relative;
+.wr-seat-wait { flex: 1; font-size: 14px; color: var(--c-text-dim); min-width: 0; }
+.wr-seat-time { color: var(--c-text-dim); font-size: 20px; }
+@keyframes wr-pulse { 50% { opacity: 1; transform: scale(1.05); } }
+.wr-vs {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
-  width: 100%;
-  max-width: 440px;
-  min-height: 44px;
-  margin-top: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.wr-error {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #fdf6e8;
-  border: 3px solid #d4302f;
-  border-radius: 12px;
-  padding: 10px 18px;
-  box-shadow: 0 4px 0 0 #241708;
-  animation: wr-shake 0.4s ease;
-}
-
-@keyframes wr-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-4px); }
-  40% { transform: translateX(4px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
-
-.wr-error-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: #d4302f;
-  color: #fdf6e8;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
+  background: var(--c-accent);
+  color: var(--c-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 4px 0 var(--c-accent-depth), 0 0 0 6px var(--c-bg);
 }
+.wr-action { min-height: 64px; display: flex; align-items: center; justify-content: center; }
+.wr-note { color: var(--c-text-dim); font-weight: 600; }
 
-.wr-error span:last-child {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: #241708;
+@media (max-width: 600px) {
+  .wr-screen { padding: 12px; }
+  .wr-main { justify-content: flex-start; gap: 22px; padding-top: 24px; }
+  .wr-panel { padding: 20px 16px; }
+  .wr-code { gap: 8px; }
+  .wr-tile { width: 54px; height: 66px; font-size: 28px; border-radius: 10px; }
+  .wr-seats { grid-template-columns: 1fr; gap: 26px; }
+  .wr-seat { height: 80px; }
+  .wr-seat .wr-seat-wait { font-size: 13px; }
 }
-
-@media (max-width: 700px) {
-  /* Compact so the room (title · code · two player rows · action button)
-     fits the viewport without a page scroll. Uses 100dvh and tighter
-     spacing; the code stays big enough to read/share. */
-  .wr-screen {
-    min-height: 100dvh;
-    padding: 56px 16px 16px;
-  }
-  .wr-title { font-size: 24px; }
-  .wr-subtitle { margin-bottom: 16px; }
-  .wr-panel { padding: 18px 16px; gap: 16px; }
-  .wr-code-value { font-size: 26px; letter-spacing: 6px; }
-  .wr-player-row { height: 54px; }
-  .wr-action { min-height: 56px; }
-  .wr-error-slot { margin-top: 10px; min-height: 0; }
-}
-
-/* Very short screens: tighten further so the room still fits. */
-@media (max-width: 700px) and (max-height: 700px) {
-  .wr-screen { padding-top: 42px; }
-  .wr-title { font-size: 20px; margin-bottom: 4px; }
-  .wr-subtitle { margin-bottom: 8px; font-size: 12px; }
-  .wr-panel { padding: 12px 14px; gap: 10px; }
-  .wr-code-box { padding: 10px 14px; }
-  .wr-code-value { font-size: 23px; letter-spacing: 5px; }
-  .wr-players { gap: 8px; }
-  .wr-player-row { height: 46px; }
-  .wr-action { min-height: 48px; }
-}
-
