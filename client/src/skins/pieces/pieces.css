@@ -14,6 +14,7 @@
 .pz.center { align-items: center; }
 
 .pz > svg, .pz .pz-svg { width: 100%; height: 100%; display: block; }
+.pz-img { width: 100%; height: 100%; display: block; object-fit: contain; object-position: 50% 100%; pointer-events: none; }
 
 .pz-glyph {
   font-family: var(--f-glyph);
@@ -24,21 +25,38 @@
   transform: translateY(4%);
 }
 .pz-glyph.white {
-  color: var(--piece-white-fill);
+  --pz-lit: var(--piece-white-fill);
+  --pz-shade: var(--piece-white-shade);
   --pz-line: var(--piece-white-line);
 }
 .pz-glyph.black {
-  color: var(--piece-black-fill);
+  --pz-lit: var(--piece-black-hi);
+  --pz-shade: var(--piece-black-fill);
   --pz-line: var(--piece-black-line);
 }
-/* Outline via 8-way text shadows, scaled with the glyph (cqh). */
+/* Two layers of the same glyph:
+   - the element itself = the outline: glyph in line colour with a smooth
+     round stroke (also closes the glyph's inner gaps → dark detail lines);
+   - ::after = the face on top: lit from the top-left, shade on the right. */
 .pz-glyph {
-  --o: 2.6cqh;
-  text-shadow:
-    var(--o) 0 0 var(--pz-line), calc(-1 * var(--o)) 0 0 var(--pz-line),
-    0 var(--o) 0 var(--pz-line), 0 calc(-1 * var(--o)) 0 var(--pz-line),
-    calc(var(--o) * .7) calc(var(--o) * .7) 0 var(--pz-line), calc(var(--o) * -.7) calc(var(--o) * -.7) 0 var(--pz-line),
-    calc(var(--o) * .7) calc(var(--o) * -.7) 0 var(--pz-line), calc(var(--o) * -.7) calc(var(--o) * .7) 0 var(--pz-line);
+  position: relative;
+  color: var(--pz-line);
+  -webkit-text-stroke: var(--pz-stroke, 5.5cqh) var(--pz-line);
 }
-/* Small sizes (journal, chips): thinner outline. */
-.pz.thin .pz-glyph { --o: 4cqh; }
+.pz-glyph::after {
+  content: attr(data-g);
+  position: absolute;
+  /* the glyph overflows its line box (tops, knight ears) and a background
+     only paints inside the box: grow the box, pad the text back in place */
+  inset: -0.3em -0.1em -0.15em -0.1em;
+  padding: 0.3em 0 0 0.1em;
+  -webkit-text-stroke: 0;
+  background: linear-gradient(105deg, var(--pz-lit) 0 50%, var(--pz-shade) 72%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* Small sizes (journal, chips): relatively thicker outline. */
+.pz.thin .pz-glyph { --pz-stroke: 8cqh; }
+
+.pz-barricade { overflow: visible; filter: drop-shadow(0 1.5px 0 rgba(20, 10, 30, 0.35)); }

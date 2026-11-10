@@ -14,7 +14,7 @@ import ConfirmModal from './rendering/ConfirmModal'
 import PageTransition from './rendering/PageTransition'
 import { getSocket, connectSocket, disconnectSocket, request } from './net/socket'
 import { saveSeat, loadSeatToken, clearSeat } from './net/seat'
-import { loadNickname, saveNickname } from './nickname'
+import { useNickname } from './nickname'
 import { getValidTargets } from './game/cards'
 import { needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
@@ -75,7 +75,7 @@ export default function OnlineApp({ onExit }) {
   const [pendingPromotion, setPendingPromotion] = useState(null) // { from, to } awaiting a piece choice
   const [surrenderConfirm, setSurrenderConfirm] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false) // browser "back" pressed mid-match
-  const [nickname, setNickname] = useState(loadNickname)
+  const [nickname, setNickname] = useNickname()
   const [premove, setPremove] = useState(null) // { from, to } | null
   const premoveRef = useRef(null) // mirrors premove for the socket handler below (avoids a stale closure)
   useEffect(() => { premoveRef.current = premove }, [premove])
@@ -101,7 +101,6 @@ export default function OnlineApp({ onExit }) {
 
   function handleNicknameChange(name) {
     setNickname(name)
-    saveNickname(name)
   }
 
   const flashError = useCallback((msg) => {

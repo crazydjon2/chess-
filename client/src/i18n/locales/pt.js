@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Dama',
   'piece.king': 'Rei',
 
-  'card.barricade.name': 'Barricada',
-  'card.barricade.desc': 'Coloca uma barreira com 2 HP numa casa livre. O adversário pode destruí-la como uma peça comum.',
+  'card.barricade.name': 'Pedra',
+  'card.barricade.desc': 'Coloca uma pedra com 2 HP numa casa livre. O adversário pode parti-la como uma peça comum.',
   'card.add_cell.name': 'Adicionar casa',
   'card.add_cell.desc': 'Adiciona uma nova casa além da borda do tabuleiro, ampliando o campo.',
   'card.freeze.name': 'Mina congelante',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Sandbox',
   'menu.howToPlay': 'Como jogar',
   'menu.whatsNew': 'Novidades',
-  'menu.skins': 'Skins',
+  'menu.skins': 'Loja',
   'menu.soon': 'Em breve',
   'menu.soonTag': "em breve",
   'menu.newBadge': 'NOVO',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Idioma',
 
   'patch.new': 'Novo',
+  'patch.empty': 'Fique atento às novidades',
 
   'online.matchOverWin': 'Partida encerrada — você venceu {score}',
   'online.matchOverLoss': 'Partida encerrada — você perdeu {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Batalha',
   'htp.battleDesc': 'Joguem alternadamente — usar uma carta não gasta o lance. O relógio ({min} min, +{inc} s por lance) só corre na sua vez. Dá para escolher o lance durante a vez do adversário. O registro guarda todos os lances e cartas.',
   'htp.resultTitle': 'Fim da rodada',
-  'htp.resultDesc': 'Vence a rodada quem capturar o rei adversário. O rei tem 2 vidas: o primeiro golpe ricocheteia. Não há xeque — o rei pode se expor como qualquer peça. Ficar sem tempo ou sem lances é derrota. A partida vai até 2 vitórias; cada rodada é um draft novo.',
+  'htp.resultDesc': 'Vence a rodada quem capturar o rei adversário. Não há xeque — o rei pode se expor como qualquer peça. Ficar sem tempo ou sem lances é derrota. A partida vai até 2 vitórias; cada rodada é um draft novo.',
 
   'score.round': 'rodada',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Compre peças e cartas em turnos; cada peça vai direto para a sua metade.",
   'htp.step2Desc': "Movam em turnos. Uma carta por turno.",
   'htp.step3Title': "Vitória",
-  'htp.step3Desc': "Capture o rei. Ele tem 2 vidas; não há xeque.",
+  'htp.step3Desc': "Capture o rei. Não há xeque.",
   'htp.tabCards': "Cartas",
   'htp.tabGame': "Partida",
   'lobby.access': "Acesso",

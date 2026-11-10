@@ -49,7 +49,14 @@ export default class PageTransition extends Component {
     if (prev.pageKey === this.props.pageKey) return null
     if ((prev.noExitSnapshotFor ?? []).includes(prev.pageKey)) return null
     const el = this.enterRef.current
-    return el ? el.cloneNode(true) : null
+    if (!el) return null
+    // the snapshot is decoration only: drop ids / test ids so it never
+    // duplicates the live page's (shared chrome like the name plate)
+    const clone = el.cloneNode(true)
+    for (const e of [clone, ...clone.querySelectorAll('[id], [data-testid]')]) {
+      e.removeAttribute('id'); e.removeAttribute('data-testid')
+    }
+    return clone
   }
 
   componentDidUpdate(prev, _state, clone) {

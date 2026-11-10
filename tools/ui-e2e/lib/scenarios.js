@@ -17,7 +17,7 @@ export async function menuTour(browser, base, profile, rec, rng) {
   await rec.step(S, 'главное меню открывается', page, async () => {
     await page.goto(base + '/')
     await page.locator('[data-testid=menu-online]').waitFor({ timeout: 10000 })
-    await checkLayout(page, rec, 'меню', { noScroll: isPhone(page), mustSee: ['[data-testid=menu-online]', '[data-testid=menu-bot]', '[data-testid=menu-sandbox]', '.mm-minor'] })
+    await checkLayout(page, rec, 'меню', { noScroll: isPhone(page), mustSee: ['[data-testid=menu-online]', '[data-testid=menu-bot]', '[data-testid=menu-news]', '.mm-minor'] })
   }, { critical: true, shot: true })
 
   await rec.step(S, '«Как играть»: все вкладки и карты', page, async () => {
@@ -52,7 +52,8 @@ export async function menuTour(browser, base, profile, rec, rng) {
   })
 
   await rec.step(S, 'песочница: ходы и все карты', page, async () => {
-    await page.locator('[data-testid=menu-sandbox]').click()
+    // no menu button: the sandbox is a test page reached by URL
+    await page.goto(new URL('/sandbox', page.url()).href)
     await page.waitForURL(/\/sandbox$/)
     await page.locator('[data-testid=board]').waitFor({ timeout: 10000 })
     await sleep(400)

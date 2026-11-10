@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Dame',
   'piece.king': 'Roi',
 
-  'card.barricade.name': 'Barricade',
-  'card.barricade.desc': 'Place une barrière à 2 PV sur une case libre. L\'adversaire peut la détruire comme une pièce normale.',
+  'card.barricade.name': 'Pierre',
+  'card.barricade.desc': 'Place une pierre à 2 PV sur une case libre. L\'adversaire peut la briser comme une pièce normale.',
   'card.add_cell.name': 'Ajouter une case',
   'card.add_cell.desc': 'Ajoute une nouvelle case au-delà du bord de l\'échiquier pour agrandir le terrain.',
   'card.freeze.name': 'Mine gelante',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Bac à sable',
   'menu.howToPlay': 'Comment jouer',
   'menu.whatsNew': 'Nouveautés',
-  'menu.skins': 'Skins',
+  'menu.skins': 'Boutique',
   'menu.soon': 'Bientôt',
   'menu.soonTag': "bientôt",
   'menu.newBadge': 'NOUVEAU',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Langue',
 
   'patch.new': 'Nouveau',
+  'patch.empty': 'Restez à l\'écoute',
 
   'online.matchOverWin': 'Match terminé — victoire {score}',
   'online.matchOverLoss': 'Match terminé — défaite {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Bataille',
   'htp.battleDesc': 'Jouez chacun votre tour — une carte ne consomme pas votre coup. La pendule ({min} min, +{inc} s par coup) ne tourne que pendant votre tour. Vous pouvez préparer votre coup pendant le tour adverse. Le journal garde tous les coups et cartes.',
   'htp.resultTitle': 'Fin de manche',
-  'htp.resultDesc': 'Capturez le roi adverse pour gagner la manche. Le roi a 2 vies : le premier coup rebondit. Pas d\'échec — le roi peut s\'exposer comme n\'importe quelle pièce. Plus de temps ou plus de coups : défaite. Le match se joue en 2 victoires ; chaque manche repart d\'un nouveau draft.',
+  'htp.resultDesc': 'Capturez le roi adverse pour gagner la manche. Pas d\'échec — le roi peut s\'exposer comme n\'importe quelle pièce. Plus de temps ou plus de coups : défaite. Le match se joue en 2 victoires ; chaque manche repart d\'un nouveau draft.',
 
   'score.round': 'manche',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Achetez pièces et cartes à tour de rôle ; chaque pièce va directement sur votre moitié.",
   'htp.step2Desc': "Jouez à tour de rôle. Une carte par tour.",
   'htp.step3Title': "Victoire",
-  'htp.step3Desc': "Prenez le roi. Il a 2 vies ; pas d'échec.",
+  'htp.step3Desc': "Prenez le roi. Pas d'échec.",
   'htp.tabCards': "Cartes",
   'htp.tabGame': "Partie",
   'lobby.access': "Accès",

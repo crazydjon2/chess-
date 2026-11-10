@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Queen',
   'piece.king': 'King',
 
-  'card.barricade.name': 'Barricade',
-  'card.barricade.desc': 'Places a 2 HP barrier on an empty square. The opponent can destroy it like a regular piece.',
+  'card.barricade.name': 'Stone',
+  'card.barricade.desc': 'Places a 2 HP stone on an empty square. The opponent can smash it like a regular piece.',
   'card.add_cell.name': 'Add Square',
   'card.add_cell.desc': 'Adds one new square beyond the edge of the board, expanding the field.',
   'card.freeze.name': 'Freeze Mine',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Sandbox',
   'menu.howToPlay': 'How to play',
   'menu.whatsNew': 'What\'s new',
-  'menu.skins': 'Skins',
+  'menu.skins': 'Shop',
   'menu.soon': 'Coming soon',
   'menu.soonTag': "soon",
   'menu.newBadge': 'NEW',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Language',
 
   'patch.new': 'New',
+  'patch.empty': 'Stay tuned for updates',
 
   'online.matchOverWin': 'Match over — you won {score}',
   'online.matchOverLoss': 'Match over — you lost {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Battle',
   'htp.battleDesc': 'Take turns — playing a card doesn\'t use your move. Clocks ({min} min, +{inc} s per move) run only on your turn. You can pre-select a move during the opponent\'s turn. The battle log keeps every move and card.',
   'htp.resultTitle': 'Round result',
-  'htp.resultDesc': 'Capture the enemy king to win the round. Kings have 2 lives: the first hit bounces off. There\'s no check — the king can walk into attacks like any piece. Running out of time or moves is a loss. Matches go to 2 wins; every round is a fresh draft.',
+  'htp.resultDesc': 'Capture the enemy king to win the round. There\'s no check — the king can walk into attacks like any piece. Running out of time or moves is a loss. Matches go to 2 wins; every round is a fresh draft.',
 
   'score.round': 'round',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Take turns buying pieces and cards — each piece goes straight onto your half.",
   'htp.step2Desc': "Take turns moving. You may play one card per turn.",
   'htp.step3Title': "Victory",
-  'htp.step3Desc': "Capture the king. It has 2 lives; there's no check.",
+  'htp.step3Desc': "Capture the king. There's no check.",
   'htp.tabCards': "Cards",
   'htp.tabGame': "Match",
   'lobby.access': "Access",

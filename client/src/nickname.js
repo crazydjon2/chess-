@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { getLang } from './i18n/core.js'
 
 const STORAGE_KEY = 'chessplus_nickname'
@@ -40,4 +41,21 @@ export function saveNickname(name) {
   } catch {
     // Ignore — nickname just won't survive a reload in this environment.
   }
+}
+
+// One nickname for the whole app: a rename anywhere (menu, lobby) updates
+// every mounted useNickname() through this event.
+const EVENT = 'chessplus:nickname'
+export function setNickname(name) {
+  saveNickname(name)
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: name }))
+}
+export function useNickname() {
+  const [name, setName] = useState(loadNickname)
+  useEffect(() => {
+    const on = e => setName(e.detail)
+    window.addEventListener(EVENT, on)
+    return () => window.removeEventListener(EVENT, on)
+  }, [])
+  return [name, setNickname]
 }

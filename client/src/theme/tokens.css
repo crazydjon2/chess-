@@ -81,19 +81,24 @@
   --board-hl-premove: rgba(90, 150, 220, 0.5);
   --board-hl-check: rgba(224, 60, 40, 0.6);
   --board-hl-last: rgba(242, 181, 68, 0.18);
-  --board-tilt: 24deg;          /* 0deg = flat board; pieces follow automatically */
+  --board-tilt: 34deg;          /* 0deg = flat board; pieces follow automatically */
   --board-scale: 0.93;
 
   /* Pieces (glyph skin) */
   --piece-white-fill: #FFF8F0;
   --piece-white-line: #231815;
+  --piece-white-shade: #E2CFBC;  /* right side of the face */
   --piece-black-fill: #3B2A24;
   --piece-black-line: #120C0A;
+  --piece-black-hi: #5A4339;     /* lit left side of the face */
   --piece-shadow: rgba(40, 20, 10, 0.25);
   --piece-white-side: #C4AC99;  /* the piece's "thickness" under its face */
   --piece-black-side: #120C0A;
   --piece-contact: rgba(30, 14, 8, 0.42); /* soft shadow on the square */
-  --piece-lean: 0.82;           /* share of the board tilt the pieces DON'T undo: <1 = they lean back with the table */
+  --piece-fx-frozen: #7CC6E0;   /* status outlines on pieces */
+  --piece-fx-shield: #8FA2FF;
+  --piece-fx-unstable: #B98BE0;
+  --piece-tilt: -30deg;         /* pieces lean their tops toward the player (0deg = upright, + = away) */
 
   /* Coins */
   --c-coin: #F2B544;

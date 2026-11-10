@@ -77,12 +77,11 @@ export function autoCompletePlacement(boardPattern, color, placementMap, drafted
   return out
 }
 
-// Starting HP per piece type (anything not listed has 1). The king starts
-// with 2: taking it wins the round, and with a single life one long-range
-// shot across the board decided too many rounds — armies of a few
-// queens/rooks beat everything (balance lab). The first hit bounces off,
-// like hitting a barricade.
-export const STARTING_HP = { king: 2 }
+// Starting HP per piece type (anything not listed has 1). Kings have ONE
+// life (2026-11-10): the king is placed first and can't be moved during
+// recruit, so a badly placed king is the player's mistake. Extra HP only
+// comes from cards (Shield, Stone).
+export const STARTING_HP = {}
 
 // { square: pieceType } -> { square: { type, color, hp } }
 export function buildPlacementPieces(color, placementMap) {

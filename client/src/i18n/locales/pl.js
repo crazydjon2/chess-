@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Hetman',
   'piece.king': 'Król',
 
-  'card.barricade.name': 'Barykada',
-  'card.barricade.desc': 'Stawia przeszkodę z 2 HP na wolnym polu. Przeciwnik może ją zniszczyć jak zwykłą figurę.',
+  'card.barricade.name': 'Kamień',
+  'card.barricade.desc': 'Stawia kamień z 2 HP na wolnym polu. Przeciwnik może go rozbić jak zwykłą figurę.',
   'card.add_cell.name': 'Dodaj pole',
   'card.add_cell.desc': 'Dodaje jedno nowe pole za krawędzią planszy, poszerzając teren gry.',
   'card.freeze.name': 'Mina mrożąca',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Piaskownica',
   'menu.howToPlay': 'Jak grać',
   'menu.whatsNew': 'Co nowego',
-  'menu.skins': 'Skórki',
+  'menu.skins': 'Sklep',
   'menu.soon': 'Wkrótce',
   'menu.soonTag': "wkrótce",
   'menu.newBadge': 'NOWE',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Język',
 
   'patch.new': 'Nowe',
+  'patch.empty': 'Czekaj na aktualizacje',
 
   'online.matchOverWin': 'Koniec meczu — wygrałeś {score}',
   'online.matchOverLoss': 'Koniec meczu — przegrałeś {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Bitwa',
   'htp.battleDesc': 'Ruchy na zmianę — karta nie zużywa ruchu. Zegar ({min} min, +{inc} s za ruch) tyka tylko w twoim ruchu. Ruch można wybrać z góry w ruchu przeciwnika. Dziennik bitwy zapisuje wszystkie ruchy i karty.',
   'htp.resultTitle': 'Koniec rundy',
-  'htp.resultDesc': 'Rundę wygrywa ten, kto zbije króla przeciwnika. Król ma 2 życia: pierwsze uderzenie się odbija. Nie ma szacha — król może wejść pod atak jak każda figura. Koniec czasu lub ruchów to porażka. Mecz trwa do 2 wygranych; każda runda to nowy draft od zera.',
+  'htp.resultDesc': 'Rundę wygrywa ten, kto zbije króla przeciwnika. Nie ma szacha — król może wejść pod atak jak każda figura. Koniec czasu lub ruchów to porażka. Mecz trwa do 2 wygranych; każda runda to nowy draft od zera.',
 
   'score.round': 'runda',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Kupujcie na zmianę figury i karty — każda figura od razu trafia na twoją połowę.",
   'htp.step2Desc': "Ruchy na zmianę. Jedna karta na turę.",
   'htp.step3Title': "Zwycięstwo",
-  'htp.step3Desc': "Zbij króla. Ma 2 życia, nie ma szacha.",
+  'htp.step3Desc': "Zbij króla. Nie ma szacha.",
   'htp.tabCards': "Karty",
   'htp.tabGame': "Partia",
   'lobby.access': "Dostęp",

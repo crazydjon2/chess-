@@ -136,56 +136,53 @@
   position: absolute;
   z-index: 1;
   cursor: pointer;
+  touch-action: none;     /* drag a piece by its square on touch screens */
   transform: translateZ(1px);
 }
 
-/* Pieces: positioned flat in the board plane… */
-/* Only the visible art takes clicks — the upright stand box is cell-sized
-   and would otherwise swallow clicks meant for the square behind it. */
+/* Pieces live in a flat layer over the tilted board (see BoardView): each
+   box is placed by JS so the skin's anchor sits on the square's projected
+   centre. Only the visible art takes clicks. */
+.bd-pieces { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .bd-piece {
   position: absolute;
-  z-index: 2;
-  transform-style: preserve-3d;
   touch-action: none;
   cursor: pointer;
   pointer-events: none;
-  transform: translateZ(1px);
 }
-/* …and stood up by the stand (counter-tilt around its bottom edge). */
+/* --pz-lift raises the piece (hover / selected); the lean pivots on the base */
 .bd-stand {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  transform-origin: 50% 88%;
-  transform: rotateX(calc(-1 * var(--board-tilt) * var(--piece-lean))) translateY(-7%);
+  transform-origin: 50% calc(100% - var(--anchor, 0.15) * 100%);
+  transform: translateY(var(--pz-lift, 0%)) perspective(calc(var(--cell, 60px) * 5)) rotateX(var(--piece-tilt, 0deg));
   transition: transform 0.16s var(--ease-pop);
   pointer-events: none;
 }
 .bd-art { --side: var(--piece-black-side); }
 .bd-art.pz-white { --side: var(--piece-white-side); }
 .bd-art {
-  /* face → a solid "side" a few px under it (thickness) → soft drop */
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
+  pointer-events: none;   /* input is handled by the square underneath */
+}
+/* glyph / svg skins: face → a solid "side" under it (thickness) → soft drop */
+.bd-art[data-skin="glyph"] {
   filter:
     drop-shadow(0 calc(var(--cell) * 0.035) 0 var(--side))
     drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
-  pointer-events: auto;
-  touch-action: none;
 }
 .bd-piece.ghost .bd-art { pointer-events: none; }
-.bd-piece.lifted .bd-stand {
-  transform: rotateX(calc(-1 * var(--board-tilt) * var(--piece-lean))) translateY(-20%);
-}
-/* Contact shadow lying on the square (in the board plane) — grounds the
-   upright art so it reads as standing ON the table, not pasted over it. */
+.bd-piece.lifted .bd-stand { --pz-lift: -10%; }
+/* Contact shadow on the square, centred on the anchor (the base centre). */
 .bd-piece::before {
   content: '';
   position: absolute;
-  left: 18%;
-  right: 18%;
-  bottom: 9%;
-  height: 26%;
+  left: 24%;
+  right: 24%;
+  bottom: calc(var(--anchor, 0.15) * 100% - 7%);
+  height: 15%;
   border-radius: 50%;
   background: radial-gradient(closest-side, var(--piece-contact), transparent);
   transition: transform 0.16s var(--ease-pop), opacity 0.16s ease;
@@ -195,8 +192,21 @@
 .bd-piece.dragging { opacity: 0.25; }
 .bd-piece.ghost { pointer-events: none; }
 .bd-piece.ghost .bd-art { opacity: 0.55; }
-.bd-piece.unstable .bd-art { animation: bd-unstable 1.4s ease-in-out infinite; }
-.bd-piece.frozen .bd-art { filter: drop-shadow(0 0 calc(var(--cell) * 0.06) #7CC6E0) drop-shadow(0 calc(var(--cell) * 0.045) 0 var(--piece-shadow)); }
+/* Status outlines (frozen / shield / unstable): a solid coloured contour
+   around the art (4 hard drops) + a soft glow in the same colour. */
+@property --fx-glow { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.bd-piece.shielded .bd-art { --fx-c: var(--piece-fx-shield); }
+.bd-piece.unstable .bd-art { --fx-c: var(--piece-fx-unstable); animation: bd-fx-pulse 1.4s ease-in-out infinite; }
+.bd-piece.frozen .bd-art { --fx-c: var(--piece-fx-frozen); }
+.bd-piece:is(.frozen, .shielded, .unstable) .bd-art {
+  --fx-o: max(1.5px, calc(var(--cell) * 0.022));
+  filter:
+    drop-shadow(var(--fx-o) 0 0 var(--fx-c)) drop-shadow(calc(var(--fx-o) * -1) 0 0 var(--fx-c))
+    drop-shadow(0 var(--fx-o) 0 var(--fx-c)) drop-shadow(0 calc(var(--fx-o) * -1) 0 var(--fx-c))
+    drop-shadow(0 0 calc(var(--cell) * 0.06 + var(--fx-glow)) var(--fx-c))
+    drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
+}
+@keyframes bd-fx-pulse { 0%, 100% { --fx-glow: 0px; } 50% { --fx-glow: calc(var(--cell) * 0.07); } }
 
 /* Move animations — translate in the board plane, so the counter-tilt of
    the stand is untouched and the piece slides along the table. */
@@ -250,16 +260,16 @@
   filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.45));
 }
 
-@keyframes bd-move { from { transform: translate3d(var(--dx), var(--dy), 1px); } to { transform: translateZ(1px); } }
+@keyframes bd-move { from { transform: translate(var(--dx), var(--dy)); } to { transform: none; } }
 @keyframes bd-capture {
-  0% { transform: translate3d(var(--dx), var(--dy), 1px); }
-  80% { transform: translate3d(0, 0, 1px) scale(1.08); }
-  100% { transform: translateZ(1px); }
+  0% { transform: translate(var(--dx), var(--dy)); }
+  80% { transform: scale(1.08); }
+  100% { transform: none; }
 }
 @keyframes bd-bounce {
-  0% { transform: translateZ(1px); }
-  40% { transform: translate3d(calc(var(--dx) * 0.45), calc(var(--dy) * 0.45), 1px); }
-  100% { transform: translateZ(1px); }
+  0% { transform: none; }
+  40% { transform: translate(calc(var(--dx) * 0.45), calc(var(--dy) * 0.45)); }
+  100% { transform: none; }
 }
 @keyframes bd-check { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 @keyframes bd-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
@@ -267,11 +277,12 @@
 @keyframes bd-fog { 0%, 100% { opacity: 0.92; } 50% { opacity: 1; } }
 @keyframes bd-ring { from { r: 10; opacity: 1; } to { r: 70; opacity: 0; } }
 @keyframes bd-core { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
-@keyframes bd-unstable {
-  0%, 100% { filter: drop-shadow(0 0 0 #A77BC8) drop-shadow(0 calc(var(--cell) * 0.045) 0 var(--piece-shadow)); }
-  50% { filter: drop-shadow(0 0 calc(var(--cell) * 0.08) #A77BC8) drop-shadow(0 calc(var(--cell) * 0.045) 0 var(--piece-shadow)); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .bd-piece.moving, .bd-piece.capturing, .bd-piece.bouncing, .hl-check, .hl-card, .fog-layer, .meteor-ring, .bd-piece.unstable .bd-art { animation: none; }
 }
+
+
+/* the barricade art brings its own outline + drop: no extra glyph "side" */
+.bd-art:has(.pz-barricade) { filter: drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow)); }
+

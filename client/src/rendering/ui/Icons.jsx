@@ -1,3 +1,4 @@
+import { MENU_ICON_SVG } from './menuIcons'
 // Line icons used across the HUD (stroke = currentColor, so they follow
 // whatever text color the token theme gives their button).
 const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -54,33 +55,19 @@ export function IconExit({ size = 24 }) {
   return <svg className="ic ic-exit" width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth="2.6" aria-hidden="true"><path d="M14 4H6v16h8M11 12h10M17 8l4 4-4 4" /></svg>
 }
 export function IconHelp({ size = 22 }) {
-  return <svg className="ic ic-help" width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth="2.4" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01" /></svg>
+  return <svg className="ic ic-help mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.help }} />
 }
 export function IconMegaphone({ size = 22 }) {
-  return <svg className="ic ic-megaphone" width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth="2.4" aria-hidden="true"><path d="M4 10v4h3l7 4V6L7 10H4zM17 9a4 4 0 0 1 0 6M7 14l1 5h2" /></svg>
+  return <svg className="ic ic-megaphone mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.megaphone }} />
 }
 export function IconPalette({ size = 22 }) {
-  return <svg className="ic ic-palette" width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth="2.4" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5S14 15 15 15h2a4 4 0 0 0 4-4c0-4.4-4-8-9-8z" /><circle cx="7.5" cy="11" r="1.2" fill="currentColor" /><circle cx="10" cy="7" r="1.2" fill="currentColor" /><circle cx="14.5" cy="7" r="1.2" fill="currentColor" /></svg>
+  return <svg className="ic ic-palette mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.palette }} />
 }
 export function IconRobot({ size = 44 }) {
-  return (
-    <svg className="ic ic-robot" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 6v6" stroke="#16141F" strokeWidth="3.5" strokeLinecap="round" />
-      <circle cx="24" cy="6" r="3" fill="#FFFFFF" stroke="#16141F" strokeWidth="3" />
-      <rect x="9" y="13" width="30" height="27" rx="5" fill="#FFFFFF" stroke="#16141F" strokeWidth="3.5" />
-      <rect x="16" y="22" width="5" height="5" fill="#16141F" />
-      <rect x="27" y="22" width="5" height="5" fill="#16141F" />
-      <path d="M18 33h12" stroke="#16141F" strokeWidth="3.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <svg className="ic ic-robot mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.robot }} />
 }
 export function IconFlask({ size = 44 }) {
-  return (
-    <svg className="ic ic-flask" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M18 6h12M20 6v12L9 38a3 3 0 0 0 3 4h24a3 3 0 0 0 3-4L28 18V6" fill="#FFFFFF" stroke="#16141F" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" />
-      <path d="M14 30h20" stroke="#16141F" strokeWidth="3.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <svg className="ic ic-flask mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.flask }} />
 }
 export function IconCrown({ size = 30 }) {
   return <svg className="ic ic-crown" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" /></svg>

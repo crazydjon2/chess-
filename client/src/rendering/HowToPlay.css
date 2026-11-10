@@ -8,7 +8,7 @@
 .htp-grab { display: none; }
 .htp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .htp-tabs { margin: 22px 0 0; flex-shrink: 0; }
-.htp-content { flex: 1; min-height: 0; padding: 24px 2px 24px; }
+.htp-content { flex: 1; min-height: 0; padding: 24px 2px 24px; overflow-x: hidden; }
 
 /* Partia */
 .htp-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -102,7 +102,10 @@
 .htp-ic { width: 16px; text-align: center; color: var(--c-text-dim); font-size: 15px; }
 
 /* Cards */
-.htp-cards { display: grid; gap: 16px; padding-top: 10px; }
+.htp-cards { display: grid; gap: 16px; padding: 14px 12px 8px; }
+.htp-card-cell { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.htp-card-cell .htp-card { flex: 1; }
+.htp-card-cell.open { z-index: 6; }
 .htp-card {
   position: relative;
   border: 0;
@@ -153,17 +156,25 @@
   box-shadow: 0 3px 0 var(--c-accent-depth);
 }
 .htp-card-desc {
-  position: relative;
-  grid-column: 1 / -1;
+  --pw: min(280px, 78vw);
+  --arrow: 50%;
+  position: absolute;
+  top: calc(100% + 12px);
+  left: calc(50% - var(--pw) / 2);
+  width: var(--pw);
+  z-index: 6;
   padding: 14px 18px;
   border-radius: 14px;
   background: var(--c-panel-hi);
   box-shadow: inset 0 0 0 2px var(--c-accent), 0 4px 0 var(--c-panel-depth);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--c-text-dim);
   line-height: 1.4;
   animation: ui-pop-in 0.2s var(--ease-out) both;
+  box-shadow: inset 0 0 0 2px var(--c-accent), 0 4px 0 var(--c-panel-depth), 0 14px 30px rgba(0, 0, 0, 0.45);
 }
+.htp-card-desc.start { left: 0; --arrow: 56px; }
+.htp-card-desc.end { left: auto; right: 0; --arrow: calc(100% - 56px); }
 .htp-card-desc b { color: var(--c-text); }
 .htp-card-desc::before {
   content: '';

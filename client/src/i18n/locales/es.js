@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Dama',
   'piece.king': 'Rey',
 
-  'card.barricade.name': 'Barricada',
-  'card.barricade.desc': 'Coloca una barrera de 2 HP en una casilla libre. El rival puede destruirla como una pieza normal.',
+  'card.barricade.name': 'Piedra',
+  'card.barricade.desc': 'Coloca una piedra de 2 HP en una casilla libre. El rival puede romperla como una pieza normal.',
   'card.add_cell.name': 'Añadir casilla',
   'card.add_cell.desc': 'Añade una casilla nueva más allá del borde del tablero, ampliando el campo.',
   'card.freeze.name': 'Mina congelante',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Sandbox',
   'menu.howToPlay': 'Cómo jugar',
   'menu.whatsNew': 'Novedades',
-  'menu.skins': 'Skins',
+  'menu.skins': 'Tienda',
   'menu.soon': 'Próximamente',
   'menu.soonTag': "pronto",
   'menu.newBadge': 'NUEVO',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Idioma',
 
   'patch.new': 'Nuevo',
+  'patch.empty': 'Atento a las novedades',
 
   'online.matchOverWin': 'Fin del duelo: ganaste {score}',
   'online.matchOverLoss': 'Fin del duelo: perdiste {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Batalla',
   'htp.battleDesc': 'Por turnos: jugar una carta no gasta tu jugada. El reloj ({min} min, +{inc} s por jugada) solo corre en tu turno. Puedes preparar tu jugada durante el turno rival. El registro guarda todas las jugadas y cartas.',
   'htp.resultTitle': 'Fin de ronda',
-  'htp.resultDesc': 'Gana la ronda quien capture al rey rival. El rey tiene 2 vidas: el primer golpe rebota. No hay jaque: el rey puede ponerse en peligro como cualquier pieza. Quedarse sin tiempo o sin jugadas es derrota. El duelo es al mejor de 2 victorias; cada ronda es un draft nuevo.',
+  'htp.resultDesc': 'Gana la ronda quien capture al rey rival. No hay jaque: el rey puede ponerse en peligro como cualquier pieza. Quedarse sin tiempo o sin jugadas es derrota. El duelo es al mejor de 2 victorias; cada ronda es un draft nuevo.',
 
   'score.round': 'ronda',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Compra piezas y cartas por turnos; cada pieza va directa a tu mitad.",
   'htp.step2Desc': "Moved por turnos. Una carta por turno.",
   'htp.step3Title': "Victoria",
-  'htp.step3Desc': "Captura al rey. Tiene 2 vidas; no hay jaque.",
+  'htp.step3Desc': "Captura al rey. No hay jaque.",
   'htp.tabCards': "Cartas",
   'htp.tabGame': "Partida",
   'lobby.access': "Acceso",

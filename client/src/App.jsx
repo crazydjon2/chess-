@@ -12,14 +12,14 @@ import { PATCH_NOTES } from './game/patchNotes'
 import './theme/interactions.css'
 
 const PATCH_SEEN_KEY = 'chessplus_patchnotes_seen'
-const latestPatchId = PATCH_NOTES[0].id
+const latestPatchId = PATCH_NOTES[0]?.id ?? null  // no notes yet → no badge
 
 // Same try/catch-and-fall-through pattern as nickname.js — localStorage can
 // be unavailable (privacy mode, etc.); worst case the "new patch" badge just
 // reappears next visit instead of crashing the menu.
 function hasUnseenPatch() {
   try {
-    return localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchId
+    return latestPatchId != null && localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchId
   } catch {
     return false
   }
@@ -82,7 +82,6 @@ export default function App() {
             <MainMenu
               onPlayOnline={() => navigate('/online')}
               onPlayBot={() => navigate('/online', { state: { bot: true } })}
-              onSandbox={() => navigate('/sandbox')}
               onOpenPatchNotes={openPatchNotes}
               unseenPatch={unseenPatch}
             />

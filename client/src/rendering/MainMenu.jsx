@@ -2,8 +2,9 @@ import { t } from '../i18n'
 import { useState } from 'react'
 import HowToPlay from './HowToPlay'
 import { SettingsButton } from './Settings'
+import NamePlate from './NamePlate'
 import { Piece, CardIcon } from '../skins/Piece'
-import { IconRobot, IconFlask, IconHelp, IconMegaphone, IconPalette } from './ui/Icons'
+import { IconRobot, IconHelp, IconMegaphone, IconPalette } from './ui/Icons'
 import './MainMenu.css'
 
 const FAN = [
@@ -14,13 +15,21 @@ const FAN = [
   { card: 'barricade', r: 15, y: 22 },
 ]
 
-export default function MainMenu({ onPlayOnline, onPlayBot, onSandbox, onOpenPatchNotes, unseenPatch }) {
+// Sandbox has no menu button — it's the dev/test page at /sandbox.
+export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, unseenPatch }) {
   const [howToPlayOpen, setHowToPlayOpen] = useState(false)
 
   return (
     <div className="mm-screen">
       {howToPlayOpen && <HowToPlay onClose={() => setHowToPlayOpen(false)} />}
-      <div className="mm-top"><SettingsButton /></div>
+      <div className="mm-top">
+        <NamePlate />
+        <button className="ui-btn icon mm-news" onClick={onOpenPatchNotes} aria-label={t('menu.whatsNew')} title={t('menu.whatsNew')} data-testid="menu-news">
+          <IconMegaphone size={26} />
+          {unseenPatch && <span className="mm-dot" aria-label={t('menu.newBadge')} />}
+        </button>
+        <SettingsButton />
+      </div>
 
       <div className="mm-center">
         <h1 className="mm-logo">CHESS<b>+</b></h1>
@@ -49,19 +58,11 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onSandbox, onOpenPat
               <span className="mm-mode-art bot"><IconRobot /></span>
               <span className="mm-tile-title">{t('menu.vsBot')}</span>
             </button>
-            <button className="mm-tile mode" data-tilt onClick={onSandbox} data-testid="menu-sandbox">
-              <span className="mm-mode-art sandbox"><IconFlask /></span>
-              <span className="mm-tile-title">{t('menu.sandbox')}</span>
-            </button>
           </div>
 
           <div className="mm-row minor-row">
             <button className="mm-minor" onClick={() => setHowToPlayOpen(true)} data-testid="menu-howto">
               <span className="mm-mi help"><IconHelp /></span>{t('menu.howToPlay')}
-            </button>
-            <button className="mm-minor" onClick={onOpenPatchNotes} data-testid="menu-news">
-              <span className="mm-mi news"><IconMegaphone /></span>{t('menu.whatsNew')}
-              {unseenPatch && <span className="mm-dot" aria-label={t('menu.newBadge')} />}
             </button>
             <button className="mm-minor off" disabled title={t('menu.soon')}>
               <span className="mm-mi skins"><IconPalette /></span>{t('menu.skins')}

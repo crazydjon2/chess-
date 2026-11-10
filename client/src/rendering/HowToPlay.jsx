@@ -90,23 +90,26 @@ function CardsTab() {
   const cols = useCols()
   const cards = Object.values(CARD_DEFS)
   const [sel, setSel] = useState(null)
-  const selIdx = cards.findIndex(c => c.id === sel)
-  const rowEnd = selIdx < 0 ? -1 : Math.min(cards.length - 1, Math.floor(selIdx / cols) * cols + cols - 1)
+  // the hint floats under its card (fixed width, never reflows the grid);
+  // outer columns align it to their edge so it stays inside the window
+  const align = i => (i % cols === 0 ? ' start' : i % cols === cols - 1 ? ' end' : '')
   return (
-    <div className="htp-cards" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+    <div className="htp-cards" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} onClick={() => setSel(null)}>
       {cards.map((c, i) => (
-        <button key={c.id} data-tilt className={`htp-card${sel === c.id ? ' sel' : ''}`} style={{ order: i * 2 }} onClick={() => setSel(sel === c.id ? null : c.id)} aria-expanded={sel === c.id}>
-          <span className="htp-card-art"><CardIcon id={c.id} size={80} radius={10} iconScale={0.5} /></span>
-          <span className="htp-card-q">?</span>
-          <span className="htp-card-price">{c.cost}</span>
-          <span className="htp-card-name">{c.name}</span>
-        </button>
-      ))}
-      {selIdx >= 0 && (
-        <div className="htp-card-desc" style={{ order: rowEnd * 2 + 1, '--arrow': `${((selIdx % cols) + 0.5) / cols * 100}%` }}>
-          <b>{cards[selIdx].name}.</b> {cards[selIdx].desc}
+        <div key={c.id} className={`htp-card-cell${sel === c.id ? ' open' : ''}`}>
+          <button data-tilt className={`htp-card${sel === c.id ? ' sel' : ''}`} onClick={e => { e.stopPropagation(); setSel(sel === c.id ? null : c.id) }} aria-expanded={sel === c.id}>
+            <span className="htp-card-art"><CardIcon id={c.id} size={80} radius={10} iconScale={0.5} /></span>
+            <span className="htp-card-q">?</span>
+            <span className="htp-card-price">{c.cost}</span>
+            <span className="htp-card-name">{c.name}</span>
+          </button>
+          {sel === c.id && (
+            <div className={`htp-card-desc${align(i)}`} role="tooltip">
+              <b>{c.name}.</b> {c.desc}
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   )
 }

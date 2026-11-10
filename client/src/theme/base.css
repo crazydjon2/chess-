@@ -304,6 +304,8 @@ input { font-family: inherit; }
   background-image: var(--stripe-fine);
   box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
 }
+/* icons cast a short hard drop on their tile, like the pieces */
+.card-svg { overflow: visible; filter: drop-shadow(0 1.5px 0 rgba(20, 10, 30, 0.35)); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

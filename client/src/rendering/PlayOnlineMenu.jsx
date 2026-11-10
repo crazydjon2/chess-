@@ -1,9 +1,10 @@
 import { t } from '../i18n'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { SettingsButton } from './Settings'
 import { Piece } from '../skins/Piece'
-import { IconBack, IconChevron, IconClose, IconKey, IconPlus, IconRefresh } from './ui/Icons'
-import Overlay from './ui/Overlay'
+import { IconBack, IconChevron, IconKey, IconPlus, IconRefresh } from './ui/Icons'
+import Modal from './ui/Modal'
+import NamePlate from './NamePlate'
 import './PlayOnlineMenu.css'
 
 const CODE_LEN = 5
@@ -26,25 +27,6 @@ function ColorSeg({ value, onChange }) {
   )
 }
 
-function Modal({ title, onClose, children, headExtra }) {
-  useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <Overlay onClose={onClose}>
-      <div className="ui-modal po-modal" role="dialog" aria-label={title} onClick={e => e.stopPropagation()}>
-        <button className="ui-btn icon po-modal-x" onClick={onClose} aria-label={t('common.close')}><IconClose /></button>
-        <div className="po-modal-head">
-          <h2 className="ui-modal-title po-modal-title">{title}</h2>
-          {headExtra}
-        </div>
-        {children}
-      </div>
-    </Overlay>
-  )
-}
 
 export default function PlayOnlineMenu({
   busy, errorMsg, onCreate, onJoin, onPlayBot, onExit, nickname, onNicknameChange,
@@ -57,8 +39,6 @@ export default function PlayOnlineMenu({
   const [botOpen, setBotOpen] = useState(openBot)
   const [botLevel, setBotLevel] = useState('normal')
   const [botColor, setBotColor] = useState('random')
-  const [nickOpen, setNickOpen] = useState(false)
-  const [nickDraft, setNickDraft] = useState(nickname)
   const codeRef = useRef(null)
 
   function setCode(v) {
@@ -82,7 +62,6 @@ export default function PlayOnlineMenu({
     { id: 'normal', name: t('bot.normal'), hint: t('bot.normalHint') },
     { id: 'strong', name: t('bot.strong'), hint: t('bot.strongHint') },
   ]
-  const initial = (nickname || '?').trim().charAt(0).toUpperCase() || '?'
 
   return (
     <div className="po-screen">
@@ -90,10 +69,7 @@ export default function PlayOnlineMenu({
         <button className="ui-btn icon" onClick={onExit} aria-label={t('lobby.back')} data-testid="online-back"><IconBack /></button>
         <h1 className="po-title">{t('lobby.title')}</h1>
         <div className="po-header-right">
-          <button className="po-me" onClick={() => { setNickDraft(nickname); setNickOpen(true) }} aria-label={t('lobby.nickname')} data-testid="nick-btn">
-            <span className="po-me-ini">{initial}</span>
-            <span className="po-me-name">{nickname || t('lobby.player')}</span>
-          </button>
+          <NamePlate />
           <SettingsButton />
         </div>
       </header>
@@ -190,24 +166,6 @@ export default function PlayOnlineMenu({
         </Modal>
       )}
 
-      {nickOpen && (
-        <Modal title={t('lobby.nickname')} onClose={() => setNickOpen(false)}>
-          <input
-            className="po-nick-input"
-            type="text"
-            value={nickDraft}
-            maxLength={20}
-            autoFocus
-            onChange={e => setNickDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { onNicknameChange(nickDraft.trim()); setNickOpen(false) } }}
-            aria-label={t('lobby.nickname')}
-            data-testid="nick-input"
-          />
-          <button className="ui-btn primary big po-modal-submit" onClick={() => { onNicknameChange(nickDraft.trim()); setNickOpen(false) }}>
-            {t('common.done')}
-          </button>
-        </Modal>
-      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { t } from '../i18n'
 import { useEffect } from 'react'
 import { PATCH_NOTES } from '../game/patchNotes'
 import { patchNoteText } from '../i18n/patchNotes'
-import { IconClose } from './ui/Icons'
+import { IconClose, IconMegaphone } from './ui/Icons'
 import Overlay from './ui/Overlay'
 import './PatchNotes.css'
 
@@ -15,12 +15,18 @@ export default function PatchNotes({ onClose }) {
   }, [onClose])
   return (
     <Overlay onClose={onClose}>
-      <div className="ui-modal pn-modal" role="dialog" aria-label={t('menu.whatsNew')} onClick={e => e.stopPropagation()}>
+      <div className={`ui-modal pn-modal${PATCH_NOTES.length === 0 ? ' empty' : ''}`} role="dialog" aria-label={t('menu.whatsNew')} onClick={e => e.stopPropagation()}>
         <div className="pn-head">
           <h2 className="ui-modal-title">{t('menu.whatsNew')}</h2>
           <button className="ui-btn icon" onClick={onClose} aria-label={t('common.close')}><IconClose /></button>
         </div>
         <div className="pn-list ui-scroll">
+          {PATCH_NOTES.length === 0 && (
+            <div className="pn-empty">
+              <span className="pn-empty-ic"><IconMegaphone size={56} /></span>
+              <span className="pn-empty-text">{t('patch.empty')}</span>
+            </div>
+          )}
           {PATCH_NOTES.map((entry, i) => {
             const text = patchNoteText(entry.id)
             return (

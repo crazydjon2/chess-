@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Donna',
   'piece.king': 'Re',
 
-  'card.barricade.name': 'Barricata',
-  'card.barricade.desc': 'Piazza una barriera da 2 HP su una casa libera. L\'avversario può distruggerla come un pezzo normale.',
+  'card.barricade.name': 'Pietra',
+  'card.barricade.desc': 'Piazza una pietra da 2 HP su una casa libera. L\'avversario può spezzarla come un pezzo normale.',
   'card.add_cell.name': 'Aggiungi casa',
   'card.add_cell.desc': 'Aggiunge una nuova casa oltre il bordo della scacchiera, ampliando il campo.',
   'card.freeze.name': 'Mina gelante',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Sandbox',
   'menu.howToPlay': 'Come si gioca',
   'menu.whatsNew': 'Novità',
-  'menu.skins': 'Skin',
+  'menu.skins': 'Negozio',
   'menu.soon': 'In arrivo',
   'menu.soonTag': "presto",
   'menu.newBadge': 'NOVITÀ',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Lingua',
 
   'patch.new': 'Nuovo',
+  'patch.empty': 'Resta sintonizzato',
 
   'online.matchOverWin': 'Match finito — hai vinto {score}',
   'online.matchOverLoss': 'Match finito — hai perso {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Battaglia',
   'htp.battleDesc': 'Si muove a turno: giocare una carta non consuma la mossa. L\'orologio ({min} min, +{inc} s a mossa) scorre solo nel tuo turno. Puoi preparare la mossa durante il turno avversario. Il registro conserva tutte le mosse e le carte.',
   'htp.resultTitle': 'Fine del round',
-  'htp.resultDesc': 'Vince il round chi cattura il re avversario. Il re ha 2 vite: il primo colpo rimbalza. Non esiste lo scacco: il re può esporsi come qualsiasi pezzo. Finire il tempo o le mosse significa sconfitta. Il match va a 2 vittorie; ogni round è un nuovo draft.',
+  'htp.resultDesc': 'Vince il round chi cattura il re avversario. Non esiste lo scacco: il re può esporsi come qualsiasi pezzo. Finire il tempo o le mosse significa sconfitta. Il match va a 2 vittorie; ogni round è un nuovo draft.',
 
   'score.round': 'round',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Compra pezzi e carte a turno; ogni pezzo va subito nella tua metà.",
   'htp.step2Desc': "Muovete a turno. Una carta per turno.",
   'htp.step3Title': "Vittoria",
-  'htp.step3Desc': "Cattura il re. Ha 2 vite, niente scacco.",
+  'htp.step3Desc': "Cattura il re. Niente scacco.",
   'htp.tabCards': "Carte",
   'htp.tabGame': "Partita",
   'lobby.access': "Accesso",

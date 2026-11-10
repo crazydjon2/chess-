@@ -14,7 +14,8 @@
 import { useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { squareName, cellXY } from '../../game/coords'
-import { Piece, usePieceScale } from '../../skins/Piece'
+import { Piece, usePieceSkin } from '../../skins/Piece'
+import { useSkins } from '../../skins/SkinContext'
 import './board.css'
 
 const U = 100 // svg units per cell
@@ -45,6 +46,9 @@ function readVar(el, name, fallback) {
 // measuring the drawn element: a measurement taken at the wrong moment (an
 // entrance animation, fonts still loading) left the board oversized until
 // the next resize.
+// share of the (projected) square height the base line sits below its centre
+const BASE_DROP = 0.14
+
 export function projectFrame(W, H, tiltDeg, scale) {
   if (!tiltDeg) return { w: W * scale, h: H * scale, cy: 0 }
   const a = (tiltDeg * Math.PI) / 180
@@ -78,16 +82,18 @@ function useBoardFit(cols, rows) {
     const tilt = readTilt(el)
     const scale = readVar(el, '--board-scale', 1)
     const pad = FRAME_PAD * 2 + COORD
+    // pieces on the back rank stand up above the frame: keep room for them
+    const HEAD = 0.45
     // projected size is ~proportional to the flat size: two refinements settle it
     let cell = Math.min((w - pad) / cols, (h - pad) / rows)
     for (let i = 0; i < 3; i++) {
       const W = cols * cell + pad, H = rows * cell + pad
       const p = projectFrame(W, H, tilt, scale)
-      cell = Math.min((w * W / p.w - pad) / cols, (h * H / p.h - pad) / rows)
+      cell = Math.min((w * W / p.w - pad) / cols, ((h - HEAD * cell) * H / p.h - pad) / rows)
     }
     cell = Math.max(8, Math.floor(cell))
     const p = projectFrame(cols * cell + pad, rows * cell + pad, tilt, scale)
-    const dy = Math.round(-p.cy)
+    const dy = Math.round(-p.cy + HEAD * cell / 2)
     setFit(prev => (prev.cell === cell && prev.tilt === tilt && prev.dy === dy ? prev : { cell, tilt, dx: 0, dy }))
   }, [cols, rows])
   useLayoutEffect(() => {
@@ -123,7 +129,34 @@ export default function BoardView({
   children,                 // extra overlays rendered inside the scene (popovers anchor to cells)
 }) {
   const [sceneRef, frameRef, fit] = useBoardFit(cols, rows)
-  const pieceScale = usePieceScale()
+  // On-screen centre + width of every square (incl. outside cells), relative
+  // to the scene — measured from the hit cells after the 3D frame is laid out.
+  const [proj, setProj] = useState({})
+  const measureKey = `${fit.cell}|${fit.dy}|${rows}|${cols}|${flipped}|${extraCells.join(',')}|${borderTargets.join(',')}`
+  useLayoutEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !fit.cell) return
+    const measure = () => {
+      const s0 = scene.getBoundingClientRect()
+      const out = {}
+      scene.querySelectorAll('.bd-cell[data-square]').forEach(el => {
+        const r = el.getBoundingClientRect()
+        out[el.dataset.square] = { cx: r.left - s0.left + r.width / 2, cy: r.top - s0.top + r.height / 2, w: r.width, h: r.height }
+      })
+      setProj(prev => {
+        const keys = Object.keys(out)
+        if (keys.length === Object.keys(prev).length && keys.every(k => prev[k] && Math.abs(prev[k].cx - out[k].cx) < 0.5 && Math.abs(prev[k].cy - out[k].cy) < 0.5 && Math.abs(prev[k].w - out[k].w) < 0.5)) return prev
+        return out
+      })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(scene)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measureKey])
+  const pieceSkin = usePieceSkin()
+  const { boardSkin } = useSkins()
   const cell = fit.cell
   const W = cols * U
   const H = rows * U
@@ -145,14 +178,14 @@ export default function BoardView({
         voids.push(<rect key={sq} x={x * U} y={y * U} width={U} height={U} className="sq-void" />)
         continue
       }
-      squares.push(<SquareRect key={sq} x={x * U} y={y * U} dark={isDark(col, rank)} />)
+      squares.push(<SquareRect key={sq} x={x * U} y={y * U} dark={isDark(col, rank)} look={boardSkin} />)
     }
   }
   extraCells.forEach(sq => {
     const { x, y } = atSq(sq)
     const inRect = rankOf(sq) >= 1 && rankOf(sq) <= rows && colOf(sq) >= 0 && colOf(sq) < cols
     if (inRect && !blocked.has(sq)) return
-    squares.push(<SquareRect key={`ex-${sq}`} x={x * U} y={y * U} dark={isDark(colOf(sq), rankOf(sq))} />)
+    squares.push(<SquareRect key={`ex-${sq}`} x={x * U} y={y * U} dark={isDark(colOf(sq), rankOf(sq))} look={boardSkin} />)
   })
 
   // ── Flat highlights ───────────────────────────────────────────────
@@ -255,9 +288,11 @@ export default function BoardView({
     const el = document.elementFromPoint(x, y)?.closest?.('[data-square]')
     return el && sceneRef.current?.contains(el) ? el.getAttribute('data-square') : null
   }
-  const onPiecePointerDown = (e, sq) => {
-    if (!interactive || e.button > 0 || !canDrag?.(sq)) return
-    const rect = e.currentTarget.querySelector('.bd-art')?.getBoundingClientRect()
+  // Pointer input lives on the SQUARES only (click / tap / hover / drag
+  // start) — a tall piece drawn over the square behind it never steals it.
+  const onCellPointerDown = (e, sq) => {
+    if (!interactive || e.button > 0 || !pieces[sq] || !canDrag?.(sq)) return
+    const rect = sceneRef.current?.querySelector(`.bd-piece[data-square="${sq}"] .bd-art`)?.getBoundingClientRect()
     dragRef.current = { square: sq, x0: e.clientX, y0: e.clientY, started: false, size: rect ? Math.max(rect.width, rect.height) : cell }
   }
   const onPointerMove = useCallback((e) => {
@@ -299,6 +334,7 @@ export default function BoardView({
     }
   }, [onPointerMove, onPointerUp])
 
+  const [hoverSq, setHoverSq] = useState(null)
   const click = (sq) => {
     if (suppressRef.current) { suppressRef.current = false; return }
     if (interactive) onSquareClick?.(sq)
@@ -322,55 +358,76 @@ export default function BoardView({
         data-square={sq}
         data-piece={p ? `${p.color}-${p.type}` : undefined}
         onClick={() => click(sq)}
+        onPointerDown={e => onCellPointerDown(e, sq)}
+        onPointerEnter={e => { if (e.pointerType === 'mouse') setHoverSq(sq) }}
+        onPointerLeave={() => setHoverSq(h => (h === sq ? null : h))}
       />
     )
   })
 
   // ── Pieces ────────────────────────────────────────────────────────
+  // Drawn in a FLAT layer over the tilted board, not inside its 3D scene:
+  // an upright sprite inside a tilted plane cuts through it (the front of
+  // the base disappeared under the squares). Each piece is pinned by its
+  // skin's anchor point (where the piece's base centre is in the picture)
+  // to the projected centre of its square, sized from that square's on-
+  // screen width, and stacked front-over-back by screen y.
   const anim = lastMoveAnim
+  const pos = proj
+  const artFor = (sq, type) => {
+    const q = pos[sq]
+    if (!q) return null
+    const size = q.w * pieceSkin.scale * (pieceSkin.typeScale?.[type] ?? 1)
+    // a standing piece's footprint is a disc around the centre: its front
+    // edge (the art's base line) shows a little below the square's centre
+    const foot = q.cy + q.h * BASE_DROP
+    return { left: q.cx - size / 2, top: foot - size * (1 - pieceSkin.anchor), width: size, height: size, zIndex: 10 + Math.round(q.cy), '--cell': `${q.w}px` }
+  }
   const pieceEls = Object.entries(pieces).map(([sq, p]) => {
-    const { x, y } = atSq(sq)
+    const box = artFor(sq, p.type)
+    if (!box) return null
     let cls = ''
     let style = {}
     let key = sq
+    const delta = (from) => (pos[from] ? { '--dx': `${pos[from].cx - pos[sq].cx}px`, '--dy': `${pos[from].cy - pos[sq].cy}px` } : {})
     if (anim && (anim.type === 'move' || anim.type === 'capture') && sq === anim.to && anim.from) {
-      const f = atSq(anim.from)
       cls = anim.type === 'capture' ? ' capturing' : ' moving'
-      style = { '--dx': `${(f.x - x) * cell}px`, '--dy': `${(f.y - y) * cell}px` }
+      style = delta(anim.from)
       key = `${sq}-${anim.ts}`
     } else if (anim && anim.type === 'bounce' && sq === anim.from && anim.to) {
-      const tt = atSq(anim.to)
       cls = ' bouncing'
-      style = { '--dx': `${(tt.x - x) * cell}px`, '--dy': `${(tt.y - y) * cell}px` }
+      style = delta(anim.to)
       key = `${sq}-${anim.ts}`
     }
     if (sq === liftSquare) cls += ' lifted'
     if (sq === hideSquare) cls += ' dragging'
     if (p.unstable) cls += ' unstable'
     if (p.frozen) cls += ' frozen'
+    // extra HP (from a Shield) shows as the shield outline instead of HP
+    // pips; only the Stone keeps its pips
+    if ((p.hp ?? 1) > 1 && p.type !== 'barricade') cls += ' shielded'
     if (interactive && canDrag?.(sq)) cls += ' mine'
-    const maxHp = p.type === 'king' ? 2 : Math.max(p.hp ?? 1, 1)
+    if (sq === hoverSq) cls += ' hovered'
+    const maxHp = p.type === 'barricade' ? Math.max(p.hp ?? 1, 2) : 1
     return (
       <div
         key={key}
         className={`bd-piece${cls}`}
-        style={{ left: x * cell, top: y * cell, width: cell, height: cell, ...style }}
+        style={{ ...box, '--anchor': pieceSkin.anchor, ...style }}
         data-square={sq}
         data-piece={`${p.color}-${p.type}`}
-        onPointerDown={e => onPiecePointerDown(e, sq)}
-        onClick={() => click(sq)}
       >
         <div className="bd-stand">
-          <Piece type={p.type} color={p.color} className="bd-art" style={{ width: `${pieceScale * 100}%`, height: `${pieceScale * 100}%` }} />
+          <Piece type={p.type} color={p.color} className="bd-art" style={{ width: '100%', height: '100%' }} />
           {(maxHp > 1) && (
-            <span className="bd-hp" aria-label={`HP ${p.hp}`}>
+            <span className="bd-hp" aria-label={`HP ${p.hp}`} style={{ top: `${pieceSkin.top * 100 - 12}%` }}>
               {Array.from({ length: maxHp }, (_, i) => <i key={i} className={i < (p.hp ?? 1) ? 'on' : ''} />)}
             </span>
           )}
           {p.unstable && (
             <span className="bd-unstable">
               <b>{p.unstable.turnsLeft}</b>
-              {p.unstable.nextType && <Piece type={p.unstable.nextType} color={p.color} size={Math.max(12, cell * 0.22)} center thin />}
+              {p.unstable.nextType && <Piece type={p.unstable.nextType} color={p.color} size={Math.max(12, box.width * 0.2)} center thin />}
             </span>
           )}
         </div>
@@ -378,11 +435,11 @@ export default function BoardView({
     )
   })
   if (ghost && !pieces[ghost.square]) {
-    const { x, y } = atSq(ghost.square)
-    pieceEls.push(
-      <div key="ghost" className="bd-piece ghost" style={{ left: x * cell, top: y * cell, width: cell, height: cell }}>
+    const box = artFor(ghost.square, ghost.type)
+    if (box) pieceEls.push(
+      <div key="ghost" className="bd-piece ghost" style={{ ...box, '--anchor': pieceSkin.anchor }}>
         <div className="bd-stand">
-          <Piece type={ghost.type} color={ghost.color} className="bd-art" style={{ width: `${pieceScale * 100}%`, height: `${pieceScale * 100}%` }} />
+          <Piece type={ghost.type} color={ghost.color} className="bd-art" style={{ width: '100%', height: '100%' }} />
         </div>
       </div>,
     )
@@ -398,7 +455,7 @@ export default function BoardView({
   const frameH = gridH + FRAME_PAD * 2 + COORD
 
   return (
-    <div className="bd-scene" ref={sceneRef} {...testAttrs}>
+    <div className="bd-scene" ref={sceneRef} data-board={boardSkin} {...testAttrs}>
       {cell > 0 && (
         <div className="bd-center" style={{ transform: `translate(${fit.dx}px, ${fit.dy}px)` }}>
         <div
@@ -429,7 +486,6 @@ export default function BoardView({
               {impacts}
             </svg>
             {cells}
-            {pieceEls}
             {children?.({ cell, atSq })}
           </div>
           <div className="bd-files" style={{ width: gridW }}>
@@ -438,6 +494,7 @@ export default function BoardView({
         </div>
         </div>
       )}
+      <div className="bd-pieces">{pieceEls}</div>
       {dragGhost && createPortal(
         <div className="bd-drag-ghost" style={{ left: dragGhost.x, top: dragGhost.y, width: dragGhost.size, height: dragGhost.size }}>
           {dragGhost.piece && <Piece type={dragGhost.piece.type} color={dragGhost.piece.color} size={dragGhost.size} />}
@@ -448,7 +505,9 @@ export default function BoardView({
   )
 }
 
-function SquareRect({ x, y, dark }) {
+// `look` = board skin id (SkinContext BOARD_SKINS); only 'classic' for now
+// eslint-disable-next-line no-unused-vars
+function SquareRect({ x, y, dark, look }) {
   return (
     <g>
       <rect x={x} y={y} width={U} height={U} className={dark ? 'sq-dark' : 'sq-light'} shapeRendering="crispEdges" />

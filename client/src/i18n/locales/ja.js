@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'クイーン',
   'piece.king': 'キング',
 
-  'card.barricade.name': 'バリケード',
-  'card.barricade.desc': '空きマスにHP 2の障害物を置く。相手は普通の駒と同じように破壊できる。',
+  'card.barricade.name': '岩',
+  'card.barricade.desc': '空きマスにHP 2の岩を置く。相手は普通の駒と同じように砕ける。',
   'card.add_cell.name': 'マス追加',
   'card.add_cell.desc': '盤の端の外側に新しいマスを1つ追加し、盤面を広げる。',
   'card.freeze.name': '凍結地雷',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'サンドボックス',
   'menu.howToPlay': '遊び方',
   'menu.whatsNew': '更新情報',
-  'menu.skins': 'スキン',
+  'menu.skins': 'ショップ',
   'menu.soon': '近日公開',
   'menu.soonTag': "近日",
   'menu.newBadge': 'NEW',
@@ -119,6 +119,7 @@ export default {
   'settings.language': '言語',
 
   'patch.new': 'NEW',
+  'patch.empty': 'アップデートをお楽しみに',
 
   'online.matchOverWin': 'マッチ終了——あなたの勝ち {score}',
   'online.matchOverLoss': 'マッチ終了——あなたの負け {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': '対局',
   'htp.battleDesc': '交互に指します——カードを使っても手番は消費しません。時計（{min}分、1手ごとに+{inc}秒）は自分の手番だけ進みます。相手の手番中に次の手を予約できます。バトルログには全ての手とカードが残ります。',
   'htp.resultTitle': 'ラウンドの結果',
-  'htp.resultDesc': '相手のキングを取った方がラウンドの勝者です。キングのライフは2：最初の一撃は跳ね返ります。チェックはありません——キングも他の駒と同じく攻撃範囲に入れます。時間切れや指せる手がなくなると負け。マッチは2勝先取で、毎ラウンド新しいドラフトから始まります。',
+  'htp.resultDesc': '相手のキングを取った方がラウンドの勝者です。チェックはありません——キングも他の駒と同じく攻撃範囲に入れます。時間切れや指せる手がなくなると負け。マッチは2勝先取で、毎ラウンド新しいドラフトから始まります。',
 
   'score.round': 'ラウンド',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "交互に駒とカードを買い、駒はすぐ自陣に置く。",
   'htp.step2Desc': "交互に指す。1手につきカード1枚まで。",
   'htp.step3Title': "勝利",
-  'htp.step3Desc': "キングを取れ。ライフ2、王手なし。",
+  'htp.step3Desc': "キングを取れ。王手なし。",
   'htp.tabCards': "カード",
   'htp.tabGame': "対局",
   'lobby.access': "公開設定",

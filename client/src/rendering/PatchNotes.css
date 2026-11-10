@@ -32,3 +32,11 @@
 @media (max-width: 600px) {
   .pn-modal { height: calc(100dvh - 40px); padding: 18px 14px 0 !important; }
 }
+
+/* nothing released yet */
+.pn-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px 0 28px; }
+.pn-empty-ic { width: 96px; height: 96px; border-radius: 22px; display: flex; align-items: center; justify-content: center; background-color: var(--c-tile-news); background-image: var(--stripe-fine); --mi-bg: var(--c-tile-news); box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.18), 0 5px 0 var(--c-panel-depth); }
+.pn-empty-ic .mi-svg { --mi-c: color-mix(in srgb, var(--mi-bg) 70%, #16141F); --mi-w: color-mix(in srgb, var(--mi-bg) 22%, #FFFFFF); --mi-sh: color-mix(in srgb, var(--mi-bg) 55%, #DCD6E4); }
+.pn-empty-text { font-family: var(--f-display); font-weight: 800; font-size: 20px; color: var(--c-text); text-align: center; }
+.pn-modal.empty { height: auto; max-width: 460px; }
+@media (max-width: 600px) { .pn-modal.empty { height: auto; } }

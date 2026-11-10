@@ -21,7 +21,7 @@ const other = c => (c === 'white' ? 'black' : 'white')
 function piecesOf(placed) {
   const out = {}
   ;['white', 'black'].forEach(color => {
-    Object.entries(placed?.[color] ?? {}).forEach(([sq, type]) => { out[sq] = { type, color, hp: type === 'king' ? 2 : 1 } })
+    Object.entries(placed?.[color] ?? {}).forEach(([sq, type]) => { out[sq] = { type, color, hp: 1 } })
   })
   return out
 }

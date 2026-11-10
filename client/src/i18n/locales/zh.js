@@ -29,8 +29,8 @@ export default {
   'piece.queen': '后',
   'piece.king': '王',
 
-  'card.barricade.name': '路障',
-  'card.barricade.desc': '在空格上放置一个 2 HP 的障碍。对手可以像吃普通棋子一样摧毁它。',
+  'card.barricade.name': '石头',
+  'card.barricade.desc': '在空格上放置一块 2 HP 的石头。对手可以像吃普通棋子一样击碎它。',
   'card.add_cell.name': '增加格子',
   'card.add_cell.desc': '在棋盘边缘外增加一个新格子，扩大战场。',
   'card.freeze.name': '冰冻地雷',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': '沙盒',
   'menu.howToPlay': '玩法',
   'menu.whatsNew': '更新内容',
-  'menu.skins': '皮肤',
+  'menu.skins': '商店',
   'menu.soon': '即将推出',
   'menu.soonTag': "即将",
   'menu.newBadge': '新',
@@ -119,6 +119,7 @@ export default {
   'settings.language': '语言',
 
   'patch.new': '新',
+  'patch.empty': '敬请期待更新',
 
   'online.matchOverWin': '比赛结束——你赢了 {score}',
   'online.matchOverLoss': '比赛结束——你输了 {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': '战斗',
   'htp.battleDesc': '轮流走棋——使用卡牌不消耗走棋。棋钟（{min} 分钟，每步 +{inc} 秒）只在你的回合计时。可在对手回合预选走法。战斗记录保存所有走法和卡牌。',
   'htp.resultTitle': '本局结果',
-  'htp.resultDesc': '吃掉对方的王即赢得本局。王有 2 条命：第一次攻击会被弹回。没有将军——王可以像其他棋子一样走进攻击范围。超时或无棋可走即判负。比赛先赢 2 局者胜；每局重新选秀。',
+  'htp.resultDesc': '吃掉对方的王即赢得本局。没有将军——王可以像其他棋子一样走进攻击范围。超时或无棋可走即判负。比赛先赢 2 局者胜；每局重新选秀。',
 
   'score.round': '局',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "轮流购买棋子和卡牌，棋子直接放到你的半场。",
   'htp.step2Desc': "轮流行棋，每回合可打出一张卡。",
   'htp.step3Title': "胜利",
-  'htp.step3Desc': "吃掉国王。它有2条命，没有将军。",
+  'htp.step3Desc': "吃掉国王。没有将军。",
   'htp.tabCards': "卡牌",
   'htp.tabGame': "对局",
   'lobby.access': "访问",

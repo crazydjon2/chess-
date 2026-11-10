@@ -9,7 +9,7 @@
   padding: 24px 16px;
   overflow: hidden;
 }
-.mm-top { position: absolute; top: 24px; right: 24px; z-index: 2; }
+.mm-top { position: absolute; top: 24px; right: 24px; z-index: 2; display: flex; align-items: center; gap: 12px; }
 .mm-center { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; }
 
 .mm-logo {
@@ -103,8 +103,16 @@
   background-image: var(--stripe);
   box-shadow: inset 0 -6px 0 rgba(0,0,0,0.18);
 }
-.mm-mode-art.bot { background-color: var(--c-tile-bot); }
-.mm-mode-art.sandbox { background-color: var(--c-tile-sandbox); }
+.mm-mode-art.bot { background-color: var(--c-tile-bot); --mi-bg: var(--c-tile-bot); }
+.mm-mode-art.sandbox { background-color: var(--c-tile-sandbox); --mi-bg: var(--c-tile-sandbox); }
+/* menu icons draw with their tile colour (ui/menuIcons.js) */
+.mm-mode-art, .mm-mi {
+  --mi-c: color-mix(in srgb, var(--mi-bg, #8C7F79) 70%, #16141F);
+  --mi-w: color-mix(in srgb, var(--mi-bg, #8C7F79) 22%, #FFFFFF);
+  --mi-sh: color-mix(in srgb, var(--mi-bg, #8C7F79) 55%, #DCD6E4);
+  --mi-glow: color-mix(in srgb, var(--mi-bg, #8C7F79) 35%, #FFFFFF);
+}
+.mi-svg { overflow: visible; filter: drop-shadow(0 1.5px 0 rgba(20, 10, 30, 0.35)); }
 
 .mm-minor {
   position: relative;
@@ -122,9 +130,9 @@
   box-shadow: 0 4px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-inset-edge);
 }
 .mm-mi { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #16141F; }
-.mm-mi.help { background: var(--c-tile-help); }
-.mm-mi.news { background: var(--c-tile-news); }
-.mm-mi.skins { background: var(--c-tile-skins); color: var(--c-text-dim); }
+.mm-mi.help { background: var(--c-tile-help); --mi-bg: var(--c-tile-help); }
+.mm-mi.news { background: var(--c-tile-news); --mi-bg: var(--c-tile-news); }
+.mm-mi.skins { background: var(--c-tile-skins); --mi-bg: var(--c-tile-skins); color: var(--c-text-dim); }
 .mm-minor.off { color: var(--c-text-mute); cursor: not-allowed; }
 .mm-dot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-badge-new); box-shadow: 0 0 0 3px var(--c-inset); }
 .mm-soon {
@@ -161,6 +169,10 @@
   .mm-minor { flex-direction: column; justify-content: center; height: 62px; padding: 4px; gap: 4px; font-size: 12px; }
   .mm-mi { width: 28px; height: 28px; }
   .mm-mi svg { width: 18px; height: 18px; }
+  /* a tile alone in its row keeps the wide (desktop) layout */
+  .mm-tile.mode:only-child { flex-direction: row; height: 96px; padding: 8px; gap: 16px; }
+  .mm-tile.mode:only-child .mm-mode-art { width: 80px; height: 80px; }
+  .mm-tile.mode:only-child .mm-tile-title { font-size: 18px; text-align: left; }
 }
 @media (max-width: 600px) and (max-height: 760px) {
   .mm-screen { padding-top: 54px; }
@@ -169,6 +181,8 @@
   .mm-fan-card { height: 96px; width: 72px; left: calc(50% - 36px + (var(--i) - 2) * 64px); }
   .mm-tile.hero { height: 92px; }
   .mm-tile.mode .mm-mode-art { height: 70px; }
+  .mm-tile.mode:only-child { height: 84px; }
+  .mm-tile.mode:only-child .mm-mode-art { width: 68px; height: 68px; }
 }
 @media (min-width: 601px) and (max-height: 760px) {
   .mm-logo { font-size: 66px; }
@@ -178,3 +192,7 @@
   .mm-tile.mode { height: 104px; }
   .mm-mode-art { width: 84px; height: 84px; }
 }
+
+/* "What's new" lives in the top bar as an icon (dot = unseen notes) */
+.mm-news { position: relative; --mi-bg: var(--c-tile-news); }
+.mm-news .mm-dot { top: -3px; right: -3px; box-shadow: 0 0 0 3px var(--c-panel); }

@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Vezir',
   'piece.king': 'Şah',
 
-  'card.barricade.name': 'Barikat',
-  'card.barricade.desc': 'Boş bir kareye 2 HP\'lik bir engel koyar. Rakip onu normal bir taş gibi yok edebilir.',
+  'card.barricade.name': 'Kaya',
+  'card.barricade.desc': 'Boş bir kareye 2 HP\'lik bir kaya koyar. Rakip onu normal bir taş gibi kırabilir.',
   'card.add_cell.name': 'Kare ekle',
   'card.add_cell.desc': 'Tahtanın kenarının ötesine yeni bir kare ekleyerek oyun alanını genişletir.',
   'card.freeze.name': 'Dondurucu mayın',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Deneme alanı',
   'menu.howToPlay': 'Nasıl oynanır',
   'menu.whatsNew': 'Yenilikler',
-  'menu.skins': 'Görünümler',
+  'menu.skins': 'Mağaza',
   'menu.soon': 'Yakında',
   'menu.soonTag': "yakında",
   'menu.newBadge': 'YENİ',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Dil',
 
   'patch.new': 'Yeni',
+  'patch.empty': 'Güncellemeleri takip et',
 
   'online.matchOverWin': 'Maç bitti — kazandın {score}',
   'online.matchOverLoss': 'Maç bitti — kaybettin {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Savaş',
   'htp.battleDesc': 'Sırayla oynanır — kart oynamak hamleni harcamaz. Saat ({min} dk, hamle başı +{inc} sn) yalnızca senin sırandayken işler. Rakibin sırasında hamleni önceden seçebilirsin. Savaş günlüğü tüm hamleleri ve kartları saklar.',
   'htp.resultTitle': 'Tur sonu',
-  'htp.resultDesc': 'Rakip şahı alan turu kazanır. Şahın 2 canı var: ilk darbe geri seker. Şah çekme yok — şah her taş gibi saldırı altına girebilir. Süren ya da hamlen biterse kaybedersin. Maç 2 galibiyete kadar sürer; her tur sıfırdan yeni bir draft.',
+  'htp.resultDesc': 'Rakip şahı alan turu kazanır. Şah çekme yok — şah her taş gibi saldırı altına girebilir. Süren ya da hamlen biterse kaybedersin. Maç 2 galibiyete kadar sürer; her tur sıfırdan yeni bir draft.',
 
   'score.round': 'tur',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Sırayla taş ve kart al; her taş hemen kendi yarına konur.",
   'htp.step2Desc': "Sırayla oynayın. Tur başına bir kart.",
   'htp.step3Title': "Zafer",
-  'htp.step3Desc': "Şahı al. 2 canı var, şah çekme yok.",
+  'htp.step3Desc': "Şahı al. Şah çekme yok.",
   'htp.tabCards': "Kartlar",
   'htp.tabGame': "Maç",
   'lobby.access': "Erişim",

@@ -29,8 +29,8 @@ export default {
   'piece.queen': '퀸',
   'piece.king': '킹',
 
-  'card.barricade.name': '바리케이드',
-  'card.barricade.desc': '빈 칸에 HP 2의 장애물을 세웁니다. 상대는 일반 기물처럼 부술 수 있습니다.',
+  'card.barricade.name': '바위',
+  'card.barricade.desc': '빈 칸에 HP 2의 바위를 놓습니다. 상대는 일반 기물처럼 부술 수 있습니다.',
   'card.add_cell.name': '칸 추가',
   'card.add_cell.desc': '보드 가장자리 밖에 새 칸을 하나 추가해 전장을 넓힙니다.',
   'card.freeze.name': '빙결 지뢰',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': '샌드박스',
   'menu.howToPlay': '게임 방법',
   'menu.whatsNew': '새로운 소식',
-  'menu.skins': '스킨',
+  'menu.skins': '상점',
   'menu.soon': '곧 출시',
   'menu.soonTag': "곧",
   'menu.newBadge': 'NEW',
@@ -119,6 +119,7 @@ export default {
   'settings.language': '언어',
 
   'patch.new': 'NEW',
+  'patch.empty': '업데이트를 기대해 주세요',
 
   'online.matchOverWin': '매치 종료 — 승리 {score}',
   'online.matchOverLoss': '매치 종료 — 패배 {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': '전투',
   'htp.battleDesc': '번갈아 둡니다 — 카드를 써도 수를 소모하지 않습니다. 시계({min}분, 수마다 +{inc}초)는 내 차례에만 갑니다. 상대 차례에 미리 수를 골라 둘 수 있습니다. 전투 기록에 모든 수와 카드가 남습니다.',
   'htp.resultTitle': '라운드 결과',
-  'htp.resultDesc': '상대 킹을 잡으면 라운드 승리입니다. 킹은 목숨이 2개: 첫 공격은 튕겨 냅니다. 체크는 없습니다 — 킹도 다른 기물처럼 공격받는 칸으로 갈 수 있습니다. 시간이나 둘 수가 떨어지면 패배. 매치는 2승 선승제이며 매 라운드 새로 드래프트합니다.',
+  'htp.resultDesc': '상대 킹을 잡으면 라운드 승리입니다. 체크는 없습니다 — 킹도 다른 기물처럼 공격받는 칸으로 갈 수 있습니다. 시간이나 둘 수가 떨어지면 패배. 매치는 2승 선승제이며 매 라운드 새로 드래프트합니다.',
 
   'score.round': '라운드',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "번갈아 기물과 카드를 사고, 기물은 바로 내 진영에 놓습니다.",
   'htp.step2Desc': "번갈아 둡니다. 한 턴에 카드 한 장.",
   'htp.step3Title': "승리",
-  'htp.step3Desc': "킹을 잡으세요. 목숨 2개, 체크 없음.",
+  'htp.step3Desc': "킹을 잡으세요. 체크 없음.",
   'htp.tabCards': "카드",
   'htp.tabGame': "대국",
   'lobby.access': "공개 범위",

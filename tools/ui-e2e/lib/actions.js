@@ -62,12 +62,9 @@ async function boardAttr(page, name) {
   return page.locator('[data-testid=board]').first().getAttribute(name).catch(() => '')
 }
 
-// A square is clicked where a player would: on the piece standing there if
-// any (the tilted board draws it over the squares behind), else the cell.
+// A square is clicked on the square itself — pieces never take the pointer.
 export async function clickSquare(page, sq) {
-  const piece = page.locator(`[data-testid=board] .bd-piece[data-square="${sq}"]:not(.ghost)`).first()
-  if (await piece.count()) await piece.click({ force: true, timeout: T.short })
-  else await page.locator(`[data-testid=board] .bd-cell[data-square="${sq}"]`).first().click({ force: true, timeout: T.short })
+  await page.locator(`[data-testid=board] .bd-cell[data-square="${sq}"]`).first().click({ force: true, timeout: T.short })
 }
 
 export async function myColor(page) {

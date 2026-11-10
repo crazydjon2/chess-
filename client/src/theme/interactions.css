@@ -164,10 +164,7 @@
 @media (hover: hover) and (pointer: fine) {
   .bd-cell.can:hover { box-shadow: inset 0 0 0 4px var(--board-hl-select); background: rgba(242, 181, 68, 0.12); }
   .bd-cell.can.cap:hover { box-shadow: inset 0 0 0 4px var(--c-danger); background: rgba(224, 97, 74, 0.12); }
-  .bd-piece.mine:not(.lifted):not(.dragging):has(.bd-art:hover) .bd-stand {
-    transform: rotateX(calc(-1 * var(--board-tilt) * var(--piece-lean))) translateY(-12%);
-  }
-  .bd-piece.mine .bd-art { cursor: grab; }
+  .bd-piece.mine.hovered:not(.lifted):not(.dragging) .bd-stand { --pz-lift: -5%; }
 }
 .bd-cell { transition: box-shadow 0.12s ease, background 0.12s ease; }
 

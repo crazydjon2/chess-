@@ -29,8 +29,8 @@ export default {
   'piece.queen': 'Dame',
   'piece.king': 'König',
 
-  'card.barricade.name': 'Barrikade',
-  'card.barricade.desc': 'Stellt eine Barriere mit 2 HP auf ein freies Feld. Der Gegner kann sie wie eine normale Figur zerstören.',
+  'card.barricade.name': 'Stein',
+  'card.barricade.desc': 'Stellt einen Stein mit 2 HP auf ein freies Feld. Der Gegner kann ihn wie eine normale Figur zerschlagen.',
   'card.add_cell.name': 'Feld hinzufügen',
   'card.add_cell.desc': 'Fügt ein neues Feld jenseits des Brettrands hinzu und erweitert das Spielfeld.',
   'card.freeze.name': 'Frostmine',
@@ -107,7 +107,7 @@ export default {
   'menu.sandbox': 'Sandbox',
   'menu.howToPlay': 'Spielanleitung',
   'menu.whatsNew': 'Neuigkeiten',
-  'menu.skins': 'Skins',
+  'menu.skins': 'Shop',
   'menu.soon': 'Demnächst',
   'menu.soonTag': "bald",
   'menu.newBadge': 'NEU',
@@ -119,6 +119,7 @@ export default {
   'settings.language': 'Sprache',
 
   'patch.new': 'Neu',
+  'patch.empty': 'Bleib dran für Updates',
 
   'online.matchOverWin': 'Match vorbei — du hast gewonnen {score}',
   'online.matchOverLoss': 'Match vorbei — du hast verloren {score}',
@@ -197,7 +198,7 @@ export default {
   'htp.battleTitle': 'Kampf',
   'htp.battleDesc': 'Abwechselnd ziehen — eine Karte kostet keinen Zug. Die Uhr ({min} min, +{inc} s pro Zug) läuft nur in deinem Zug. Du kannst deinen Zug schon im gegnerischen Zug vorwählen. Das Kampfprotokoll speichert alle Züge und Karten.',
   'htp.resultTitle': 'Rundenende',
-  'htp.resultDesc': 'Wer den gegnerischen König schlägt, gewinnt die Runde. Der König hat 2 Leben: Der erste Treffer prallt ab. Es gibt kein Schach — der König darf sich wie jede Figur angreifen lassen. Keine Zeit oder keine Züge mehr — Niederlage. Das Match geht bis 2 Siege; jede Runde ist ein neuer Draft.',
+  'htp.resultDesc': 'Wer den gegnerischen König schlägt, gewinnt die Runde. Es gibt kein Schach — der König darf sich wie jede Figur angreifen lassen. Keine Zeit oder keine Züge mehr — Niederlage. Das Match geht bis 2 Siege; jede Runde ist ein neuer Draft.',
 
   'score.round': 'Runde',
 
@@ -312,7 +313,7 @@ export default {
   'htp.step1Desc': "Kauft abwechselnd Figuren und Karten — jede Figur kommt sofort auf deine Hälfte.",
   'htp.step2Desc': "Zieht abwechselnd. Eine Karte pro Zug.",
   'htp.step3Title': "Sieg",
-  'htp.step3Desc': "Schlag den König. Er hat 2 Leben, kein Schach.",
+  'htp.step3Desc': "Schlag den König. Kein Schach.",
   'htp.tabCards': "Karten",
   'htp.tabGame': "Partie",
   'lobby.access': "Zugang",
