@@ -136,7 +136,7 @@ export function SettingsButton({ className = '' }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button className={`ui-btn icon ${className}`} onClick={() => setOpen(true)} aria-label={t('settings.title')} title={t('settings.title')}>
+      <button className={`ui-btn icon ${className}`} onClick={() => setOpen(true)} aria-label={t('settings.title')} title={t('settings.title')} data-testid="settings-btn">
         <IconSettings />
       </button>
       {open && <Settings onClose={() => setOpen(false)} />}

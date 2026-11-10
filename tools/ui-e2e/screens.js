@@ -85,7 +85,7 @@ async function menuScreens(browser, base, atlas, rec) {
     await page.locator('.htp-head .ui-btn').click()
   })
   await atlas.attempt('настройки', async () => {
-    await page.locator('.mm-top .ui-btn').click()
+    await page.locator('.mm-top [data-testid=settings-btn]').click()
     await atlas.shot(page, 'Меню', 'настройки')
     await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()
     await atlas.shot(page, 'Меню', 'настройки · язык')

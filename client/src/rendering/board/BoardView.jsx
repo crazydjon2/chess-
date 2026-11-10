@@ -72,16 +72,23 @@ export function projectFrame(W, H, tiltDeg, scale) {
 function useBoardFit(cols, rows) {
   const ref = useRef(null)
   const frameRef = useRef(null)
-  const [fit, setFit] = useState({ cell: 0, tilt: 0, dx: 0, dy: 0 })
+  const [fit, setFit] = useState({ cell: 0, tilt: 0, dx: 0, dy: 0, fp: FRAME_PAD, co: COORD })
   const compute = useCallback(() => {
     const el = ref.current
     if (!el) return
-    const w = el.clientWidth * 0.97
-    const h = el.clientHeight * 0.97
-    if (!w || !h) return
+    // share of the scene the board may fill (phones: almost all of it)
+    const fill = readVar(el, '--board-fill', 0.97)
+    // the frame's chunky drop (box-shadow) hangs below its box: keep room
+    const depth = readVar(el, '--board-depth', 14)
+    const w = el.clientWidth * fill
+    const h = el.clientHeight * fill - depth
+    if (!w || h <= 0) return
     const tilt = readTilt(el)
     const scale = readVar(el, '--board-scale', 1)
-    const pad = FRAME_PAD * 2 + COORD
+    // frame padding / coordinate gutter are tokens (phones use slimmer ones)
+    const fp = readVar(el, '--board-pad', FRAME_PAD)
+    const co = readVar(el, '--board-coord', COORD)
+    const pad = fp * 2 + co
     // pieces on the back rank stand up above the frame: keep room for them
     const HEAD = 0.45
     // projected size is ~proportional to the flat size: two refinements settle it
@@ -93,8 +100,8 @@ function useBoardFit(cols, rows) {
     }
     cell = Math.max(8, Math.floor(cell))
     const p = projectFrame(cols * cell + pad, rows * cell + pad, tilt, scale)
-    const dy = Math.round(-p.cy + HEAD * cell / 2)
-    setFit(prev => (prev.cell === cell && prev.tilt === tilt && prev.dy === dy ? prev : { cell, tilt, dx: 0, dy }))
+    const dy = Math.round(-p.cy + HEAD * cell / 2 - depth / 2)
+    setFit(prev => (prev.cell === cell && prev.tilt === tilt && prev.dy === dy && prev.fp === fp && prev.co === co ? prev : { cell, tilt, dx: 0, dy, fp, co }))
   }, [cols, rows])
   useLayoutEffect(() => {
     compute()
@@ -461,7 +468,7 @@ export default function BoardView({
         <div
           ref={frameRef}
           className={`bd-frame${fit.tilt ? ' tilted' : ''}`}
-          style={{ width: frameW, height: frameH, '--cell': `${cell}px`, '--persp': `${Math.round(frameW * 2.4)}px` }}
+          style={{ width: frameW, height: frameH, padding: `${fit.fp}px ${fit.fp}px 0`, gridTemplateColumns: `${fit.co}px auto`, gridTemplateRows: `auto ${fit.co}px`, '--cell': `${cell}px`, '--persp': `${Math.round(frameW * 2.4)}px` }}
         >
           <div className="bd-ranks" style={{ height: gridH }}>
             {ranks.map(r => <span key={r}>{r}</span>)}

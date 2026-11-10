@@ -130,3 +130,16 @@
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
+/* Phones: every pixel goes to the board — less tilt (the far ranks shrink
+   less), slimmer frame and coordinates. */
+@media (max-width: 600px) {
+  :root {
+    --board-tilt: 22deg;
+    --board-scale: 1;
+    --board-pad: 6px;
+    --board-coord: 14px;
+    --board-fill: 0.98;
+    --board-depth: 10px;
+  }
+}

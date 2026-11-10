@@ -39,7 +39,7 @@ export async function menuTour(browser, base, profile, rec, rng) {
   })
 
   await rec.step(S, 'настройки: переключатели, язык, закрытие', page, async () => {
-    await page.locator('.mm-top .ui-btn').click()
+    await page.locator('.mm-top [data-testid=settings-btn]').click()
     const toggles = page.locator('.ui-overlay:not(.leaving) .set-toggle')
     for (let i = 0; i < await toggles.count(); i++) { await toggles.nth(i).click(); await toggles.nth(i).click() }
     await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()

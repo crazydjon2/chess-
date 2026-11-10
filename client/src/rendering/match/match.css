@@ -758,3 +758,37 @@
 @media (max-width: 600px) {
   .mx-opp .pc-caps.inline { display: none; }
 }
+
+/* ── Phones: the board gets the space ──────────────────────────────────
+   Player bars are ONE row (no "no cards" / empty "captured" placeholders),
+   the card tray is compact, the recruit hint is small. */
+@media (max-width: 600px) {
+  .mx-screen { padding: 6px 6px 0; }
+  .mx-header { height: 44px; }
+  .mx-body { margin-top: 6px; row-gap: 6px; padding-bottom: 6px; }
+  .pc-card { padding: 6px 8px; border-radius: 14px; }
+  .pc-head { flex-wrap: wrap; gap: 8px; row-gap: 6px; }
+  .pc-head .ui-avatar { width: 32px; height: 32px; }
+  .pc-caps.inline { order: 0; width: auto; flex: 1 1 0; min-width: 0; }
+  /* bought cards: their own thin row of icons (always there, so the board
+     never jumps when the first card is bought); used ones are dimmed */
+  .pc-chips.inline { order: 5; flex: 1 0 100%; width: 100%; height: 28px; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+  .pc-chips.inline::-webkit-scrollbar { display: none; }
+  .pc-chips.inline .ui-chip { height: 28px; padding: 0 2px; flex-shrink: 0; }
+  .pc-chips.inline .ui-chip .chip-name { display: none; }
+  .pc-chips.inline .ui-chip .card-icon { width: 24px !important; height: 24px !important; }
+  .pc-chips.inline .ui-chip.empty { height: 24px; padding: 0 8px; font-size: 11px; box-shadow: none; background: var(--c-inset); }
+  .pc-caps.inline { height: 30px; padding: 0 8px; }
+  .pc-caps.inline .pc-caps-label { display: none; }
+  .pc-caps.inline:not(:has(.pz)) { visibility: hidden; }
+  .pc-head > :last-child { margin-left: auto; }
+  .cd-tile { width: 66px; }
+  .cd-tile-art .card-icon { height: 38px !important; }
+  .cd-tile-name { font-size: 10px; min-height: 24px; }
+  .cd-tile-price { transform: scale(0.85); }
+  .mx-tray-strip { padding: 6px 6px 8px; gap: 5px; }
+  .mx-tray { border-radius: 14px; }
+  .mx-hint { top: 0; padding: 6px 12px; font-size: 13px; border-radius: 10px; }
+  .mx-tray-strip { min-height: 86px; }
+  .mx-screen .bd-frame { box-shadow: 0 4px 0 var(--board-frame-depth1), 0 8px 0 var(--board-frame-depth2), inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 2px var(--board-frame-rim); border-radius: 14px; }
+}
