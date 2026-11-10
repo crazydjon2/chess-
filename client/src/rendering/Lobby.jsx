@@ -7,7 +7,7 @@ import WaitingRoom from './WaitingRoom'
 // "Как играть" lives only in MainMenu.jsx now, not duplicated here.
 export default function Lobby({
   phase, room, busy, errorMsg, onCreate, onJoin, onPlayBot, onLeave, onStart, onExit,
-  nickname, onNicknameChange, rooms, roomsLoading,
+  nickname, onNicknameChange, rooms, roomsLoading, openBot, onRefresh,
 }) {
   if (phase === 'menu') {
     return (
@@ -22,6 +22,8 @@ export default function Lobby({
         onNicknameChange={onNicknameChange}
         rooms={rooms}
         roomsLoading={roomsLoading}
+        openBot={openBot}
+        onRefresh={onRefresh}
       />
     )
   }

@@ -1,7 +1,7 @@
 import { BUDGET_BY_ROUND, DRAFT_TIME_BY_ROUND } from './draftPools.js'
 import { SHOP_PIECE_TYPES, shopPieceCost } from './economy.js'
 import { CARD_DEFS } from './cards.js'
-import { HOME_CAPACITY_BY_ROUND } from './boardPatterns.js'
+import { HOME_CAPACITY_BY_ROUND, homeRanks } from './boardPatterns.js'
 
 // The full catalog — every piece type and every card is buyable from round
 // 1 on, supply unlimited (buying one doesn't make it unavailable to the
@@ -68,7 +68,15 @@ export function nextItemCost(draftState, color, item) {
 //
 // The budget is always the round's flat BUDGET_BY_ROUND — nothing persists
 // between rounds (see matchEngine.js): every round is a fresh draft.
-export function createDraftState(round, firstColor = 'white', now = Date.now()) {
+//
+// Recruit ("Набор") = draft and placement in ONE turn-based phase: a piece
+// is bought straight onto a free square of your home ranks (item.square),
+// so the army is built on the board in full view of the opponent. `pattern`
+// (the round's board) enables that; without it (old unit tests) pieces are
+// bought without squares. Each player's FIRST action is placing their king
+// (free, ends the turn); it can't be moved afterwards. A player who runs out
+// of time before that gets it on the default square (see timeoutDraft).
+export function createDraftState(round, firstColor = 'white', now = Date.now(), pattern = null) {
   const secondColor = firstColor === 'white' ? 'black' : 'white'
   const budget = BUDGET_BY_ROUND[round]
   const time = DRAFT_TIME_BY_ROUND[round]
@@ -104,7 +112,75 @@ export function createDraftState(round, firstColor = 'white', now = Date.now()) 
     // chargeClock); the server fires timeoutDraft once it hits zero.
     clocks: { white: time, black: time },
     turnStartedAt: now,
+    board: pattern ? { rows: pattern.rows, cols: pattern.cols, blockedCells: pattern.blockedCells ?? [] } : null,
+    // { white: { square: pieceType }, black: {...} } — the armies as they
+    // stand on the board, kings included. Null when untracked (no pattern).
+    placed: pattern ? { white: {}, black: {} } : null,
+    // Recruit history, oldest first: { color, kind: 'piece'|'card'|'done',
+    // pieceType?, square?, cardId?, cost? } — shown in the "История набора".
+    log: [],
   }
+}
+
+function sqName(col, rank) { return `${String.fromCharCode(97 + col)}${rank}` }
+
+// Every home square of `color` a piece may ever stand on (not blocked).
+export function homeSquares(board, color) {
+  const blocked = new Set(board.blockedCells ?? [])
+  const [lo, hi] = homeRanks(board.rows, color)
+  const out = []
+  for (let r = lo; r <= hi; r++)
+    for (let c = 0; c < board.cols; c++) {
+      const sq = sqName(c, r)
+      if (!blocked.has(sq)) out.push(sq)
+    }
+  return out
+}
+
+// Home squares still free for `color` right now.
+export function freeHomeSquares(draftState, color) {
+  if (!draftState.placed) return []
+  const mine = draftState.placed[color]
+  return homeSquares(draftState.board, color).filter(sq => !mine[sq])
+}
+
+// True once `color`'s king stands on the board (always true when squares
+// aren't tracked).
+export function hasKing(draftState, color) {
+  return !draftState.placed || Object.values(draftState.placed[color]).includes('king')
+}
+
+// Default king square: back rank, middle file (e for 8 columns, d for 6/7),
+// nearest free one — used when a player never placed it themselves.
+export function defaultKingSquare(draftState, color) {
+  const free = new Set(freeHomeSquares(draftState, color))
+  const { rows, cols } = draftState.board
+  const rank = color === 'white' ? 1 : rows
+  const mid = Math.floor(cols / 2)
+  for (let d = 0; d < cols; d++) {
+    for (const c of [mid - d, mid + d]) {
+      if (c >= 0 && c < cols && free.has(sqName(c, rank))) return sqName(c, rank)
+    }
+  }
+  return [...free][0]
+}
+
+function placeKing(draftState, color, square) {
+  return { ...draftState.placed, [color]: { ...draftState.placed[color], [square]: 'king' } }
+}
+
+// Puts any missing king on its default square (recruit ending early).
+export function withKings(draftState) {
+  if (!draftState.placed) return draftState
+  let placed = draftState.placed
+  for (const c of ['white', 'black']) {
+    if (!hasKing({ ...draftState, placed }, c)) placed = placeKing({ ...draftState, placed }, c, defaultKingSquare({ ...draftState, placed }, c))
+  }
+  return { ...draftState, placed }
+}
+
+function isFreeHomeSquare(draftState, color, square) {
+  return typeof square === 'string' && freeHomeSquares(draftState, color).includes(square)
 }
 
 // Seconds `color` (whose turn it is) would have left if they acted at `now`.
@@ -132,11 +208,13 @@ function chargeClock(draftState, color, now) {
 export function timeoutDraft(draftState, now = Date.now()) {
   const color = draftState.turn
   if (isDraftComplete(draftState) || draftState.done[color]) return draftState
+  const withKing = hasKing(draftState, color) ? draftState : { ...draftState, placed: placeKing(draftState, color, defaultKingSquare(draftState, color)) }
   const next = {
-    ...draftState,
+    ...withKing,
     clocks: { ...draftState.clocks, [color]: 0 },
     turnStartedAt: now,
     done: { ...draftState.done, [color]: true },
+    log: [...(draftState.log ?? []), { color, kind: 'done', timeout: true }],
   }
   const turn = advanceTurn(next, color)
   return { ...next, turn: turn ?? next.turn }
@@ -158,9 +236,11 @@ export function isDraftComplete(draftState) {
 // haven't bought yet at all is still sitting at its base price and may
 // well be the actual cheapest option still on the table.
 function canStillAct(draftState, color) {
+  if (!hasKing(draftState, color)) return true
   const budget = draftState.budgets[color]
   const pieceCount = draftState.picks[color].pieces.length
-  const pieceCosts = pieceCount < draftState.maxPieces
+  const room = draftState.placed ? freeHomeSquares(draftState, color).length > 0 : true
+  const pieceCosts = pieceCount < draftState.maxPieces && room
     ? ALL_PIECE_TYPES.map(pieceType => nextItemCost(draftState, color, { kind: 'piece', pieceType }))
     : []
   const cardCosts = ALL_CARD_IDS.map(cardId => nextItemCost(draftState, color, { kind: 'card', cardId }))
@@ -185,20 +265,36 @@ function advanceTurn(draftState, actingColor) {
 // blind carts, every pick lands and is broadcast immediately, so the
 // opponent sees it land in real time.
 export function submitPick(draftState, color, item, now = Date.now()) {
-  if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
-  if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
-  if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
-  if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
-  if (clockRemaining(draftState, color, now) <= 0) return { error: 'Время на закупку вышло' }
-  if (!isValidCatalogTarget(item)) return { error: 'Некорректный товар' }
+  if (draftState.phase !== 'buy') return { error: 'err.notBuyPhase' }
+  if (isDraftComplete(draftState)) return { error: 'err.buyFinished' }
+  if (draftState.done[color]) return { error: 'err.youFinishedBuying' }
+  if (draftState.turn !== color) return { error: 'err.notYourDraftTurn' }
+  if (clockRemaining(draftState, color, now) <= 0) return { error: 'err.buyTimeUp' }
+
+  // First action: the king, free, onto a free home square — and only then.
+  if (!hasKing(draftState, color)) {
+    if (item?.kind !== 'piece' || item.pieceType !== 'king') return { error: 'err.placeKingFirst' }
+    if (!isFreeHomeSquare(draftState, color, item.square)) return { error: 'err.notYourHalf' }
+    const next = {
+      ...chargeClock(draftState, color, now),
+      placed: placeKing(draftState, color, item.square),
+      log: [...(draftState.log ?? []), { color, kind: 'piece', pieceType: 'king', square: item.square, cost: 0 }],
+    }
+    const turn = advanceTurn(next, color)
+    return { draftState: { ...next, turn: turn ?? next.turn } }
+  }
+  if (!isValidCatalogTarget(item)) return { error: 'err.badItem' }
 
   const cost = nextItemCost(draftState, color, item)
-  if (cost > draftState.budgets[color]) return { error: 'Недостаточно бюджета' }
+  if (cost > draftState.budgets[color]) return { error: 'err.noBudget' }
 
   const picks = draftState.picks[color]
   if (item.kind === 'piece') {
     if (picks.pieces.length >= draftState.maxPieces) {
-      return { error: `На доске только ${draftState.maxPieces} клеток на вашей половине — столько фигур и можно купить` }
+      return { error: 'err.maxPieces' }
+    }
+    if (draftState.placed && !isFreeHomeSquare(draftState, color, item.square)) {
+      return { error: 'err.notYourHalf' }
     }
   }
 
@@ -210,6 +306,12 @@ export function submitPick(draftState, color, item, now = Date.now()) {
     ...chargeClock(draftState, color, now),
     budgets: { ...draftState.budgets, [color]: draftState.budgets[color] - cost },
     picks: { ...draftState.picks, [color]: newPicks },
+    log: [...(draftState.log ?? []), item.kind === 'piece'
+      ? { color, kind: 'piece', pieceType: item.pieceType, square: draftState.placed ? item.square : null, cost }
+      : { color, kind: 'card', cardId: item.cardId, cost }],
+  }
+  if (item.kind === 'piece' && draftState.placed) {
+    next.placed = { ...draftState.placed, [color]: { ...draftState.placed[color], [item.square]: item.pieceType } }
   }
   if (!canStillAct(next, color)) {
     next = { ...next, done: { ...next.done, [color]: true } }
@@ -224,12 +326,18 @@ export function submitPick(draftState, color, item, now = Date.now()) {
 // budget (see advanceTurn: once done, they're skipped, never waited on
 // again). Only callable on your own turn, same as an actual pick.
 export function submitDone(draftState, color, now = Date.now()) {
-  if (draftState.phase !== 'buy') return { error: 'Сейчас не фаза закупки' }
-  if (isDraftComplete(draftState)) return { error: 'Закупка уже завершена' }
-  if (draftState.done[color]) return { error: 'Вы уже закончили закупку' }
-  if (draftState.turn !== color) return { error: 'Сейчас не ваш ход' }
+  if (draftState.phase !== 'buy') return { error: 'err.notBuyPhase' }
+  if (isDraftComplete(draftState)) return { error: 'err.buyFinished' }
+  if (draftState.done[color]) return { error: 'err.youFinishedBuying' }
+  if (draftState.turn !== color) return { error: 'err.notYourDraftTurn' }
+  if (!hasKing(draftState, color)) return { error: 'err.placeKingFirst' }
 
-  const next = { ...chargeClock(draftState, color, now), done: { ...draftState.done, [color]: true } }
+  const next = {
+    ...chargeClock(draftState, color, now),
+    done: { ...draftState.done, [color]: true },
+    log: [...(draftState.log ?? []), { color, kind: 'done' }],
+  }
   const turn = advanceTurn(next, color)
   return { draftState: { ...next, turn: turn ?? next.turn } }
 }
+

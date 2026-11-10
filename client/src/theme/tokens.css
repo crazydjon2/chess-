@@ -1,0 +1,132 @@
+/* ─────────────────────────────────────────────────────────────────────
+   HUD design tokens — the ONLY place colors, fonts, radii and shadows are
+   defined. Every component stylesheet reads these variables, never raw
+   values, so a purchasable HUD theme is just a different set of values:
+   see themes.js (a theme = an object of these variable names → values,
+   applied on <html> by applyTheme()).
+
+   Naming: --c-* colors, --f-* fonts, --r-* radii, --sh-* shadows,
+   --board-* the board, --sp-* spacing.
+   ───────────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --c-bg: #3B2A24;              /* page background */
+  --c-bg-glow: rgba(255, 235, 215, 0.07);
+  --c-bg-glow-accent: rgba(242, 181, 68, 0.07);
+  /* Animated smoke behind every screen (rendering/ui/AmbientBackground):
+     dark base, lighter swirl, warm wisps. Keep them close for calm. */
+  --smoke-0: #2F221C;
+  --smoke-1: #3F2E27;
+  --smoke-2: #4E392C;
+  --c-panel: #2A1D19;           /* raised panel / button face */
+  --c-panel-hi: #3B2A24;        /* selected/pressed face */
+  --c-panel-depth: #150E0C;     /* the chunky drop under panels/buttons */
+  --c-edge: #52403A;            /* inner rim of panels/buttons */
+  --c-inset: #231815;           /* wells, rows, chips inside panels */
+  --c-inset-edge: #3A2A25;      /* rim of wells / dividers */
+  --c-scrim: rgba(18, 10, 8, 0.62);
+
+  /* Text */
+  --c-text: #F7EFE8;
+  --c-text-dim: #CDB8AA;
+  --c-text-mute: #6E5A50;
+
+  /* Accent (gold) */
+  --c-accent: #F2B544;
+  --c-accent-rim: #D99A2B;
+  --c-accent-depth: #A97A1E;
+  --c-on-accent: #2A1D19;
+
+  /* Danger (surrender / exit) */
+  --c-danger: #E0614A;
+  --c-danger-depth: #9E3A28;
+  --c-danger-text: #F0846C;
+  --c-on-danger: #FFF8F0;
+
+  /* Misc semantic */
+  --c-ok: #8FA35A;
+  --c-heart: #E0614A;
+  --c-badge-new: #F2B544;
+
+  /* Menu tiles (main menu) */
+  --c-tile-online: #F2B544;
+  --c-tile-bot: #A77BC8;
+  --c-tile-sandbox: #C98B5A;
+  --c-tile-help: #7CC6E0;
+  --c-tile-news: #E0614A;
+  --c-tile-skins: #52403A;
+  --stripe: repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 8px, rgba(255,255,255,0) 8px 16px);
+  --stripe-fine: repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 6px, rgba(255,255,255,0) 6px 12px);
+
+  /* Player identity tiles (avatar behind the king glyph) */
+  --c-avatar-white: #B48E78;
+  --c-avatar-black: #F1E5D6;
+
+  /* Board */
+  --board-sq-light: #F1E5D6;
+  --board-sq-dark: #B48E78;
+  --board-sq-void: #231815;
+  --board-sq-gloss: inset 0 3px 0 rgba(255,255,255,0.35), inset 0 -5px 0 rgba(60,30,15,0.16);
+  --board-frame: #2A1D19;
+  --board-frame-rim: #52403A;
+  --board-frame-depth1: #22170F;
+  --board-frame-depth2: #150E0C;
+  --board-grid-rim: #1A110E;
+  --board-coord: #CDB8AA;
+  --board-hl-home: rgba(242, 181, 68, 0.32);     /* recruit: where you can place */
+  --board-hl-move: rgba(242, 181, 68, 0.45);     /* legal move */
+  --board-hl-capture: rgba(224, 97, 74, 0.55);   /* legal capture */
+  --board-hl-select: #F2B544;                    /* selected piece outline */
+  --board-hl-card: rgba(108, 127, 210, 0.45);    /* card target */
+  --board-hl-premove: rgba(90, 150, 220, 0.5);
+  --board-hl-check: rgba(224, 60, 40, 0.6);
+  --board-hl-last: rgba(242, 181, 68, 0.18);
+  --board-tilt: 34deg;          /* 0deg = flat board; pieces follow automatically */
+  --board-scale: 0.93;
+
+  /* Pieces (glyph skin) */
+  --piece-white-fill: #FFF8F0;
+  --piece-white-line: #231815;
+  --piece-white-shade: #E2CFBC;  /* right side of the face */
+  --piece-black-fill: #3B2A24;
+  --piece-black-line: #120C0A;
+  --piece-black-hi: #5A4339;     /* lit left side of the face */
+  --piece-shadow: rgba(40, 20, 10, 0.25);
+  --piece-white-side: #C4AC99;  /* the piece's "thickness" under its face */
+  --piece-black-side: #120C0A;
+  --piece-contact: rgba(30, 14, 8, 0.42); /* soft shadow on the square */
+  --piece-fx-frozen: #7CC6E0;   /* status outlines on pieces */
+  --piece-fx-shield: #8FA2FF;
+  --piece-fx-unstable: #B98BE0;
+  --piece-tilt: -30deg;         /* pieces lean their tops toward the player (0deg = upright, + = away) */
+
+  /* Coins */
+  --c-coin: #F2B544;
+  --c-coin-rim: #D99A2B;
+
+  /* Fonts */
+  --f-ui: 'Rubik', system-ui, 'Segoe UI', sans-serif;
+  --f-display: 'Unbounded', 'Rubik', system-ui, sans-serif;
+  --f-glyph: 'Noto Sans Symbols 2', 'Segoe UI Symbol', serif;
+
+  /* Radii */
+  --r-panel: 18px;
+  --r-btn: 12px;
+  --r-row: 14px;
+  --r-chip: 9px;
+  --r-small: 8px;
+
+  /* Shadows (chunky offset style) */
+  --sh-panel: 0 6px 0 var(--c-panel-depth), inset 0 0 0 3px var(--c-edge);
+  --sh-btn: 0 4px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge);
+  --sh-row: inset 0 0 0 2px var(--c-edge), 0 4px 0 var(--c-panel-depth);
+  --sh-inset: inset 0 0 0 2px var(--c-edge);
+  --sh-accent: 0 4px 0 var(--c-accent-depth);
+  --sh-danger: 0 4px 0 var(--c-danger-depth);
+  --sh-pop: 0 5px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-accent), 0 12px 26px rgba(0,0,0,0.5);
+  --sh-modal: 0 8px 0 var(--c-panel-depth), inset 0 0 0 3px var(--c-edge), 0 24px 60px rgba(0,0,0,0.55);
+
+  /* Motion */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

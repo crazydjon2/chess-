@@ -1,15 +1,18 @@
+import { t, tErr } from './i18n'
 import { useState, useReducer, useCallback } from 'react'
 import GameView from './rendering/GameView'
 import PromotionPicker from './rendering/PromotionPicker'
+import ResultModal from './rendering/match/ResultModal'
+import { resultLine } from './rendering/RoundSummary'
+import { SettingsButton } from './rendering/Settings'
+import { IconRefresh } from './rendering/ui/Icons'
 import { createDraftRoundState } from './game/initialState'
 import { CARD_DEFS, getValidTargets } from './game/cards'
-import { isKingInCheck, needsPromotion } from './game/chess'
+import { needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
-import { getCaptured } from './game/economy'
 import { tryMove, tryPlayCard } from './game/sandboxEngine'
 import { play } from './sound'
 
-const other = color => (color === 'white' ? 'black' : 'white')
 
 // Matches .sandbox-leaving's own animation length (see App.css).
 const EXIT_ANIM_MS = 180
@@ -74,14 +77,14 @@ export default function SandboxApp({ onExit }) {
 
   const [boardMode, dispatch] = useReducer(boardModeReducer, IDLE)
   const [lastMoveAnim, setLastMoveAnim] = useState(null)
-  const [actionToast, setActionToast] = useState(null)
+  const [cardSplash, setCardSplash] = useState(null)
   const [meteorStrikeAnim, setMeteorStrikeAnim] = useState(null)
   const [mineStrikeAnim, setMineStrikeAnim] = useState(null)
   const [pendingPromotion, setPendingPromotion] = useState(null)
   const [historyIndex, setHistoryIndex] = useState(null) // null = live, see GameView.jsx
 
   const flashError = useCallback((msg) => {
-    setErrorMsg(msg)
+    setErrorMsg(tErr(msg))
     setTimeout(() => setErrorMsg(null), 3000)
   }, [])
 
@@ -98,9 +101,9 @@ export default function SandboxApp({ onExit }) {
         // always "get" (you took a piece); plain moves are "move".
         play(lastAction.type === 'capture' ? 'get' : 'move')
       } else if (lastAction.type === 'card') {
-        const card = CARD_DEFS[lastAction.cardId]
-        setActionToast({ type: 'card', color: lastAction.color, card, ts: Date.now() })
-        setTimeout(() => setActionToast(null), 2000)
+        const ts = Date.now()
+        setCardSplash({ cardId: lastAction.cardId, color: lastAction.color, ts })
+        setTimeout(() => setCardSplash(s => (s?.ts === ts ? null : s)), 1900)
         play('card')
       }
     }
@@ -119,7 +122,7 @@ export default function SandboxApp({ onExit }) {
     setGameState(freshSandboxState())
     setGameResult(null)
     setLastMoveAnim(null)
-    setActionToast(null)
+    setCardSplash(null)
     setMeteorStrikeAnim(null)
     setMineStrikeAnim(null)
     setPendingPromotion(null)
@@ -128,13 +131,9 @@ export default function SandboxApp({ onExit }) {
   }
 
   const myColor  = gameState.turn // whoever's turn it is controls the bottom panel/hand
-  const oppColor = other(myColor)
   const gameOver = !!gameResult
-  const inCheck  = !gameOver && isKingInCheck(gameState, gameState.turn)
   const cardsLocked = gameState.cardPlayedThisTurn
 
-  const myCaptured  = getCaptured(gameState, myColor)
-  const oppCaptured = getCaptured(gameState, oppColor)
 
   function handleMove({ from, to }) {
     if (gameOver) return
@@ -171,75 +170,68 @@ export default function SandboxApp({ onExit }) {
     applyResult(tryPlayCard(gameState, myColor, card.id, target))
   }
 
-  function handleBackgroundClick(e) {
-    if (e.target === e.currentTarget && boardMode.type === 'card_targeting') {
-      dispatch({ type: 'CANCEL' })
-    }
-  }
-
   return (
     <div className={leaving ? 'sandbox-leaving' : undefined}>
-      {errorMsg && <div className="game-toast">{errorMsg}</div>}
-
-      {pendingPromotion && (
-        <PromotionPicker
-          color={myColor}
-          onPick={handlePromotionPick}
-          onCancel={handlePromotionCancel}
-        />
-      )}
+      {errorMsg && <div className="ui-toast" role="status">{errorMsg}</div>}
 
       <GameView
+        phase="sandbox"
+        title={t('menu.sandbox')}
+        boardPattern={null}
+        names={{ white: t('common.white'), black: t('common.black') }}
+        scores={{ white: 0, black: 0 }}
         gameState={gameState}
         boardMode={boardMode}
         dispatch={dispatch}
         lastMoveAnim={lastMoveAnim}
-        actionToast={actionToast}
+        cardSplash={cardSplash}
         meteorStrikeAnim={meteorStrikeAnim}
         mineStrikeAnim={mineStrikeAnim}
-        boardFlipped={false}
+        myColor={myColor}
+        flipped={false}
         boardPlayerColor={gameOver ? 'none' : myColor}
+        isMyTurn
         onBack={handleExit}
-        onMove={handleMove}
-        onPlayCard={handlePlayCard}
-        battleLog={gameState.actionLog}
+        onMove={gameOver ? undefined : handleMove}
+        onPlayCard={gameOver ? undefined : handlePlayCard}
         historyIndex={historyIndex}
         onSelectHistory={setHistoryIndex}
         onReturnToLive={() => setHistoryIndex(null)}
-        gameResult={gameResult}
-        restartLabel="Сбросить песочницу"
-        onRestart={handleRestart}
-        onBackgroundClick={handleBackgroundClick}
-        turnBar={!gameOver ? {
-          color: gameState.turn,
-          text: gameState.turn === 'white' ? 'Ход белых' : 'Ход чёрных',
-          sub: 'Песочница — ходите за обе стороны',
-          urgent: false,
-        } : null}
-        topPanel={{
-          color: oppColor,
-          capturedByMe: oppCaptured,
-          active: false,
-          inCheck: inCheck && gameState.turn === oppColor,
-          opponentCards: gameState.cards[oppColor].hand,
-          selectedCardId: null,
-          onCardClick: undefined,
-          controllable: false,
-        }}
-        bottomPanel={{
-          color: myColor,
-          capturedByMe: myCaptured,
-          active: true,
-          inCheck: inCheck && gameState.turn === myColor,
-          controllable: true,
-        }}
-        bottomHand={{
+        finished={gameOver}
+        actions={(
+          <>
+            <SettingsButton />
+            <button className="ui-btn has-lbl" onClick={handleRestart} title={t('sandbox.reset')} data-testid="sandbox-reset"><IconRefresh /><span className="lbl">{t('sandbox.reset')}</span></button>
+          </>
+        )}
+        hand={{
           cards: gameState.cards[myColor].hand,
-          isActive: !cardsLocked,
+          isActive: !cardsLocked && !gameOver,
           selectedCardId: boardMode.type === 'card_targeting' ? boardMode.card.id : null,
           onCardClick: handleCardSelect,
         }}
-      />
+      >
+        {pendingPromotion && (
+          <PromotionPicker
+            color={myColor}
+            square={pendingPromotion.to}
+            onPick={handlePromotionPick}
+            onCancel={handlePromotionCancel}
+          />
+        )}
+        {gameResult && (
+          <ResultModal
+            title={gameResult.type === 'draw' || gameResult.type === 'stalemate' ? t('summary.drawTitle') : t('sandbox.wins', { side: t(gameResult.winner === 'white' ? 'common.white' : 'common.black') })}
+            reason={resultLine(gameResult)}
+            outcome={gameResult.winner ? 'win' : 'draw'}
+            showDots={false}
+            me={{ color: 'white', name: t('common.white'), score: gameResult.winner === 'white' ? 1 : 0 }}
+            opp={{ color: 'black', name: t('common.black'), score: gameResult.winner === 'black' ? 1 : 0 }}
+            secondary={{ label: t('common.exit'), onClick: handleExit }}
+            primary={{ label: t('sandbox.reset'), onClick: handleRestart }}
+          />
+        )}
+      </GameView>
     </div>
   )
 }

@@ -7,13 +7,9 @@ function formatClock(seconds) {
   return `${m}:${String(s % 60).padStart(2, '0')}`
 }
 
-// A real per-player chess clock (see draftPools.js's TIME_LIMIT_BY_ROUND).
-// `baseSeconds`/`turnStartedAt` are the authoritative values from the last
-// server sync; while it's this side's turn, the displayed value ticks down
-// locally between syncs (via its own interval) instead of visibly freezing
-// for the whole turn and then jumping on the next broadcast. `baseSeconds`
-// of null/undefined means untimed (sandbox mode) — renders nothing.
-export default function Clock({ baseSeconds, turnStartedAt, ticking, lowSeconds = 20 }) {
+// A player's clock. `baseSeconds` is what was left at `turnStartedAt`;
+// while `ticking` it counts down live. `active` = their turn (gold face).
+export default function Clock({ baseSeconds, turnStartedAt, ticking, active = ticking, lowSeconds = 10 }) {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -22,15 +18,15 @@ export default function Clock({ baseSeconds, turnStartedAt, ticking, lowSeconds 
     return () => clearInterval(id)
   }, [ticking])
 
-  if (baseSeconds == null) return null
+  if (baseSeconds == null || !Number.isFinite(baseSeconds)) return null
 
   const remaining = ticking && turnStartedAt != null
     ? Math.max(0, baseSeconds - Math.max(0, (now - turnStartedAt) / 1000))
     : baseSeconds
-  const low = remaining <= lowSeconds
+  const low = ticking && remaining <= lowSeconds
 
   return (
-    <span className={`clock${ticking ? ' ticking' : ''}${low ? ' low' : ''}`}>
+    <span className={`clock${active ? ' active' : ''}${low ? ' low' : ''}`} role="timer">
       {formatClock(remaining)}
     </span>
   )

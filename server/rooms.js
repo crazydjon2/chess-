@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { createMatch, tryOfferDraw, tryAnswerDraw, tryDraftPick, tryDraftDone, draftTimeout, trySummaryContinue, summaryTimeout, tryUpdatePlacement, tryPlacement, forcePlacement, applyRoundResult } from './matchEngine.js'
+import { createMatch, tryOfferDraw, tryAnswerDraw, tryDraftPick, tryDraftDone, draftTimeout, trySummaryContinue, summaryTimeout, applyRoundResult } from './matchEngine.js'
 import { tryMove, tryPlayCard } from './gameEngine.js'
 import { clockRemaining, isDraftComplete } from '../client/src/game/draftEngine.js'
 
@@ -33,7 +33,7 @@ function generateCode() {
 }
 
 function publicPlayers(room) {
-  const pub = (p) => p ? { connected: p.connected, name: p.name } : null
+  const pub = (p) => p ? { connected: p.connected, name: p.name, ...(p.botLevel && { botLevel: p.botLevel }) } : null
   return { white: pub(room.players.white), black: pub(room.players.black) }
 }
 
@@ -119,10 +119,10 @@ export function joinRoom(socket, code, name) {
   // rather than 404 on "  kx92f " — the generated alphabet is uppercase.
   const key = typeof code === 'string' ? code.trim().toUpperCase() : ''
   const room = rooms.get(key)
-  if (!room) throw new Error('Комната не найдена')
-  if (room.match) throw new Error('Игра в этой комнате уже началась')
+  if (!room) throw new Error('err.roomNotFound')
+  if (room.match) throw new Error('err.roomStarted')
   const openColor = !room.players.white ? 'white' : !room.players.black ? 'black' : null
-  if (!openColor) throw new Error('Комната уже заполнена')
+  if (!openColor) throw new Error('err.roomFull')
   room.players[openColor] = newSeat(socket, name)
   socket.join(key)
   socket.data.roomCode = key
@@ -136,9 +136,9 @@ export function joinRoom(socket, code, name) {
 export function rejoinRoom(socket, code, token) {
   const key = typeof code === 'string' ? code.trim().toUpperCase() : ''
   const room = rooms.get(key)
-  if (!room || typeof token !== 'string') throw new Error('Комната не найдена')
+  if (!room || typeof token !== 'string') throw new Error('err.roomNotFound')
   const color = ['white', 'black'].find(c => room.players[c]?.token === token)
-  if (!color) throw new Error('Вы не участник этой комнаты')
+  if (!color) throw new Error('err.notInRoom')
   const previousSocketId = room.players[color].socketId
   room.players[color] = { ...room.players[color], socketId: socket.id, connected: true }
   clearAbandonCheck(room)
@@ -334,7 +334,7 @@ export function redactGameState(gameState, viewerColor, { revealAll = false } = 
 }
 
 // Per-recipient view: never leak the opponent's smoke_screen-covered
-// pieces, or their meteors' target squares. Placement is open — both sides
+// pieces, or their meteors' target squares. Recruit is open — both sides
 // see each other's arrangement live, so it goes out as-is. Also tells
 // the recipient which color they currently are — this can change between
 // rounds (see swapPlayerColors), so the client can't just remember it from
@@ -437,10 +437,6 @@ export function broadcastMatchTo(io, room) {
 // broadcastMatch, so it's always in sync with whatever just happened),
 // that fires a timeout loss for whoever's turn it is if they never act.
 //
-// Placement uses the same handle for its shared countdown: once
-// placementDeadline passes, forcePlacement locks both boards in as they
-// stand and starts the battle — so a player who just walks away mid-
-// placement can't hang the room either.
 function syncTurnTimer(io, room) {
   clearTurnTimer(room)
   const { match } = room
@@ -453,11 +449,6 @@ function syncTurnTimer(io, room) {
     const color = match.draft.turn
     const remainingMs = Math.max(0, clockRemaining(match.draft, color) * 1000)
     room.turnTimerHandle = setTimeout(() => handleDraftTimeout(io, room), remainingMs)
-    return
-  }
-  if (match?.phase === 'placement' && match.placementDeadline) {
-    const remainingMs = Math.max(0, match.placementDeadline - Date.now())
-    room.turnTimerHandle = setTimeout(() => handlePlacementTimeout(io, room), remainingMs)
     return
   }
   const gs = match?.gameState
@@ -492,6 +483,20 @@ export function startMatch(io, room) {
   broadcastMatch(io, room)
   // A started room is no longer joinable — drop it from everyone's browser.
   broadcastLobbyList(io)
+}
+
+// "Rematch" on the match-over screen: once both seats ask (a bot always
+// agrees), a fresh match starts in the same room with the same seats.
+export function handleRematch(io, socket) {
+  const room = getRoom(socket)
+  if (room?.match?.phase !== 'match_over') return
+  const color = socket.data.color
+  const other = color === 'white' ? 'black' : 'white'
+  const rematch = { white: false, black: false, ...room.match.rematch, [color]: true }
+  if (room.players[other]?.bot) rematch[other] = true
+  if (rematch.white && rematch.black) { startMatch(io, room); return }
+  room.match = { ...room.match, rematch }
+  broadcastMatch(io, room)
 }
 
 export function handleDraftPick(io, socket, item) {
@@ -531,30 +536,6 @@ export function handleSummaryContinue(io, socket) {
 function handleDraftTimeout(io, room) {
   if (room.match?.phase !== 'draft') return
   room.match = draftTimeout(room.match)
-  broadcastMatch(io, room)
-}
-
-function handlePlacementTimeout(io, room) {
-  if (room.match?.phase !== 'placement') return
-  room.match = forcePlacement(room.match)
-  broadcastMatch(io, room)
-}
-
-export function handleUpdatePlacement(io, socket, placementMap) {
-  const room = getRoom(socket)
-  if (!room?.match) return
-  const res = tryUpdatePlacement(room.match, socket.data.color, placementMap ?? {})
-  if (res.error) { socket.emit('game_error', { message: res.error }); return }
-  room.match = res.match
-  broadcastMatch(io, room)
-}
-
-export function handlePlacement(io, socket, placementMap) {
-  const room = getRoom(socket)
-  if (!room?.match) return
-  const res = tryPlacement(room.match, socket.data.color, placementMap ?? {})
-  if (res.error) { socket.emit('game_error', { message: res.error }); return }
-  room.match = res.match
   broadcastMatch(io, room)
 }
 

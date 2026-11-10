@@ -67,6 +67,28 @@ export function setVolume(v) {
   try { localStorage.setItem(VOL_KEY, String(volume)) } catch { /* ignore */ }
 }
 
+// Music: settings are stored so the Settings screen works, but there is
+// no music track yet — hook playback up here once one exists.
+const MUSIC_KEY = 'chessplus_music_on'
+const MUSIC_VOL_KEY = 'chessplus_music_volume'
+let musicOn = (() => { try { return localStorage.getItem(MUSIC_KEY) === '1' } catch { return false } })()
+let musicVolume = (() => {
+  try {
+    const n = parseFloat(localStorage.getItem(MUSIC_VOL_KEY) ?? '0.4')
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0.4
+  } catch { return 0.4 }
+})()
+export function isMusicOn() { return musicOn }
+export function setMusicOn(v) {
+  musicOn = !!v
+  try { localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0') } catch { /* ignore */ }
+}
+export function getMusicVolume() { return musicVolume }
+export function setMusicVolume(v) {
+  musicVolume = Math.min(1, Math.max(0, v))
+  try { localStorage.setItem(MUSIC_VOL_KEY, String(musicVolume)) } catch { /* ignore */ }
+}
+
 // A soft confirmation blip so tweaking the volume slider is audible at the
 // new level — plays a real sound so you hear exactly what you're setting.
 export function previewVolume() { play('select') }

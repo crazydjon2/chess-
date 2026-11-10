@@ -1,0 +1,288 @@
+/* The board. Tilt, colors and highlight tints are tokens (tokens.css):
+   --board-tilt: 0deg gives a flat board and the pieces follow on their own.
+   3D NOTE: everything between .bd-frame and .bd-stand must keep
+   transform-style: preserve-3d — no overflow:hidden / filter / opacity<1 on
+   those wrappers, or the browser flattens the scene and pieces lie down. */
+
+.bd-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bd-center { flex-shrink: 0; }
+.bd-frame {
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 22px auto;
+  grid-template-rows: auto 22px;
+  padding: 12px 12px 0;
+  border-radius: 20px;
+  background: var(--board-frame);
+  box-shadow:
+    0 6px 0 var(--board-frame-depth1),
+    0 14px 0 var(--board-frame-depth2),
+    0 28px 36px rgba(0, 0, 0, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 3px var(--board-frame-rim);
+  transform-style: preserve-3d;
+}
+.bd-frame.tilted {
+  transform: perspective(var(--persp)) rotateX(var(--board-tilt)) scale(var(--board-scale));
+  transform-origin: 50% 62%;
+}
+
+.bd-ranks {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+}
+.bd-ranks span, .bd-files span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9px, calc(var(--cell) * 0.13), 14px);
+  font-weight: 600;
+  color: var(--board-coord);
+}
+.bd-files {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+}
+
+.bd-grid {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px var(--board-grid-rim);
+  transform-style: preserve-3d;
+}
+
+/* Explicit depth inside the 3D scene: frame (0) < squares (0.5px) <
+   hit cells / pieces (1px). Coplanar layers in a preserve-3d context get
+   arbitrary paint and hit-test order — without this the frame "won" clicks
+   on whole ranks of squares. */
+.bd-svg {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(0.5px);
+  overflow: visible;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* Squares */
+.sq-light { fill: var(--board-sq-light); }
+.sq-dark { fill: var(--board-sq-dark); }
+.sq-gloss { fill: rgba(255, 255, 255, 0.35); }
+.sq-shade { fill: rgba(60, 30, 15, 0.16); }
+.sq-void { fill: var(--board-sq-void); }
+
+/* Flat highlights */
+.hl-home { fill: var(--board-hl-home); }
+.hl-move { fill: var(--board-hl-move); }
+.hl-capture { fill: var(--board-hl-capture); }
+.hl-card { fill: var(--board-hl-card); animation: bd-breathe 1.6s ease-in-out infinite; }
+.hl-premove { fill: var(--board-hl-premove); }
+.hl-last { fill: var(--board-hl-last); }
+.hl-drop { fill: var(--board-hl-move); }
+.hl-check { fill: var(--board-hl-check); animation: bd-check 1s ease-in-out infinite; }
+.hl-frozen { fill: rgba(124, 198, 224, 0.35); }
+
+.ol-select, .ol-target { fill: none; stroke: var(--board-hl-select); stroke-width: 6; }
+.ol-premove { fill: none; stroke: var(--board-hl-premove); stroke-width: 5; stroke-dasharray: 12 8; }
+
+.sq-ghost rect { fill: rgba(242, 181, 68, 0.14); stroke: var(--board-hl-select); stroke-width: 3; stroke-dasharray: 10 7; }
+.sq-ghost text { fill: var(--board-hl-select); font-size: 42px; font-weight: 700; text-anchor: middle; dominant-baseline: central; font-family: var(--f-ui); }
+
+/* Fog: soft cloud puffs */
+.fog-puff { fill: rgba(246, 242, 238, 0.86); }
+.fog-layer { animation: bd-fog 4s ease-in-out infinite; }
+.fog-badge rect { fill: var(--c-inset); stroke: var(--c-text); stroke-opacity: 0.5; stroke-width: 2; }
+.fog-badge path { fill: var(--c-text); }
+.fog-badge text { fill: var(--c-text); font-family: var(--f-display); font-weight: 800; font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+
+/* Own meteors / mines */
+.meteor-ring { fill: none; stroke: #F08A3C; stroke-width: 5; animation: bd-blink 0.9s steps(2, start) infinite; }
+.mark-badge circle { fill: var(--c-inset); stroke-width: 3; }
+.mark-badge.meteor circle { stroke: #F08A3C; }
+.mark-badge text { fill: var(--c-text); font-family: var(--f-display); font-weight: 800; font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+.mine-mark circle { fill: rgba(124, 198, 224, 0.25); stroke: #7CC6E0; stroke-width: 4; }
+.mine-mark path { stroke: #7CC6E0; stroke-width: 4; stroke-linecap: round; }
+
+/* Impacts (both players see them) */
+.impact-ring { fill: none; stroke-width: 6; animation: bd-ring 0.8s ease-out both; }
+.impact-core { animation: bd-core 0.7s ease-out both; }
+.impact.meteor .impact-ring { stroke: #F08A3C; }
+.impact.meteor .impact-core { fill: rgba(240, 138, 60, 0.7); }
+.impact.mine .impact-ring { stroke: #7CC6E0; }
+.impact.mine .impact-core { fill: rgba(124, 198, 224, 0.7); }
+
+/* Hit cells */
+.bd-cell {
+  position: absolute;
+  z-index: 1;
+  cursor: pointer;
+  touch-action: none;     /* drag a piece by its square on touch screens */
+  transform: translateZ(1px);
+}
+
+/* Pieces live in a flat layer over the tilted board (see BoardView): each
+   box is placed by JS so the skin's anchor sits on the square's projected
+   centre. Only the visible art takes clicks. */
+.bd-pieces { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.bd-piece {
+  position: absolute;
+  touch-action: none;
+  cursor: pointer;
+  pointer-events: none;
+}
+/* --pz-lift raises the piece (hover / selected); the lean pivots on the base */
+.bd-stand {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% calc(100% - var(--anchor, 0.15) * 100%);
+  transform: translateY(var(--pz-lift, 0%)) perspective(calc(var(--cell, 60px) * 5)) rotateX(var(--piece-tilt, 0deg));
+  transition: transform 0.16s var(--ease-pop);
+  pointer-events: none;
+}
+.bd-art { --side: var(--piece-black-side); }
+.bd-art.pz-white { --side: var(--piece-white-side); }
+.bd-art {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
+  pointer-events: none;   /* input is handled by the square underneath */
+}
+/* glyph / svg skins: face → a solid "side" under it (thickness) → soft drop */
+.bd-art[data-skin="glyph"] {
+  filter:
+    drop-shadow(0 calc(var(--cell) * 0.035) 0 var(--side))
+    drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
+}
+.bd-piece.ghost .bd-art { pointer-events: none; }
+.bd-piece.lifted .bd-stand { --pz-lift: -10%; }
+/* Contact shadow on the square, centred on the anchor (the base centre). */
+.bd-piece::before {
+  content: '';
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: calc(var(--anchor, 0.15) * 100% - 7%);
+  height: 15%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--piece-contact), transparent);
+  transition: transform 0.16s var(--ease-pop), opacity 0.16s ease;
+}
+.bd-piece.lifted::before { transform: scale(0.8); opacity: 0.6; }
+.bd-piece.ghost::before, .bd-piece.dragging::before { opacity: 0.3; }
+.bd-piece.dragging { opacity: 0.25; }
+.bd-piece.ghost { pointer-events: none; }
+.bd-piece.ghost .bd-art { opacity: 0.55; }
+/* Status outlines (frozen / shield / unstable): a solid coloured contour
+   around the art (4 hard drops) + a soft glow in the same colour. */
+@property --fx-glow { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.bd-piece.shielded .bd-art { --fx-c: var(--piece-fx-shield); }
+.bd-piece.unstable .bd-art { --fx-c: var(--piece-fx-unstable); animation: bd-fx-pulse 1.4s ease-in-out infinite; }
+.bd-piece.frozen .bd-art { --fx-c: var(--piece-fx-frozen); }
+.bd-piece:is(.frozen, .shielded, .unstable) .bd-art {
+  --fx-o: max(1.5px, calc(var(--cell) * 0.022));
+  filter:
+    drop-shadow(var(--fx-o) 0 0 var(--fx-c)) drop-shadow(calc(var(--fx-o) * -1) 0 0 var(--fx-c))
+    drop-shadow(0 var(--fx-o) 0 var(--fx-c)) drop-shadow(0 calc(var(--fx-o) * -1) 0 var(--fx-c))
+    drop-shadow(0 0 calc(var(--cell) * 0.06 + var(--fx-glow)) var(--fx-c))
+    drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow));
+}
+@keyframes bd-fx-pulse { 0%, 100% { --fx-glow: 0px; } 50% { --fx-glow: calc(var(--cell) * 0.07); } }
+
+/* Move animations — translate in the board plane, so the counter-tilt of
+   the stand is untouched and the piece slides along the table. */
+.bd-piece.moving { animation: bd-move 0.26s var(--ease-out) both; }
+.bd-piece.capturing { animation: bd-capture 0.32s var(--ease-out) both; }
+.bd-piece.bouncing { animation: bd-bounce 0.42s var(--ease-out) both; }
+
+/* Upright little markers on a piece */
+.bd-hp {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: 7px;
+  background: var(--c-inset);
+  box-shadow: 0 2px 0 var(--c-panel-depth), inset 0 0 0 1.5px var(--c-edge);
+  pointer-events: none;
+}
+.bd-hp i {
+  width: clamp(5px, calc(var(--cell) * 0.08), 10px);
+  height: clamp(5px, calc(var(--cell) * 0.08), 10px);
+  border-radius: 50%;
+  background: var(--c-text-mute);
+}
+.bd-hp i.on { background: var(--c-heart); }
+.bd-unstable {
+  position: absolute;
+  right: 2%;
+  bottom: 4%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  background: #3A2350;
+  box-shadow: inset 0 0 0 1.5px #A77BC8;
+  color: #F3E6FF;
+  font-family: var(--f-display);
+  font-size: clamp(9px, calc(var(--cell) * 0.14), 14px);
+  pointer-events: none;
+}
+
+.bd-drag-ghost {
+  position: fixed;
+  z-index: 500;
+  pointer-events: none;
+  transform: translate(-50%, -70%);
+  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.45));
+}
+
+@keyframes bd-move { from { transform: translate(var(--dx), var(--dy)); } to { transform: none; } }
+@keyframes bd-capture {
+  0% { transform: translate(var(--dx), var(--dy)); }
+  80% { transform: scale(1.08); }
+  100% { transform: none; }
+}
+@keyframes bd-bounce {
+  0% { transform: none; }
+  40% { transform: translate(calc(var(--dx) * 0.45), calc(var(--dy) * 0.45)); }
+  100% { transform: none; }
+}
+@keyframes bd-check { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes bd-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+@keyframes bd-blink { to { visibility: hidden; } }
+@keyframes bd-fog { 0%, 100% { opacity: 0.92; } 50% { opacity: 1; } }
+@keyframes bd-ring { from { r: 10; opacity: 1; } to { r: 70; opacity: 0; } }
+@keyframes bd-core { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-piece.moving, .bd-piece.capturing, .bd-piece.bouncing, .hl-check, .hl-card, .fog-layer, .meteor-ring, .bd-piece.unstable .bd-art { animation: none; }
+}
+
+
+/* the barricade art brings its own outline + drop: no extra glyph "side" */
+.bd-art:has(.pz-barricade) { filter: drop-shadow(0 calc(var(--cell) * 0.03) calc(var(--cell) * 0.02) var(--piece-shadow)); }
+

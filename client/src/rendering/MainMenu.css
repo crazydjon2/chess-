@@ -1,361 +1,198 @@
-/* No background of its own — that's MenuLayout.css's .ml-bg, mounted once
-   at the app root so it doesn't reset on every navigation (see
-   MenuLayout.jsx). Centered (not top-anchored like the old "hand of
-   cards" layout) — every element here is static, nothing changes this
-   screen's own content height, so there's no risk of the "whole screen
-   re-centers under you" bug that rule exists to avoid elsewhere. */
 .mm-screen {
   position: relative;
-  z-index: 1;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
-  font-family: 'Nunito', system-ui, sans-serif;
-}
-
-/* ── Logo ─────────────────────────────────────────────────────────── */
-.mm-logo {
-  position: relative;
-  z-index: 2;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 800;
-  font-size: 60px;
-  line-height: 1;
-  letter-spacing: 1px;
-  color: #fdf6e8;
-  -webkit-text-stroke: 5px #241708;
-  paint-order: stroke fill;
-  text-shadow: 0 8px 0 rgba(0,0,0,0.35);
-}
-
-/* Tilt on the inner span, NOT .mm-logo — the page transitions animate
-   `transform` on .mm-logo itself (see PageTransition.css), which would
-   stomp a static rotate there mid-animation. */
-.mm-logo-tilt {
-  display: flex;
-  align-items: center;
-  transform: rotate(-1.5deg);
-}
-
-.mm-logo-plus {
-  color: #f0b429;
-  -webkit-text-stroke: 5px #241708;
-  transform: rotate(12deg) translateY(-4px);
-  display: inline-block;
-  margin-left: 2px;
-}
-
-/* ── Hero CTA ─────────────────────────────────────────────────────── */
-.mm-hero {
-  position: relative;
-  z-index: 3;
-  margin-top: 44px;
-  width: 100%;
-  max-width: 480px;
-  background: #d4302f;
-  border: 5px solid #241708;
-  border-radius: 22px;
-  box-shadow: 0 10px 0 0 #241708, 0 18px 26px rgba(0,0,0,0.4);
-  padding: 22px 28px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  font: inherit;
-  cursor: pointer;
-  transition: transform 0.16s cubic-bezier(0.34,1.56,0.64,1);
-}
-
-.mm-hero:hover  { transform: translateY(-6px); }
-.mm-hero:active { transform: translateY(-1px); }
-
-.mm-hero-badge {
-  position: relative;
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
-  background: #fdf6e8;
-  border: 3px solid #241708;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  padding: 24px 16px;
   overflow: hidden;
-  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15);
-  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
 }
+.mm-top { position: absolute; top: 24px; right: 24px; z-index: 2; display: flex; align-items: center; gap: 12px; }
+.mm-center { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; }
 
-.mm-hero:hover .mm-hero-badge {
-  transform: scale(1.1) rotate(-4deg);
+.mm-logo {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 84px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-shadow: 0 6px 0 var(--c-panel-depth);
 }
+.mm-logo b { color: var(--c-accent); text-shadow: 0 6px 0 #6E4B10; }
 
-.mm-hero-piece {
-  width: 40px;
-  height: 52px;
-  display: block;
+.mm-fan { position: relative; width: 400px; height: 150px; margin-top: 20px; }
+.mm-fan-card {
+  position: absolute;
+  bottom: 0;
+  left: calc(40px + var(--i) * 60px);
+  width: 80px;
+  height: 106px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--c-inset);
+  box-shadow: inset 0 0 0 2px var(--c-edge), 0 6px 0 var(--c-panel-depth), 0 14px 24px rgba(0,0,0,0.35);
+  transform-origin: 50% 120%;
+  transform: translateY(var(--y)) rotate(var(--r));
+  transition: transform 0.2s var(--ease-pop);
+  animation: mm-deal 0.5s var(--ease-pop) backwards;
+  animation-delay: calc(var(--i) * 60ms);
 }
-
-.mm-hero-piece svg { width: 100%; height: 100%; display: block; }
-.mm-hero-piece.white { transform: rotate(9deg); }
-.mm-hero-piece.black { transform: rotate(-9deg); }
-
-.mm-hero-title {
-  flex: 1;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 26px;
-  color: #fdf6e8;
-  line-height: 1.1;
-  text-align: left;
-}
-
-/* ── Secondary row ────────────────────────────────────────────────── */
-.mm-row {
-  position: relative;
-  z-index: 3;
-  margin-top: 18px;
-  width: 100%;
-  max-width: 640px;
+.mm-fan-card:hover { transform: translateY(calc(var(--y) - 10px)) rotate(var(--r)); }
+.mm-fan-art {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 10px;
   display: flex;
-  gap: 16px;
+  align-items: center;
   justify-content: center;
 }
+.mm-fan-art.light { background: var(--board-sq-light); box-shadow: inset 0 3px 0 rgba(255,255,255,0.4), inset 0 -5px 0 rgba(60,30,15,0.16); }
+@keyframes mm-deal { from { opacity: 0; transform: translateY(60px) rotate(0deg) scale(0.8); } }
 
-.mm-card {
-  flex: 1;
-  min-width: 160px;
-  border: 4px solid #241708;
-  border-radius: 18px;
-  box-shadow: 0 7px 0 0 #241708;
-  padding: 22px 14px;
+.mm-buttons { width: 100%; margin-top: 36px; display: flex; flex-direction: column; gap: 18px; }
+.mm-row { display: flex; gap: 18px; }
+.mm-row > * { flex: 1; min-width: 0; }
+
+.mm-tile {
+  position: relative;
+  border: 0;
+  border-radius: 20px;
+  background: var(--c-panel);
+  color: var(--c-text);
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  text-align: left;
+  overflow: hidden;
+  box-shadow: 0 6px 0 var(--c-panel-depth), inset 0 0 0 3px var(--c-edge);
+}
+.mm-tile-title { font-family: var(--f-display); font-weight: 800; line-height: 1.1; }
+
+.mm-tile.hero {
+  height: 132px;
+  padding: 0 0 0 34px;
+  background: var(--c-tile-online);
+  color: var(--c-on-accent);
+  box-shadow: 0 6px 0 var(--c-accent-depth), 0 12px 0 var(--c-panel-depth);
+}
+.mm-tile.hero .mm-tile-title { flex: 1; font-size: 32px; }
+.mm-hero-art {
+  width: 224px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #E5A532;
+  background-image: var(--stripe);
+  box-shadow: inset 0 -6px 0 rgba(0,0,0,0.12);
+}
+
+.mm-tile.mode { height: 128px; padding: 10px; gap: 18px; }
+.mm-tile.mode .mm-tile-title { font-size: 20px; }
+.mm-mode-art {
+  width: 108px;
+  height: 108px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-image: var(--stripe);
+  box-shadow: inset 0 -6px 0 rgba(0,0,0,0.18);
+}
+.mm-mode-art.bot { background-color: var(--c-tile-bot); --mi-bg: var(--c-tile-bot); }
+.mm-mode-art.sandbox { background-color: var(--c-tile-sandbox); --mi-bg: var(--c-tile-sandbox); }
+/* menu icons draw with their tile colour (ui/menuIcons.js) */
+.mm-mode-art, .mm-mi {
+  --mi-c: color-mix(in srgb, var(--mi-bg, #8C7F79) 70%, #16141F);
+  --mi-w: color-mix(in srgb, var(--mi-bg, #8C7F79) 22%, #FFFFFF);
+  --mi-sh: color-mix(in srgb, var(--mi-bg, #8C7F79) 55%, #DCD6E4);
+  --mi-glow: color-mix(in srgb, var(--mi-bg, #8C7F79) 35%, #FFFFFF);
+}
+.mi-svg { overflow: visible; filter: drop-shadow(0 1.5px 0 rgba(20, 10, 30, 0.35)); }
+
+.mm-minor {
+  position: relative;
+  height: 64px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--c-inset);
+  color: var(--c-text);
+  display: flex;
   align-items: center;
   gap: 12px;
-  position: relative;
-  font: inherit;
-  cursor: pointer;
-  transition: transform 0.16s cubic-bezier(0.34,1.56,0.64,1);
-}
-
-.mm-card:hover  { transform: translateY(-8px); }
-.mm-card:active { transform: translateY(-2px); }
-
-.mm-card-sandbox    { background: #2b6fd4; }
-.mm-card-howto      { background: #f0b429; }
-.mm-card-patchnotes { background: #7c4fd4; }
-
-.mm-card-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #fdf6e8;
-  border: 3px solid #241708;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
-}
-
-.mm-card:hover .mm-card-icon {
-  transform: scale(1.12) rotate(-6deg);
-}
-
-.mm-card-title {
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  color: #fdf6e8;
-  text-align: center;
-  line-height: 1.15;
-}
-
-.mm-card-howto .mm-card-title { color: #241708; }
-
-.mm-card-badge-new {
-  position: absolute;
-  top: -10px;
-  right: -8px;
-  z-index: 2;
-  background: #d4302f;
-  color: #fdf6e8;
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 10px;
-  padding: 4px 9px;
-  border-radius: 10px;
-  border: 3px solid #241708;
-  animation: mm-new-wobble 1.6s ease-in-out infinite;
-}
-
-@keyframes mm-new-wobble {
-  0%, 100% { transform: rotate(-8deg) scale(1); }
-  50%      { transform: rotate(-8deg) scale(1.15); }
-}
-
-/* ── Skins banner ─────────────────────────────────────────────────── */
-.mm-skins-banner {
-  position: relative;
-  z-index: 3;
-  margin-top: 16px;
-  width: 100%;
-  max-width: 640px;
-  background: #403e39;
-  border: 3px solid #241708;
-  border-radius: 16px;
-  padding: 13px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  opacity: 0.88;
-  cursor: not-allowed;
-}
-
-.mm-skins-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #5c5a54;
-  border: 2px solid #241708;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.mm-skins-label {
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
+  padding: 0 14px 0 10px;
   font-size: 15px;
-  color: #d8d4ca;
+  font-weight: 600;
+  box-shadow: 0 4px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-inset-edge);
 }
-
-.mm-skins-spacer { flex: 1; }
-
-.mm-skins-tag {
-  background: #241708;
-  color: #f0b429;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  padding: 4px 12px;
-  border-radius: 10px;
-}
-
-/* ── Icon glyphs (hand-drawn from shapes, no image assets) ───────────── */
-.mm-icon-flask {
-  width: 16px;
-  height: 22px;
-  position: relative;
-  border: 3px solid #241708;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  background: linear-gradient(to top, #7c4fd4 0 55%, transparent 55%);
-}
-
-.mm-icon-flask-neck {
+.mm-mi { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #16141F; }
+.mm-mi.help { background: var(--c-tile-help); --mi-bg: var(--c-tile-help); }
+.mm-mi.news { background: var(--c-tile-news); --mi-bg: var(--c-tile-news); }
+.mm-mi.skins { background: var(--c-tile-skins); --mi-bg: var(--c-tile-skins); color: var(--c-text-dim); }
+.mm-minor.off { color: var(--c-text-mute); cursor: not-allowed; }
+.mm-dot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-badge-new); box-shadow: 0 0 0 3px var(--c-inset); }
+.mm-soon {
   position: absolute;
-  top: -5px;
-  left: 3px;
-  width: 6px;
-  height: 5px;
-  background: #241708;
+  top: -9px;
+  right: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-text-dim);
+  background: var(--c-panel-hi);
+  padding: 3px 7px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.5px var(--c-edge);
 }
 
-.mm-icon-scroll {
-  width: 26px;
-  height: 20px;
-  position: relative;
-  border: 3px solid #241708;
-  border-radius: 3px;
-  background: #fdf6e8;
+/* Phones */
+@media (max-width: 600px) {
+  .mm-screen { justify-content: flex-start; padding: 60px 16px 14px; }
+  .mm-top { top: 14px; right: 14px; }
+  .mm-center { flex: 1; }
+  .mm-logo { font-size: 62px; }
+  .mm-fan { width: 100%; max-width: 390px; height: 140px; margin-top: 18px; }
+  .mm-fan-card { left: calc(50% - 42px + (var(--i) - 2) * 76px); width: 84px; height: 118px; }
+  .mm-buttons { margin-top: auto; gap: 14px; }
+  .mm-tile.hero { height: 112px; padding-left: 22px; }
+  .mm-tile.hero .mm-tile-title { font-size: 25px; }
+  .mm-hero-art { width: 150px; }
+  .mm-hero-art .pz { width: 52px !important; height: 52px !important; }
+  .mm-row { gap: 14px; }
+  .mm-tile.mode { flex-direction: column; height: auto; padding: 8px 8px 14px; gap: 10px; }
+  .mm-tile.mode .mm-mode-art { width: 100%; height: 84px; }
+  .mm-tile.mode .mm-tile-title { font-size: 15px; text-align: center; }
+  .mm-row.minor-row { gap: 10px; }
+  .mm-minor { flex-direction: column; justify-content: center; height: 62px; padding: 4px; gap: 4px; font-size: 12px; }
+  .mm-mi { width: 28px; height: 28px; }
+  .mm-mi svg { width: 18px; height: 18px; }
+  /* a tile alone in its row keeps the wide (desktop) layout */
+  .mm-tile.mode:only-child { flex-direction: row; height: 96px; padding: 8px; gap: 16px; }
+  .mm-tile.mode:only-child .mm-mode-art { width: 80px; height: 80px; }
+  .mm-tile.mode:only-child .mm-tile-title { font-size: 18px; text-align: left; }
+}
+@media (max-width: 600px) and (max-height: 760px) {
+  .mm-screen { padding-top: 54px; }
+  .mm-logo { font-size: 50px; }
+  .mm-fan { height: 118px; margin-top: 12px; }
+  .mm-fan-card { height: 96px; width: 72px; left: calc(50% - 36px + (var(--i) - 2) * 64px); }
+  .mm-tile.hero { height: 92px; }
+  .mm-tile.mode .mm-mode-art { height: 70px; }
+  .mm-tile.mode:only-child { height: 84px; }
+  .mm-tile.mode:only-child .mm-mode-art { width: 68px; height: 68px; }
+}
+@media (min-width: 601px) and (max-height: 760px) {
+  .mm-logo { font-size: 66px; }
+  .mm-fan { height: 124px; margin-top: 10px; }
+  .mm-buttons { margin-top: 24px; gap: 14px; }
+  .mm-tile.hero { height: 108px; }
+  .mm-tile.mode { height: 104px; }
+  .mm-mode-art { width: 84px; height: 84px; }
 }
 
-.mm-icon-scroll span {
-  position: absolute;
-  left: 3px;
-  height: 2px;
-  background: #c9bfae;
-}
-
-.mm-icon-scroll span:nth-child(1) { top: 4px;  right: 3px; }
-.mm-icon-scroll span:nth-child(2) { top: 9px;  right: 6px; }
-.mm-icon-scroll span:nth-child(3) { top: 14px; right: 9px; }
-
-.mm-icon-shirt {
-  width: 16px;
-  height: 14px;
-  position: relative;
-  border: 2.5px solid #928d80;
-  border-radius: 2px;
-}
-
-.mm-icon-shirt::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: -8px;
-  width: 9px;
-  height: 9px;
-  border: 2.5px solid #928d80;
-  border-bottom: none;
-  border-radius: 7px 7px 0 0;
-  transform: translateX(-50%);
-}
-
-.mm-icon-question {
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 800;
-  font-size: 26px;
-  color: #241708;
-  line-height: 1;
-}
-
-@media (max-width: 720px) {
-  /* Compact everything so the whole menu fits the viewport without a page
-     scroll (the app is no-scroll now). overflow-y:auto stays as a safety
-     net — after this compaction the content is shorter than the screen on
-     real phones, so no scrollbar actually appears. 100dvh so the phone URL
-     bar isn't counted as extra height. */
-  .mm-screen { min-height: 100dvh; padding: 14px 16px; }
-  .mm-logo { font-size: 40px; }
-  .mm-hero {
-    margin-top: 20px;
-    padding: 16px 18px;
-    gap: 14px;
-    max-width: 420px;
-  }
-  .mm-hero-badge { width: 62px; height: 62px; }
-  .mm-hero-piece { width: 28px; height: 36px; }
-  .mm-hero-title { font-size: 20px; }
-  /* Keep the three secondary cards as a ROW (a compact grid) instead of a
-     tall stack — stacked, they were the main source of the overflow. */
-  .mm-row {
-    margin-top: 14px;
-    gap: 10px;
-  }
-  .mm-card {
-    min-width: 0;
-    padding: 14px 8px;
-    gap: 8px;
-  }
-  .mm-card-icon { width: 44px; height: 44px; }
-  .mm-card-title { font-size: 13px; }
-  .mm-skins-banner { margin-top: 12px; padding: 10px 14px; gap: 10px; }
-  .mm-skins-label { font-size: 13px; }
-}
-
-/* Very short screens: reclaim the last bit by dropping the non-essential
-   "skins coming soon" teaser entirely. */
-@media (max-width: 720px) and (max-height: 680px) {
-  .mm-skins-banner { display: none; }
-  .mm-logo { font-size: 34px; }
-  .mm-hero { margin-top: 14px; }
-}
+/* "What's new" lives in the top bar as an icon (dot = unseen notes) */
+.mm-news { position: relative; --mi-bg: var(--c-tile-news); }
+.mm-news .mm-dot { top: -3px; right: -3px; box-shadow: 0 0 0 3px var(--c-panel); }

@@ -1,3 +1,4 @@
+import { useLang } from './i18n'
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import OnlineApp from './OnlineApp'
@@ -7,17 +8,18 @@ import MainMenu from './rendering/MainMenu'
 import MenuLayout from './rendering/MenuLayout'
 import PageTransition from './rendering/PageTransition'
 import { PATCH_NOTES } from './game/patchNotes'
-import './App.css'
+// last on purpose: hover/press feedback overrides the screens' own styles
+import './theme/interactions.css'
 
 const PATCH_SEEN_KEY = 'chessplus_patchnotes_seen'
-const latestPatchId = PATCH_NOTES[0].id
+const latestPatchId = PATCH_NOTES[0]?.id ?? null  // no notes yet → no badge
 
 // Same try/catch-and-fall-through pattern as nickname.js — localStorage can
 // be unavailable (privacy mode, etc.); worst case the "new patch" badge just
 // reappears next visit instead of crashing the menu.
 function hasUnseenPatch() {
   try {
-    return localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchId
+    return latestPatchId != null && localStorage.getItem(PATCH_SEEN_KEY) !== latestPatchId
   } catch {
     return false
   }
@@ -43,6 +45,7 @@ function modeFor(pathname) {
 }
 
 export default function App() {
+  useLang() // re-render the whole tree on language switch
   const location = useLocation()
   const navigate = useNavigate()
   const mode = modeFor(location.pathname) // null | 'online' | 'sandbox'
@@ -70,7 +73,7 @@ export default function App() {
   // (not absent) whenever those are active.
   return (
     <MenuLayout>
-      <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['online', 'sandbox']}>
+      <PageTransition pageKey={mode ?? 'menu'} noExitSnapshotFor={['sandbox']}>
         {mode === 'online' && <OnlineApp onExit={() => navigate('/')} />}
         {mode === 'sandbox' && <SandboxApp onExit={() => navigate('/')} />}
         {mode === null && (
@@ -78,7 +81,7 @@ export default function App() {
             {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
             <MainMenu
               onPlayOnline={() => navigate('/online')}
-              onSandbox={() => navigate('/sandbox')}
+              onPlayBot={() => navigate('/online', { state: { bot: true } })}
               onOpenPatchNotes={openPatchNotes}
               unseenPatch={unseenPatch}
             />

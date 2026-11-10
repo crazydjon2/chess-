@@ -1,61 +1,63 @@
 import { getValidSquares, isKingInCheck, hasAnyLegalMove } from './chess.js'
 import { applyCardEffect } from './cardEffects.js'
+import { t } from '../i18n/core.js'
 
 // Cost is the draft price — same budget pieces are bought from (see
 // draftEngine.js and economy.js's shopPieceCost).
+// name/desc are getters so they always read the current UI language.
 export const CARD_DEFS = {
   barricade: {
     id:     'barricade',
-    name:   'Баррикада',
-    desc:   'Ставит преграду с 2 HP на свободную клетку. Соперник может разрушить её, как обычную фигуру.',
+    get name() { return t('card.barricade.name') },
+    get desc() { return t('card.barricade.desc') },
     accent: '#c0392b',
     glyph:  '✕',
     cost:   5,
   },
   add_cell: {
     id:     'add_cell',
-    name:   'Добавить клетку',
-    desc:   'Добавляет одну новую клетку за краем доски, расширяя игровое поле.',
+    get name() { return t('card.add_cell.name') },
+    get desc() { return t('card.add_cell.desc') },
     accent: '#27ae60',
     glyph:  '✦',
     cost:   2,
   },
   freeze: {
     id:     'freeze',
-    name:   'Мина заморозки',
-    desc:   'Закладывает невидимую мину на свободную клетку. Вражеская фигура, которая наступит на неё, застревает и пропускает свой следующий ход. Соперник знает, что где-то заложена мина, но не видит, где именно.',
+    get name() { return t('card.freeze.name') },
+    get desc() { return t('card.freeze.desc') },
     accent: '#2980b9',
     glyph:  '❄',
     cost:   7,
   },
   smoke_screen: {
     id:     'smoke_screen',
-    name:   'Дымовая завеса',
-    desc:   'Скрывает ваши фигуры в области 3×3 от соперника на следующие 4 хода.',
+    get name() { return t('card.smoke_screen.name') },
+    get desc() { return t('card.smoke_screen.desc') },
     accent: '#7f8c8d',
     glyph:  '☁',
     cost:   14,
   },
   meteor: {
     id:     'meteor',
-    name:   'Метеор',
-    desc:   'Через 2 полных хода метеор падает на выбранную клетку и бьёт то, что на ней окажется: снимает 1 HP. Короля не задевает. Соперник знает, что метеор летит, но не видит куда.',
+    get name() { return t('card.meteor.name') },
+    get desc() { return t('card.meteor.desc') },
     accent: '#d35400',
     glyph:  '☄',
     cost:   7,
   },
   unstable: {
     id:     'unstable',
-    name:   'Нестабильная фигура',
-    desc:   'Превращает фигуру, кроме пешки (свою или соперника), в нестабильную на 6 ходов. Раз в два хода она меняет тип на заранее известный, а затем возвращается к исходному.',
+    get name() { return t('card.unstable.name') },
+    get desc() { return t('card.unstable.desc') },
     accent: '#8e44ad',
     glyph:  '☯',
     cost:   6,
   },
   shield: {
     id:     'shield',
-    name:   'Щит',
-    desc:   'Ваша фигура получает 2 HP и выдерживает один удар — атакующий отскакивает. Нельзя ставить дважды на одну фигуру.',
+    get name() { return t('card.shield.name') },
+    get desc() { return t('card.shield.desc') },
     accent: '#16a085',
     glyph:  '⛨',
     cost:   13,

@@ -1,127 +1,113 @@
-import { useState } from 'react'
+import { t } from '../i18n'
+import { useEffect, useState } from 'react'
 import { CARD_DEFS } from '../game/cards'
-import { BOARD_PATTERNS } from '../game/boardPatterns'
-import { TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND, PLACEMENT_TIME_BY_ROUND, DRAFT_TIME_BY_ROUND } from '../game/draftPools'
+import { BOARD_PATTERNS, boardName } from '../game/boardPatterns'
+import { BUDGET_BY_ROUND, DRAFT_TIME_BY_ROUND, TIME_LIMIT_BY_ROUND, TIME_INCREMENT_BY_ROUND } from '../game/draftPools'
 import BoardThumbnail from './BoardThumbnail'
+import { Piece, CardIcon } from '../skins/Piece'
+import { IconClose } from './ui/Icons'
+import Overlay from './ui/Overlay'
 import './HowToPlay.css'
 
-// Minutes per round, derived from the real constant so this copy can't go
-// stale the next time TIME_LIMIT_BY_ROUND gets tuned.
-const CLOCK_MINUTES = [1, 2, 3].map(r => Math.round(TIME_LIMIT_BY_ROUND[r] / 60)).join('/')
-const CLOCK_INCREMENT = [1, 2, 3].map(r => TIME_INCREMENT_BY_ROUND[r]).join('/')
-const PLACEMENT_SECONDS = [1, 2, 3].map(r => PLACEMENT_TIME_BY_ROUND[r]).join('/')
-const DRAFT_SECONDS = [1, 2, 3].map(r => DRAFT_TIME_BY_ROUND[r]).join('/')
-
-// Generic, hand-drawn step icons (not tied to live game state) — same
-// felt-card visual language as MainMenu/PatchNotes. Real content (card
-// list, board list) still reads straight off the game's own data below;
-// only these four illustrate a fixed idea and never go stale.
-function DraftIcon() {
+// Tiny 4×4 illustration boards for the "Партия" steps.
+function Mini({ cells }) {
   return (
-    <div className="htp-step-icon htp-step-icon-draft">
-      <span className="htp-mini-card gold" />
-      <span className="htp-mini-card red" />
-      <span className="htp-mini-coin" />
-    </div>
-  )
-}
-
-function PlacementIcon() {
-  return (
-    <div className="htp-step-icon htp-checker">
-      <div className="htp-hidden-half">?</div>
-      <div className="htp-piece-dots">
-        <span /><span /><span /><span />
-      </div>
-    </div>
-  )
-}
-
-function BattleIcon() {
-  return (
-    <div className="htp-step-icon htp-checker">
-      <span className="htp-battle-piece dark" />
-      <span className="htp-battle-move" style={{ top: 14, left: 36 }} />
-      <span className="htp-battle-move" style={{ top: 32, left: 22 }} />
-      <span className="htp-battle-piece cream" />
-    </div>
-  )
-}
-
-function RoundResultIcon() {
-  return (
-    <div className="htp-step-icon htp-step-icon-result">
-      <div className="htp-score-pips">
-        <span className="filled" />
-        <span />
-      </div>
-      <span className="htp-score-label">2 победы</span>
-    </div>
-  )
-}
-
-const STEPS = [
-  {
-    title: 'Драфт',
-    Icon: DraftIcon,
-    desc: `Игроки по очереди покупают фигуры и карты, король у каждого бесплатно. Видно, что берёт соперник. Повторный выбор одного и того же дорожает (кроме пешек). У каждого ${DRAFT_SECONDS} сек на весь драфт.`,
-  },
-  {
-    title: 'Расстановка',
-    Icon: PlacementIcon,
-    desc: `Расставь купленные фигуры на своих двух рядах. Расстановку соперника видно, на всё — ${PLACEMENT_SECONDS} сек.`,
-  },
-  {
-    title: 'Бой',
-    Icon: BattleIcon,
-    desc: `Ходите по очереди — карта не тратит ход. Часы (${CLOCK_MINUTES} мин, +${CLOCK_INCREMENT} сек за ход) тикают только на вашем ходу. Можно заранее выбрать ход на чужом ходу. Журнал боя хранит историю ходов и карт.`,
-  },
-  {
-    title: 'Итог раунда',
-    Icon: RoundResultIcon,
-    desc: 'Раунд выигрывает тот, кто возьмёт короля соперника. У короля 2 жизни: первый удар отскакивает. Шаха нет — король ходит под удар, как любая фигура. Кончилось время или нет ходов — поражение. Матч идёт до 2 побед; каждый раунд — новый драфт с нуля.',
-  },
-]
-
-const TABS = [
-  { id: 'general', label: 'Общее' },
-  { id: 'spells',  label: 'Заклинания' },
-  { id: 'boards',  label: 'Карты' },
-]
-
-function GeneralTab() {
-  return (
-    <div className="htp-steps">
-      {STEPS.map((step, i) => (
-        <div className="htp-step" key={step.title}>
-          <div className="htp-step-icon-wrap">
-            <step.Icon />
-            <span className="htp-step-number">{i + 1}</span>
-          </div>
-          <div className="htp-step-body">
-            <div className="htp-step-title">{step.title}</div>
-            <div className="htp-step-desc">{step.desc}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function SpellsTab() {
-  return (
-    <div className="htp-cards">
-      {Object.values(CARD_DEFS).map(card => (
-        <div className="htp-card-chip" key={card.id}>
-          <span className="htp-card-glyph" style={{ background: card.accent }}>{card.glyph}</span>
-          <div className="htp-card-info">
-            <span className="htp-card-name">{card.name}</span>
-            <span className="htp-card-desc">{card.desc.replace(/\n/g, ' ')}</span>
-          </div>
-          <span className="htp-card-cost">
-            <span className="htp-card-coin" />
-            {card.cost}
+    <div className="htp-mini">
+      {Array.from({ length: 16 }, (_, i) => {
+        const r = Math.floor(i / 4), c = i % 4
+        const cell = cells[i] ?? {}
+        return (
+          <span key={i} className={`htp-mini-cell${(r + c) % 2 ? ' d' : ''}${cell.home ? ' home' : ''}${cell.sel ? ' sel' : ''}`}>
+            {cell.p && <Piece type={cell.p[0]} color={cell.p[1]} size="78%" center className={cell.ghost ? 'ghost' : ''} />}
+            {cell.dot && <i className="htp-mini-dot" />}
           </span>
+        )
+      })}
+    </div>
+  )
+}
+
+const STEP_BOARDS = [
+  { cells: { 1: { p: ['king', 'white'] }, 8: { home: true }, 9: { home: true }, 10: { home: true, p: ['knight', 'black'], ghost: true }, 11: { home: true }, 12: { home: true }, 13: { home: true, p: ['king', 'black'] }, 14: { home: true }, 15: { home: true } }, badge: 'coin' },
+  { cells: { 0: { p: ['rook', 'white'] }, 2: { p: ['king', 'white'] }, 4: { dot: true }, 6: { dot: true }, 11: { dot: true }, 13: { p: ['knight', 'black'], sel: true } }, badge: 'card' },
+  { cells: { 5: { p: ['king', 'white'], sel: true }, 10: { p: ['queen', 'black'] }, 12: { p: ['king', 'black'] } }, badge: 'hearts' },
+]
+
+function GameTab() {
+  const steps = [
+    { title: t('htp.step1Title'), desc: t('htp.step1Desc') },
+    { title: t('htp.step2Title'), desc: t('htp.step2Desc') },
+    { title: t('htp.step3Title'), desc: t('htp.step3Desc') },
+  ]
+  return (
+    <>
+      <div className="htp-steps">
+        {steps.map((s, i) => (
+          <div className="htp-step" key={i}>
+            <div className="htp-step-art">
+              <Mini cells={STEP_BOARDS[i].cells} />
+              {STEP_BOARDS[i].badge === 'coin' && <span className="htp-badge coin"><span className="ui-coin" />11</span>}
+              {STEP_BOARDS[i].badge === 'card' && <span className="htp-badge card"><CardIcon id="meteor" size={34} radius={8} iconScale={0.6} /></span>}
+              {STEP_BOARDS[i].badge === 'hearts' && <span className="htp-badge hearts"><i className="on" /><i /></span>}
+            </div>
+            <div className="htp-step-body">
+              <div className="htp-step-title"><span className="htp-num">{i + 1}</span>{s.title}</div>
+              <p className="htp-step-desc">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="htp-rounds-head"><b>{t('htp.rounds')}</b><span>{t('htp.roundsSub')}</span></div>
+      <div className="htp-rounds">
+        {[1, 2, 3].map(r => (
+          <div className="htp-round" key={r}>
+            <span className="ui-badge-round">{t('score.roundShort', { n: r })}</span>
+            <span className="htp-round-thumb"><BoardThumbnail boardPattern={BOARD_PATTERNS[r][0]} cellSize={9} /></span>
+            <span className="htp-round-size">{BOARD_PATTERNS[r][0].cols}×{BOARD_PATTERNS[r][0].rows}</span>
+            <span className="htp-round-row" title={t('htp.coins')}><span className="ui-coin" /><b className="ui-num">{BUDGET_BY_ROUND[r]}</b></span>
+            <span className="htp-round-row" title={t('htp.recruitTime')}><span className="htp-ic">⧗</span><b className="ui-num">{t('htp.sec', { n: DRAFT_TIME_BY_ROUND[r] })}</b></span>
+            <span className="htp-round-row" title={t('htp.clock')}><span className="htp-ic">◷</span><b className="ui-num">{t('htp.clockValue', { m: Math.round(TIME_LIMIT_BY_ROUND[r] / 60), s: TIME_INCREMENT_BY_ROUND[r] })}</b></span>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function useCols() {
+  const q = '(max-width: 600px)'
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const on = () => setNarrow(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return narrow ? 2 : 4
+}
+
+function CardsTab() {
+  const cols = useCols()
+  const cards = Object.values(CARD_DEFS)
+  const [sel, setSel] = useState(null)
+  // the hint floats under its card (fixed width, never reflows the grid);
+  // outer columns align it to their edge so it stays inside the window
+  const align = i => (i % cols === 0 ? ' start' : i % cols === cols - 1 ? ' end' : '')
+  return (
+    <div className="htp-cards" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} onClick={() => setSel(null)}>
+      {cards.map((c, i) => (
+        <div key={c.id} className={`htp-card-cell${sel === c.id ? ' open' : ''}`}>
+          <button data-tilt className={`htp-card${sel === c.id ? ' sel' : ''}`} onClick={e => { e.stopPropagation(); setSel(sel === c.id ? null : c.id) }} aria-expanded={sel === c.id}>
+            <span className="htp-card-art"><CardIcon id={c.id} size={80} radius={10} iconScale={0.5} /></span>
+            <span className="htp-card-q">?</span>
+            <span className="htp-card-price">{c.cost}</span>
+            <span className="htp-card-name">{c.name}</span>
+          </button>
+          {sel === c.id && (
+            <div className={`htp-card-desc${align(i)}`} role="tooltip">
+              <b>{c.name}.</b> {c.desc}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -133,53 +119,56 @@ function BoardsTab() {
     <div className="htp-boards">
       {Object.entries(BOARD_PATTERNS).map(([round, patterns]) => (
         <div className="htp-boards-round" key={round}>
-          <div className="htp-boards-round-title">Раунд {round}</div>
+          <div className="htp-boards-head">
+            <span className="ui-badge-round">{t('score.roundShort', { n: round })}</span>
+            <span>{patterns[0].cols}×{patterns[0].rows}</span>
+          </div>
           <div className="htp-boards-grid">
-            {patterns.map(pattern => (
-              <div className="htp-board-chip" key={pattern.name}>
-                <div className="htp-board-thumb-wrap">
-                  <BoardThumbnail boardPattern={pattern} cellSize={8} />
-                </div>
-                <span className="htp-board-name">{pattern.name}</span>
-                <span className="htp-board-dims">{pattern.rows}×{pattern.cols}</span>
+            {patterns.map(p => (
+              <div className="htp-board" key={p.id}>
+                <span className="htp-board-thumb"><BoardThumbnail boardPattern={p} cellSize={11} /></span>
+                <span className="htp-board-name">{boardName(p)}</span>
               </div>
             ))}
           </div>
         </div>
       ))}
+      <p className="htp-boards-note">{t('htp.boardsNote')}</p>
     </div>
   )
 }
 
 export default function HowToPlay({ onClose }) {
-  const [tab, setTab] = useState('general')
-
+  const [tab, setTab] = useState('game')
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const tabs = [
+    { id: 'game', label: t('htp.tabGame') },
+    { id: 'cards', label: t('htp.tabCards') },
+    { id: 'boards', label: t('htp.tabBoards') },
+  ]
   return (
-    <div className="htp-overlay" onClick={onClose}>
-      <div className="htp-card" onClick={e => e.stopPropagation()}>
-        <div className="htp-header">
-          <span className="htp-title">Как играть</span>
-          <button className="htp-close" onClick={onClose} title="Закрыть">✕</button>
+    <Overlay onClose={onClose}>
+      <div className="ui-modal htp-card-modal" role="dialog" aria-label={t('htp.title')} onClick={e => e.stopPropagation()}>
+        <span className="htp-grab" aria-hidden="true" />
+        <div className="htp-head">
+          <h2 className="ui-modal-title">{t('htp.title')}</h2>
+          <button className="ui-btn icon" onClick={onClose} aria-label={t('common.close')}><IconClose /></button>
         </div>
-
-        <div className="htp-tabs">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              className={`htp-tab${tab === t.id ? ' active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
+        <div className="ui-seg htp-tabs" role="tablist">
+          {tabs.map(tb => (
+            <button key={tb.id} role="tab" aria-selected={tab === tb.id} className={tab === tb.id ? 'on' : ''} onClick={() => setTab(tb.id)}>{tb.label}</button>
           ))}
         </div>
-
-        <div className="htp-content">
-          {tab === 'general' && <GeneralTab />}
-          {tab === 'spells' && <SpellsTab />}
+        <div className="htp-content ui-scroll">
+          {tab === 'game' && <GameTab />}
+          {tab === 'cards' && <CardsTab />}
           {tab === 'boards' && <BoardsTab />}
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }

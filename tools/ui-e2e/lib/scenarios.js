@@ -4,8 +4,11 @@
 import { newPage, checkLayout, sleep } from './harness.js'
 import * as A from './actions.js'
 
-const BATTLE_MUST_SEE = ['[data-testid=board]', '.surrender-btn', '.draw-btn', '.player-panel', '.card-hand .gc-card', '.sd-trigger']
-const PLACEMENT_MUST_SEE = ['.pl-board', '.pl-submit-btn']
+const BATTLE_MUST_SEE = ['[data-testid=board]', '[data-testid=surrender-btn]', '[data-testid=draw-btn]', '.pc-card', '.mx-right .cd-panel', '.mx-tray']
+// The portrait card tray is a horizontal scroll strip (tiles past the edge
+// are expected), so the tray itself is what must be on screen.
+const RECRUIT_MUST_SEE = ['[data-testid=board]', '[data-testid=recruit-done]', '.pc-card', '.mx-right .cd-row', '.mx-tray']
+const isPhone = p => p.profile.startsWith('mobile')
 
 // ── 1. Menu tour + sandbox ────────────────────────────────────────────
 export async function menuTour(browser, base, profile, rec, rng) {
@@ -13,76 +16,80 @@ export async function menuTour(browser, base, profile, rec, rng) {
   const page = await newPage(browser, profile, rec, 'solo')
   await rec.step(S, 'главное меню открывается', page, async () => {
     await page.goto(base + '/')
-    await page.locator('.mm-hero').waitFor({ timeout: 10000 })
-    await checkLayout(page, rec, 'меню', { mustSee: ['.mm-hero', '.mm-card'] })
+    await page.locator('[data-testid=menu-online]').waitFor({ timeout: 10000 })
+    await checkLayout(page, rec, 'меню', { noScroll: isPhone(page), mustSee: ['[data-testid=menu-online]', '[data-testid=menu-bot]', '[data-testid=menu-news]', '.mm-minor'] })
   }, { critical: true, shot: true })
 
-  await rec.step(S, '«Как играть»: все вкладки', page, async () => {
-    await page.locator('.mm-card-howto').click()
-    const tabs = page.locator('.htp-tab')
+  await rec.step(S, '«Как играть»: все вкладки и карты', page, async () => {
+    await page.locator('[data-testid=menu-howto]').click()
+    const tabs = page.locator('.htp-tabs button')
     const n = await tabs.count()
-    if (n < 2) throw new Error('вкладок меньше двух')
-    for (let i = 0; i < n; i++) { await tabs.nth(i).click(); await checkLayout(page, rec, `как играть · вкладка ${i + 1}`, { mustSee: ['.htp-close'] }) }
-    await page.locator('.htp-close').click()
-    if (await A.visible(page, '.htp-overlay')) throw new Error('окно не закрылось')
+    if (n < 3) throw new Error('вкладок меньше трёх')
+    for (let i = 0; i < n; i++) { await tabs.nth(i).click(); await checkLayout(page, rec, `как играть · вкладка ${i + 1}`, { mustSee: ['.htp-head .ui-btn'] }) }
+    await tabs.nth(1).click()
+    await page.locator('.ui-overlay:not(.leaving) .htp-card').nth(2).click()
+    await page.locator('.htp-card-desc').waitFor({ timeout: 3000 })
+    await page.locator('.htp-head .ui-btn').click()
+    if (await A.visible(page, '.ui-overlay:not(.leaving) .htp-card-modal')) throw new Error('окно не закрылось')
   }, { shot: true })
 
   await rec.step(S, '«Что нового» открывается и закрывается', page, async () => {
-    await page.locator('.mm-card-patchnotes').click()
-    await page.locator('.pn-close').click({ timeout: 5000 })
+    await page.locator('[data-testid=menu-news]').click()
+    await page.locator('.pn-head .ui-btn').click({ timeout: 5000 })
   })
 
-  await rec.step(S, 'настройки: переключатели и закрытие', page, async () => {
-    await page.locator('.ml-settings-btn').click()
-    const toggles = page.locator('.set-toggle-row')
+  await rec.step(S, 'настройки: переключатели, язык, закрытие', page, async () => {
+    await page.locator('.mm-top .ui-btn').click()
+    const toggles = page.locator('.ui-overlay:not(.leaving) .set-toggle')
     for (let i = 0; i < await toggles.count(); i++) { await toggles.nth(i).click(); await toggles.nth(i).click() }
-    await checkLayout(page, rec, 'настройки', { mustSee: ['.set-close'] })
-    await page.locator('.set-close').click()
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-opt').nth(1).click() // the language right after the current one
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-btn').click()
+    await page.locator('.ui-overlay:not(.leaving) .set-lang-opt[lang], .set-lang-opt').filter({ hasText: 'Русский' }).first().click()
+    await checkLayout(page, rec, 'настройки', { mustSee: ['.set-card .ui-modal-close'] })
+    await page.locator('.set-card .ui-modal-close').click()
+    if (!(await page.getByText('Играть онлайн').first().isVisible())) throw new Error('язык не вернулся на русский')
   })
 
   await rec.step(S, 'песочница: ходы и все карты', page, async () => {
-    await page.locator('.mm-card-sandbox').click()
+    // no menu button: the sandbox is a test page reached by URL
+    await page.goto(new URL('/sandbox', page.url()).href)
     await page.waitForURL(/\/sandbox$/)
     await page.locator('[data-testid=board]').waitFor({ timeout: 10000 })
-    await checkLayout(page, rec, 'песочница', { noScroll: page.profile.startsWith('mobile'), mustSee: ['[data-testid=board]', '.card-hand .gc-card', '.sd-trigger', '.bt-back'] })
+    await sleep(400)
+    await checkLayout(page, rec, 'песочница', { noScroll: isPhone(page), mustSee: ['[data-testid=board]', '[data-testid=sandbox-reset]', '.mx-header-left .ui-btn'] })
     let moves = 0, cardsPlayed = 0
     for (let i = 0; i < 24; i++) {
       if (rng() < 0.4) { const c = await A.playCard(page, rng); if (c) cardsPlayed++ }
       const m = await A.makeMove(page, rng)
       if (m) moves++
-      if (await A.visible(page, '.result-overlay, .result-inline')) break
+      if (await A.visible(page, '.ui-overlay:not(.leaving) .rs-card')) break
     }
     if (moves < 3) throw new Error(`удалось сделать только ${moves} ходов`)
     rec.notes ??= []; rec.notes.push(`${S}: песочница — ${moves} ходов, ${cardsPlayed} карт`)
   }, { shot: true })
 
   await rec.step(S, 'конец партии в песочнице: «Сбросить» и снова играть', page, async () => {
-    if (!(await A.visible(page, '.result-overlay'))) return
-    if (await A.visible(page, '.bt-back')) {
-      const backHidden = await page.locator('.bt-back').evaluate(el => {
-        const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
-        return !el.contains(hit)
-      })
-      if (backHidden) rec.layout.push({ where: `solo/${page.profile} · конец партии в песочнице`, kind: 'covered', text: 'Окно результата закрывает кнопку «←» — из законченной песочницы не выйти без «Сбросить»' })
-    }
-    await page.locator('.restart-btn').first().click()
+    if (!(await A.visible(page, '.ui-overlay:not(.leaving) .rs-card'))) return
+    await page.locator('[data-testid=result-primary]').click()
     for (let i = 0; i < 3; i++) await A.makeMove(page, rng)
   })
 
   await rec.step(S, 'журнал боя: открыть, перемотать, вернуться', page, async () => {
-    await page.locator('.bt-log-btn').click()
-    const entries = page.locator('.bl-entry')
+    const j = await A.journal(page)
+    const entries = j.locator('.jr-row.btn:not(.group)')
     if (await entries.count() < 2) throw new Error('в журнале меньше двух записей')
-    await entries.nth(0).click() // the opening position — a real step back in history
-    if (!(await A.visible(page, '.bl-return'))) throw new Error('после выбора старой записи нет кнопки возврата к текущей позиции')
-    await page.locator('.bl-return').click()
-    await page.locator('.bl-close').click()
+    await entries.nth(0).click() // the first move — a real step back in history
+    const back = page.locator('.bt-history-back, .jr-back').first()
+    await back.waitFor({ timeout: 3000 }).catch(() => { throw new Error('после выбора старой записи нет кнопки возврата') })
+    await back.click()
+    if (await A.visible(page, '.bt-history-back')) throw new Error('кнопка возврата не исчезла')
   })
 
   await rec.step(S, 'выход из песочницы в меню', page, async () => {
-    await page.locator('.bt-back').click()
+    await page.locator('.mx-header-left .ui-btn').first().click()
     await page.waitForURL(u => !u.pathname.startsWith('/sandbox'), { timeout: 5000 })
-    await page.locator('.mm-hero').waitFor({ timeout: 5000 })
+    await page.locator('[data-testid=menu-online]').waitFor({ timeout: 5000 })
   })
   await page.context().close()
 }
@@ -96,9 +103,9 @@ export async function onlineMatch(browser, base, profile, rec, rng, opts = {}) {
 
   await rec.step(S, 'A создаёт открытую комнату', [a, b], async () => {
     await A.openOnline(a, base, 'Алиса')
-    await checkLayout(a, rec, 'онлайн-меню', { mustSee: ['.po-create-btn'] })
+    await checkLayout(a, rec, 'онлайн-меню', { noScroll: isPhone(a), mustSee: ['[data-testid=create-lobby]', '[data-testid=code-input]'] })
     code = await A.createRoom(a, { visibility: 'public', color: 'random' })
-    await checkLayout(a, rec, 'комната ожидания', { mustSee: ['.wr-start-btn', '.wr-cancel-btn'] })
+    await checkLayout(a, rec, 'комната ожидания', { mustSee: ['[data-testid=room-code]', '[data-testid=wait-back]'] })
   }, { critical: true, shot: true })
 
   await rec.step(S, 'B видит комнату в списке и входит', [a, b], async () => {
@@ -108,91 +115,84 @@ export async function onlineMatch(browser, base, profile, rec, rng, opts = {}) {
 
   await rec.step(S, 'A запускает матч', [a, b], async () => {
     await A.startMatch(a)
-    await a.locator('.dr-catalog').waitFor({ timeout: 10000 })
-    await b.locator('.dr-catalog').waitFor({ timeout: 10000 })
+    await a.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
+    await b.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
   }, { critical: true, shot: true })
 
   for (let round = 1; round <= 3; round++) {
     const R = `${S}/раунд ${round}`
     const finished = await playRound(a, b, R, rec, rng, round, opts)
-    if (finished === 'match_over') break
+    if (finished !== 'continue') break
   }
 
-  await rec.step(S, 'конец матча → обратно в меню', [a, b], async () => {
-    const btn = a.locator('.restart-btn')
-    await btn.first().waitFor({ timeout: 15000 })
-    await btn.first().click()
+  await rec.step(S, 'конец матча → реванш виден сопернику, A уходит в меню', [a, b], async () => {
+    await a.locator('.ui-overlay:not(.leaving) .rs-card').waitFor({ timeout: 15000 })
+    await checkLayout(a, rec, 'конец матча', { mustSee: ['.ui-overlay:not(.leaving) .rs-card .ui-btn'] })
+    await b.locator('[data-testid=result-primary]').click()
+    await a.getByText('хочет реванш').waitFor({ timeout: 5000 })
+    await a.locator('.ui-overlay:not(.leaving) .rs-card .ui-btn:not(.primary)').click()
     await a.waitForURL(/\/online$/, { timeout: 8000 })
   }, { shot: true })
   await a.context().close(); await b.context().close()
 }
 
 async function playRound(a, b, R, rec, rng, round, opts) {
-  // round summary (rounds 2+): both continue
   if (round > 1) {
-    // The match may already be decided (2 wins) — then the result screen
-    // offers "В меню" instead of the next round.
-    const first = a.locator('.restart-btn').first()
+    // The match may already be decided (2 wins) — then "В меню"/"Реванш".
+    const first = a.locator('[data-testid=result-primary]').first()
     await first.waitFor({ timeout: 15000 }).catch(() => {})
-    if (/меню/i.test(await first.innerText().catch(() => ''))) return 'match_over'
-    const ok = await rec.step(R, 'итоги раунда: оба нажимают «Продолжить»', [a, b], async () => {
+    if (await A.visible(a, '.ui-overlay:not(.leaving) .rs-card') && !/раунд/i.test(await first.innerText().catch(() => ''))) return 'match_over'
+    const ok = await rec.step(R, 'итоги раунда: оба нажимают «Следующий раунд»', [a, b], async () => {
       for (const p of [a, b]) {
-        const btn = p.locator('.restart-btn')
+        const btn = p.locator('[data-testid=result-primary]')
         await btn.first().waitFor({ timeout: 15000 })
-        await checkLayout(p, rec, 'итоги раунда', { mustSee: ['.restart-btn'] })
+        await checkLayout(p, rec, 'итоги раунда', { mustSee: ['[data-testid=result-primary]'] })
         await btn.first().click()
       }
-      await a.locator('.dr-catalog').waitFor({ timeout: 10000 })
+      await a.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
     }, { shot: true })
     if (!ok) return 'stuck'
   }
 
-  await rec.step(R, 'драфт: покупки кликами по каталогу', [a, b], async () => {
-    await checkLayout(a, rec, 'драфт', { mustSee: ['.dr-tray-done-btn'] })
-    await checkLayout(b, rec, 'драфт', { mustSee: ['.dr-tray-done-btn'] })
+  const timerRound = opts.letRecruitTimerRun && round === 1
+  await rec.step(R, 'набор: фигуры сразу на доску, соперник видит их вживую', [a, b], async () => {
+    await checkLayout(a, rec, 'набор', { noScroll: isPhone(a), mustSee: RECRUIT_MUST_SEE })
+    await checkLayout(b, rec, 'набор', { noScroll: isPhone(b), mustSee: RECRUIT_MUST_SEE })
     const t0 = Date.now()
     const picks = { A: 0, B: 0 }
-    while (Date.now() - t0 < 90000) {
-      if (await A.onPlacement(a) && await A.onPlacement(b)) break
-      for (const [p, k] of [[a, 'A'], [b, 'B']]) {
-        if (await A.onDraft(p) && await A.myDraftTurn(p)) {
-          const did = await A.draftStep(p, rng, { preferDone: picks[k] >= 6 ? 0.5 : 0.05 })
-          if (did !== 'none') picks[k]++
+    let seenLive = false, placed = false
+    while (Date.now() - t0 < 120000) {
+      if (await A.onBattle(a) && await A.onBattle(b)) break
+      for (const [p, k, other] of [[a, 'A', b], [b, 'B', a]]) {
+        if (timerRound && k === 'B') continue // B idles: its recruit clock must run out
+        if (await A.onRecruit(p) && await A.myRecruitTurn(p)) {
+          const did = await A.recruitStep(p, rng, { preferDone: picks[k] < 3 ? 0 : picks[k] >= 6 ? 0.5 : 0.04 })
+          picks[k]++
+          const sq = / → ([a-h]\d)$/.exec(did)?.[1]
+          if (sq) placed = true
+          if (sq && !seenLive) {
+            await other.locator(`[data-testid=board] .bd-piece[data-square="${sq}"]`).waitFor({ timeout: 4000 })
+            seenLive = true
+          }
           await sleep(120)
         }
       }
       await sleep(80)
     }
-    if (!(await A.onPlacement(a))) throw new Error('драфт не закончился за 90 с')
-    rec.notes ??= []; rec.notes.push(`${R}: драфт — A ${picks.A}, B ${picks.B} действий`)
+    if (!(await A.onBattle(a))) throw new Error('набор не закончился за 120 с')
+    if (placed && !seenLive) throw new Error('соперник так и не увидел ни одной купленной фигуры')
+    rec.notes ??= []; rec.notes.push(`${R}: набор — A ${picks.A}, B ${picks.B} действий${timerRound ? ' (у B кончилось время)' : ''}`)
   }, { critical: true, shot: true })
 
-  await rec.step(R, 'расстановка: соперник видит фигуры вживую', [a, b], async () => {
-    await checkLayout(a, rec, 'расстановка', { noScroll: a.profile.startsWith('mobile'), mustSee: PLACEMENT_MUST_SEE })
-    await A.placeAll(a, rng)
-    await sleep(400)
-    const seen = await b.locator('.pl-cell.opp .pl-cell-icon').count()
-    if (!seen) throw new Error('B не видит ни одной фигуры A на его половине')
-  }, { shot: true })
-
-  await rec.step(R, 'расстановка: оба готовы → бой', [a, b], async () => {
-    if (await A.remainingToPlace(a)) await A.placeAll(a, rng)
-    await a.locator('.pl-submit-btn').click()
-    if (opts.letPlacementTimerRun && round === 1) {
-      // B places nothing: the timer must auto-place and start the battle
-      await b.locator('[data-testid=board]').waitFor({ timeout: 70000 })
-    } else {
-      await A.placeAll(b, rng)
-      await b.locator('.pl-submit-btn').click()
-    }
-    await a.locator('[data-testid=board]').waitFor({ timeout: 70000 })
+  await rec.step(R, 'бой: экран боя у обоих', [a, b], async () => {
+    await b.locator('[data-testid=surrender-btn]').waitFor({ timeout: 10000 })
     await sleep(600)
-    await checkLayout(a, rec, 'бой', { noScroll: a.profile.startsWith('mobile'), mustSee: BATTLE_MUST_SEE })
-    await checkLayout(b, rec, 'бой', { noScroll: b.profile.startsWith('mobile'), mustSee: BATTLE_MUST_SEE })
+    await checkLayout(a, rec, 'бой', { noScroll: isPhone(a), mustSee: BATTLE_MUST_SEE })
+    await checkLayout(b, rec, 'бой', { noScroll: isPhone(b), mustSee: BATTLE_MUST_SEE })
   }, { critical: true, shot: true })
 
-  let plies = 0, cards = 0, drawTested = false, reloadTested = false, backTested = false
-  const ended = () => A.visible(a, '.result-inline, .result-overlay')
+  let plies = 0, cards = 0
+  const ended = () => A.visible(a, '.ui-overlay:not(.leaving) .rs-card')
   await rec.step(R, 'бой: ходы и карты', [a, b], async () => {
     const t0 = Date.now()
     while (plies < (opts.plies ?? 16) && Date.now() - t0 < 120000) {
@@ -200,13 +200,12 @@ async function playRound(a, b, R, rec, rng, round, opts) {
       const p = (await A.myBattleTurn(a)) ? a : (await A.myBattleTurn(b)) ? b : null
       if (!p) { await sleep(150); continue }
       if (rng() < 0.35) { if (await A.playCard(p, rng)) cards++ }
+      if (await ended()) break
       let m = await A.makeMove(p, rng)
-      if (!m) {
-        // No piece can move — the game only allows this when a card can open
-        // a way out (see hasRescueCard), so try the hand before giving up.
+      if (!m && !(await ended())) {
         for (let k = 0; k < 4 && !m; k++) { if (await A.playCard(p, rng)) cards++; m = await A.makeMove(p, rng) }
-        rec.notes ??= []; rec.notes.push(`${R}: ${p.label} остался без ходов${m ? ', выход нашёлся через карту' : ' — ход не найден даже через карты'}`)
-        if (!m) throw new Error(`${p.label}: нет ни одного хода, который UI предлагает (даже через карты)`)
+        rec.notes ??= []; rec.notes.push(`${R}: ${p.label} остался без ходов${m ? ', выход нашёлся через карту' : ''}`)
+        if (!m && !(await ended())) throw new Error(`${p.label}: нет ни одного хода, который UI предлагает (даже через карты)`)
       }
       plies++
       await sleep(250)
@@ -218,12 +217,12 @@ async function playRound(a, b, R, rec, rng, round, opts) {
     await rec.step(R, 'ничья: предложение и отказ', [a, b], async () => {
       const offerer = (await A.myBattleTurn(a)) ? b : a
       const other = offerer === a ? b : a
-      await offerer.locator('.draw-btn').click()
-      await other.locator('.confirm-overlay').waitFor({ timeout: 5000 })
-      await checkLayout(other, rec, 'окно ничьей', { mustSee: ['.confirm-btn'] })
-      await other.locator('.confirm-btn.cancel').click()
+      await offerer.locator('[data-testid=draw-btn]').click()
+      await offerer.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn.primary').click()
+      await other.locator('.mx-banner').waitFor({ timeout: 5000 })
+      await checkLayout(other, rec, 'предложение ничьей', { mustSee: ['.mx-banner .ui-btn'] })
+      await other.locator('.mx-banner .ui-btn:not(.primary)').click()
       await offerer.getByText('Соперник отклонил ничью').waitFor({ timeout: 5000 })
-      drawTested = true
     }, { shot: true })
 
     await rec.step(R, 'перезагрузка посреди боя возвращает в матч', [a, b], async () => {
@@ -232,22 +231,28 @@ async function playRound(a, b, R, rec, rng, round, opts) {
       await a.locator('[data-testid=board]').waitFor({ timeout: 10000 })
       if (a.url() !== url) throw new Error('после перезагрузки другой адрес: ' + a.url())
       await sleep(500)
-      if (await A.visible(b, '.opponent-left-banner')) throw new Error('у B осталась плашка «Соперник покинул игру»')
-      reloadTested = true
+      if (await A.visible(b, '.mx-opp-left')) throw new Error('у B осталась плашка «Соперник покинул игру»')
     }, { shot: true })
 
     await rec.step(R, '«Назад» в браузере спрашивает подтверждение', [a, b], async () => {
       await a.goBack()
-      await a.locator('.confirm-overlay').waitFor({ timeout: 5000 })
-      await a.locator('.confirm-btn.cancel').click()
+      await a.locator('.ui-overlay:not(.leaving) .ui-confirm').waitFor({ timeout: 5000 })
+      await a.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn:not(.danger)').first().click()
       await a.locator('[data-testid=board]').waitFor({ timeout: 5000 })
-      backTested = true
+    })
+
+    await rec.step(R, 'кнопка выхода в шапке спрашивает подтверждение', [a, b], async () => {
+      await a.locator('[data-testid=exit-btn]').click()
+      await a.locator('.ui-overlay:not(.leaving) .ui-confirm').waitFor({ timeout: 5000 })
+      await a.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn:not(.danger)').first().click()
+      await a.locator('[data-testid=board]').waitFor({ timeout: 5000 })
     })
 
     await rec.step(R, 'сдача (на чужом ходу)', [a, b], async () => {
       const notMover = (await A.myBattleTurn(a)) ? b : a
-      await notMover.locator('.surrender-btn').click()
-      await notMover.locator('.confirm-btn.danger').click()
+      await notMover.locator('[data-testid=surrender-btn]').click()
+      await notMover.locator('.ui-overlay:not(.leaving) .ui-confirm .ui-btn.danger').click()
+      await a.locator('.ui-overlay:not(.leaving) .rs-card').waitFor({ timeout: 8000 })
     }, { shot: true })
   }
   return 'continue'
@@ -259,19 +264,26 @@ export async function inviteLink(browser, base, profile, rec) {
   const a = await newPage(browser, profile, rec, 'A')
   const b = await newPage(browser, profile, rec, 'B')
   let code
-  await rec.step(S, 'A создаёт приватную комнату', [a, b], async () => {
+  await rec.step(S, 'A создаёт комнату по коду', [a, b], async () => {
     await A.openOnline(a, base, 'Хост')
     code = await A.createRoom(a, { visibility: 'private', color: 'white' })
   }, { critical: true })
-  await rec.step(S, 'приватной комнаты нет в списке', [a, b], async () => {
+  await rec.step(S, 'комнаты по коду нет в списке', [a, b], async () => {
     await A.openOnline(b, base, 'Гость')
     await sleep(800)
-    if (await b.locator('.po-room', { hasText: code }).count()) throw new Error('приватная комната видна в списке')
+    if (await b.locator(`.po-row[data-room="${code}"]`).count()) throw new Error('комната по коду видна в списке')
   })
+  await rec.step(S, 'B вводит код и попадает в комнату', [a, b], async () => {
+    await A.joinByCode(b, code)
+    await b.locator('[data-testid=wait-back]').waitFor({ timeout: 10000 })
+    await a.locator('[data-testid=start-game]').waitFor({ timeout: 8000 })
+    await b.locator('[data-testid=wait-back]').click()
+    await b.waitForURL(/\/online$/, { timeout: 8000 })
+  }, { shot: true })
   await rec.step(S, 'B открывает ссылку /room/КОД и попадает в комнату', [a, b], async () => {
     await b.goto(`${base}/room/${code}`)
-    await b.locator('.wr-cancel-btn').waitFor({ timeout: 10000 })
-    await a.waitForFunction(() => !document.querySelector('.wr-start-btn')?.disabled, null, { timeout: 8000 })
+    await b.locator('[data-testid=wait-back]').waitFor({ timeout: 10000 })
+    await a.locator('[data-testid=start-game]').waitFor({ timeout: 8000 })
   }, { shot: true })
   await rec.step(S, 'несуществующая комната → список комнат с ошибкой', [a, b], async () => {
     await b.goto(`${base}/room/ZZZZZ`)
@@ -282,13 +294,45 @@ export async function inviteLink(browser, base, profile, rec) {
     await b.waitForURL(new RegExp(`/room/${code}$`), { timeout: 10000 })
   })
   await rec.step(S, 'хост отменяет комнату', [a, b], async () => {
-    await a.locator('.wr-cancel-btn').click()
+    await a.locator('[data-testid=wait-back]').click()
     await a.waitForURL(/\/online$/, { timeout: 8000 })
   })
   await a.context().close(); await b.context().close()
 }
 
-// ── 4. Monkey: random clicks on anything clickable ────────────────────
+// ── 4. Against the AI: menu → recruit → battle ────────────────────────
+export async function botMatch(browser, base, profile, rec, rng) {
+  const S = `bot/${profile}`
+  const page = await newPage(browser, profile, rec, 'bot')
+  await rec.step(S, '«Против ИИ» из меню открывает выбор и запускает матч', page, async () => {
+    await page.goto(base + '/')
+    await page.locator('[data-testid=menu-bot]').click()
+    await page.locator('[data-testid=bot-start]').click()
+    await page.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
+  }, { critical: true, shot: true })
+  await rec.step(S, 'набор против ИИ до боя', page, async () => {
+    const t0 = Date.now()
+    let picks = 0
+    while (Date.now() - t0 < 90000 && !(await A.onBattle(page))) {
+      if (await A.myRecruitTurn(page)) { await A.recruitStep(page, rng, { preferDone: picks >= 5 ? 0.6 : 0.05 }); picks++ }
+      await sleep(150)
+    }
+    if (!(await A.onBattle(page))) throw new Error('бой не начался')
+  }, { shot: true })
+  await rec.step(S, 'несколько ходов против ИИ', page, async () => {
+    let plies = 0
+    const t0 = Date.now()
+    while (plies < 6 && Date.now() - t0 < 60000) {
+      if (await A.visible(page, '.ui-overlay:not(.leaving) .rs-card')) break
+      if (await A.myBattleTurn(page)) { if (await A.makeMove(page, rng)) plies++ }
+      await sleep(200)
+    }
+    if (plies < 2 && !(await A.visible(page, '.ui-overlay:not(.leaving) .rs-card'))) throw new Error(`сделано только ${plies} ходов`)
+  }, { shot: true })
+  await page.context().close()
+}
+
+// ── 5. Monkey: random clicks on anything clickable ────────────────────
 export async function monkey(browser, base, profile, rec, rng, { steps = 150 } = {}) {
   const S = `monkey/${profile}`
   const page = await newPage(browser, profile, rec, 'monkey')
@@ -296,9 +340,8 @@ export async function monkey(browser, base, profile, rec, rng, { steps = 150 } =
     await page.goto(base + '/')
     let clicks = 0
     for (let i = 0; i < steps; i++) {
-      // never leave the site or drop into an online room with nobody there forever
       if (!page.url().startsWith(base)) await page.goto(base + '/')
-      const targets = await page.locator('button:visible, [role=button]:visible, [data-testid=board] rect[data-square], .pl-cell:visible, .htp-tab:visible').all()
+      const targets = await page.locator('button:visible, [role=button]:visible, .bd-cell, .bd-piece').all()
       if (!targets.length) { await page.goto(base + '/'); continue }
       const t = targets[Math.floor(rng() * targets.length)]
       await t.click({ timeout: 1500, force: true }).then(() => clicks++).catch(() => {})

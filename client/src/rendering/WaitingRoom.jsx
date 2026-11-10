@@ -1,182 +1,117 @@
-import { useState } from 'react'
-import { PIECE_ICONS } from './pieceIcons'
+import { t, playerName } from '../i18n'
+import { useEffect, useState } from 'react'
+import { SettingsButton } from './Settings'
+import { Piece } from '../skins/Piece'
+import { IconBack, IconLink, IconGlobe, IconLock, IconCheck } from './ui/Icons'
 import './WaitingRoom.css'
 
-const DEAL_PIECES = [
-  { type: 'pawn',   color: 'white' },
-  { type: 'knight', color: 'black' },
-  { type: 'rook',   color: 'white' },
-]
+function useElapsed(running) {
+  const [start] = useState(() => Date.now())
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [running])
+  const s = Math.floor((now - start) / 1000)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
 
-// "Лобби ожидания" — room created/joined, waiting for the second seat, then
-// the host presses "Начать". Same felt-table card language as the other
-// online-flow screens.
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true } catch { /* fall back */ }
+  }
+  const ta = document.createElement('textarea')
+  ta.value = text
+  ta.style.position = 'fixed'
+  ta.style.opacity = '0'
+  document.body.appendChild(ta)
+  ta.select()
+  let ok = false
+  try { ok = document.execCommand('copy') } catch { ok = false }
+  document.body.removeChild(ta)
+  return ok
+}
+
 export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
-  const [copied, setCopied] = useState(null) // null | 'code' | 'link'
+  const [copied, setCopied] = useState(false)
   const [starting, setStarting] = useState(false)
-
   const players = room?.players ?? {}
-  const bothHere = !!(players.white?.connected && players.black?.connected)
+  const myColor = room?.color
+  const oppColor = myColor === 'white' ? 'black' : 'white'
+  const me = players[myColor]
+  const opp = players[oppColor]
+  const bothHere = !!(me?.connected && opp?.connected)
   const isHost = room?.color === room?.host
+  const elapsed = useElapsed(!bothHere)
+  const code = room?.code ?? ''
+  const isPrivate = room?.visibility === 'private'
 
-  function handleStart() {
-    if (starting) return
-    setStarting(true)
-    onStart?.() // 'click' comes from the global button listener (sound.js)
-  }
-  const rowFor = (color) => {
-    const p = players[color]
-    const isMe = color === room?.color
-    return {
-      color,
-      isMe,
-      connected: !!p?.connected,
-      label: p?.connected ? (p.name || 'Подключён') : 'Ждём игрока…',
-      sub: `${color === 'white' ? 'Белые' : 'Чёрные'} · ${isMe ? 'это вы' : p?.connected ? 'в сети' : 'не подключён'}`,
-    }
-  }
-
-  // Shareable deep link — the room's own address (see App.jsx's routing);
-  // opening it walks straight into the room.
-  function inviteLink() {
-    if (typeof window === 'undefined') return ''
-    return `${window.location.origin}/room/${room?.code ?? ''}`
-  }
-
-  async function copyText(text, kind) {
-    let ok = false
-
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(text)
-        ok = true
-      } catch {
-        ok = false
-      }
-    }
-
-    // Fallback for insecure contexts (e.g. testing over a LAN IP without
-    // https, where navigator.clipboard doesn't exist at all) or browsers
-    // without the async clipboard API.
-    if (!ok) {
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.focus()
-      textarea.select()
-      try {
-        ok = document.execCommand('copy')
-      } catch {
-        ok = false
-      }
-      document.body.removeChild(textarea)
-    }
-
-    if (ok) {
-      setCopied(kind)
-      setTimeout(() => setCopied(null), 1800)
-    }
+  async function copyLink() {
+    const ok = await copyText(`${window.location.origin}/room/${code}`)
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800) }
   }
 
   return (
     <div className="wr-screen">
-      <div className="wr-title">Ожидание соперника</div>
-      <div className="wr-subtitle">Короткая пауза перед боем — соперник вот-вот подключится</div>
-
-      <div className="wr-panel">
-        <div className="wr-code-block">
-          <div className="wr-code-labelrow">
-            <span className="wr-code-label">Код комнаты</span>
-            <span className={`wr-vis-badge ${room?.visibility === 'private' ? 'private' : 'public'}`}>
-              {room?.visibility === 'private' ? '🔒 приватное' : '🌐 открытое'}
-            </span>
-          </div>
-          <button className="wr-code-box" onClick={() => copyText(room?.code ?? '', 'code')}>
-            <span className="wr-code-value">{room?.code}</span>
-            <span className="wr-copy-icon">
-              <span />
-            </span>
-          </button>
-          {/* An invite link is the one-tap way in — the recipient never has
-             to find the join screen or type the code at all. */}
-          <button className="wr-link-btn" onClick={() => copyText(inviteLink(), 'link')}>
-            🔗 Скопировать ссылку-приглашение
-          </button>
-          <span className="wr-copy-status">
-            {copied === 'code'
-              ? <span className="wr-copied">Код скопирован!</span>
-              : copied === 'link'
-                ? <span className="wr-copied">Ссылка скопирована!</span>
-                : <span className="wr-copy-hint">отправь код или ссылку другу</span>}
+      <header className="po-header">
+        <button className="ui-btn icon" onClick={onLeave} aria-label={t('wait.cancel')} data-testid="wait-back"><IconBack /></button>
+        <h1 className="po-title">{t('wait.title')}</h1>
+        <div className="po-header-right">
+          <span className="po-me static">
+            <span className="po-me-ini">{(playerName(me) || '?').charAt(0).toUpperCase()}</span>
+            <span className="po-me-name">{playerName(me) || t('lobby.player')}</span>
           </span>
+          <SettingsButton />
         </div>
+      </header>
 
-        <div className="wr-divider" />
+      <div className="wr-main">
+        <section className="ui-panel wr-panel">
+          <span className="wr-vis">
+            {isPrivate ? <IconLock size={16} /> : <IconGlobe size={16} />}
+            {t(isPrivate ? 'wait.private' : 'wait.public')}
+          </span>
+          <div className="wr-code" aria-label={t('wait.code')} data-testid="room-code">
+            {code.split('').map((ch, i) => <span key={i} className={`wr-tile${i % 2 ? ' d' : ''}`} style={{ '--i': i }}>{ch}</span>)}
+          </div>
+          <button className="ui-btn primary big wr-copy" onClick={copyLink}>
+            {copied ? <IconCheck size={20} /> : <IconLink />}
+            {t(copied ? 'wait.linkCopied' : 'wait.copyLink')}
+          </button>
+        </section>
 
-        <div className="wr-players">
-          {['white', 'black'].map(color => {
-            const row = rowFor(color)
-            return (
-              <div key={color} className={`wr-player-row${row.connected ? ' connected' : ' waiting'}${row.isMe ? ' is-me' : ''}`}>
-                <span className={`wr-player-dot p-${color}`} />
-                <div className="wr-player-info">
-                  <div className="wr-player-name">{row.label}{row.isMe && <span className="wr-you-badge">ВЫ</span>}</div>
-                  <div className="wr-player-sub">{row.sub}</div>
-                </div>
-                <span className="wr-status-dot" />
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="wr-divider" />
-
-        {/* Fixed-height action slot — the loader, the start button and the
-           "waiting for host" line all live here at the SAME height so the
-           panel never resizes/jumps as the room fills or the host starts. */}
-        <div className="wr-action">
-          {!bothHere ? (
-            <div className="wr-deal">
-              <div className="wr-deal-pieces">
-                {DEAL_PIECES.map((p, i) => (
-                  <span key={i} className="wr-deal-piece" style={{ animationDelay: `${i * 0.15}s` }}>
-                    {PIECE_ICONS[p.color][p.type]}
-                  </span>
-                ))}
-              </div>
-              <span className="wr-deal-text">Ищем соперника…</span>
+        <div className="wr-seats">
+          <div className="wr-seat me">
+            <span className={`ui-avatar ${myColor}`}><Piece type="king" color={myColor} size={32} center thin /></span>
+            <span className="wr-seat-name">{playerName(me) || t('lobby.player')}</span>
+          </div>
+          <span className="wr-vs">VS</span>
+          {opp?.connected ? (
+            <div className="wr-seat filled">
+              <span className={`ui-avatar ${oppColor}`}><Piece type="king" color={oppColor} size={32} center thin /></span>
+              <span className="wr-seat-name">{playerName(opp) || t('wait.connected')}</span>
             </div>
-          ) : isHost ? (
-            <button className="wr-start-btn" onClick={handleStart} disabled={starting}>
-              {starting ? 'Запускаем…' : 'Начать игру'}
-            </button>
           ) : (
-            <div className="wr-deal">
-              <div className="wr-deal-pieces">
-                {DEAL_PIECES.map((p, i) => (
-                  <span key={i} className="wr-deal-piece" style={{ animationDelay: `${i * 0.15}s` }}>
-                    {PIECE_ICONS[p.color][p.type]}
-                  </span>
-                ))}
-              </div>
-              <span className="wr-deal-text">Хост вот-вот начнёт…</span>
+            <div className="wr-seat free">
+              <span className="wr-seat-ghost"><Piece type="king" color="white" size={30} center thin /></span>
+              <span className="wr-seat-wait">{t('wait.waitingPlayer')}</span>
+              <span className="wr-seat-time ui-num">{elapsed}</span>
             </div>
           )}
         </div>
 
-        <button className="wr-cancel-btn" onClick={onLeave}>Отменить</button>
+        <div className="wr-action">
+          {bothHere && isHost && (
+            <button className="ui-btn primary big" onClick={() => { if (!starting) { setStarting(true); onStart?.() } }} disabled={starting} data-testid="start-game">
+              {t(starting ? 'wait.launching' : 'wait.startGame')}
+            </button>
+          )}
+          {bothHere && !isHost && <span className="wr-note">{t('wait.hostSoon')}</span>}
+        </div>
       </div>
 
-      <div className="wr-error-slot">
-        {errorMsg && (
-          <div className="wr-error" key={errorMsg}>
-            <span className="wr-error-icon">!</span>
-            <span>{errorMsg}</span>
-          </div>
-        )}
-      </div>
+      {errorMsg && <div className="ui-toast" role="status" key={errorMsg}>{errorMsg}</div>}
     </div>
   )
 }

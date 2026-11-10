@@ -1,260 +1,171 @@
-import { useState } from 'react'
+import { t } from '../i18n'
+import { useRef, useState } from 'react'
+import { SettingsButton } from './Settings'
+import { Piece } from '../skins/Piece'
+import { IconBack, IconChevron, IconKey, IconPlus, IconRefresh } from './ui/Icons'
+import Modal from './ui/Modal'
+import NamePlate from './NamePlate'
 import './PlayOnlineMenu.css'
 
-// "Игра по сети" — the lobby browser. Three ways in, all on one screen:
-//   • the live list of open lobbies (public rooms waiting for a second
-//     player — pushed from the server, see rooms.js's broadcastLobbyList)
-//   • create your own (public = listed here for anyone, private = code/link
-//     only)
-//   • join by code, for a private room someone sent you
-//   • play against the AI (see server/bot.js), at one of three levels
-// An invite link (see WaitingRoom) drops straight into a room and never
-// touches this screen at all.
-//
-// `onExit` returns all the way out to the main menu. Back calls it directly
-// rather than fading out first — the main menu's own entrance animation
-// starts immediately that way, with no dead pause.
-const BOT_LEVELS = [
-  { id: 'weak', name: 'Слабый', hint: 'для разминки' },
-  { id: 'normal', name: 'Средний', hint: 'думает на 2 хода' },
-  { id: 'strong', name: 'Сильный', hint: 'думает на 3 хода' },
-]
-const COLORS = [
-  { id: 'white', name: 'Белые' },
-  { id: 'black', name: 'Чёрные' },
-  { id: 'random', name: 'Случайно' },
-]
+const CODE_LEN = 5
+
+function ColorAvatar({ color, size = 'md' }) {
+  if (color === 'random') return <span className={`ui-avatar ${size} random`}><span className="ui-avatar-q">?</span></span>
+  return <span className={`ui-avatar ${size} ${color}`}><Piece type="king" color={color} size={size === 'sm' ? 18 : 26} center thin /></span>
+}
+
+function ColorSeg({ value, onChange }) {
+  return (
+    <div className="ui-seg" role="radiogroup" aria-label={t('lobby.yourColor')}>
+      {['white', 'black', 'random'].map(c => (
+        <button key={c} type="button" role="radio" aria-checked={value === c} className={value === c ? 'on' : ''} onClick={() => onChange(c)}>
+          <ColorAvatar color={c} size="sm" />
+          {t(c === 'white' ? 'common.white' : c === 'black' ? 'common.black' : 'common.random')}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 
 export default function PlayOnlineMenu({
   busy, errorMsg, onCreate, onJoin, onPlayBot, onExit, nickname, onNicknameChange,
-  rooms = [], roomsLoading,
+  rooms = [], roomsLoading, openBot = false, onRefresh,
 }) {
   const [joinCode, setJoinCode] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
-  const [hostColor, setHostColor] = useState('white')
+  const [hostColor, setHostColor] = useState('random')
   const [visibility, setVisibility] = useState('public')
-  const [botOpen, setBotOpen] = useState(false)
+  const [botOpen, setBotOpen] = useState(openBot)
   const [botLevel, setBotLevel] = useState('normal')
   const [botColor, setBotColor] = useState('random')
+  const codeRef = useRef(null)
 
-  function submitCreate() {
-    onCreate(hostColor, visibility)
-    setCreateOpen(false)
+  function setCode(v) {
+    const code = v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LEN)
+    setJoinCode(code)
+    if (code.length === CODE_LEN && !busy) onJoin(code)
   }
 
-  function submitBot() {
-    onPlayBot?.(botLevel, botColor)
-    setBotOpen(false)
+  async function paste() {
+    try {
+      const text = await navigator.clipboard.readText()
+      const m = text.toUpperCase().match(/ROOM\/([A-Z0-9]+)/) ?? text.toUpperCase().match(/[A-Z0-9]{5}/)
+      if (m) setCode(m[1] ?? m[0])
+    } catch {
+      codeRef.current?.focus()
+    }
   }
+
+  const levels = [
+    { id: 'weak', name: t('bot.weak'), hint: t('bot.weakHint') },
+    { id: 'normal', name: t('bot.normal'), hint: t('bot.normalHint') },
+    { id: 'strong', name: t('bot.strong'), hint: t('bot.strongHint') },
+  ]
 
   return (
     <div className="po-screen">
-      <button className="po-back" onClick={onExit} title="Назад в меню">←</button>
-
-      <div className="po-title">Игра по сети</div>
-
-      <div className="po-field">
-        <label className="po-label" htmlFor="po-nickname">Ваш ник</label>
-        <input
-          id="po-nickname"
-          className="po-input"
-          type="text"
-          value={nickname}
-          maxLength={20}
-          onChange={e => onNicknameChange(e.target.value)}
-        />
-      </div>
-
-      {/* The list is the one flexible region — it scrolls inside itself so
-         the screen stays a fixed-viewport dashboard on mobile (no page
-         scroll), same pattern as the draft catalog. */}
-      <div className="po-list-panel">
-        <div className="po-list-head">
-          <span className="po-list-title">Открытые лобби</span>
-          <span className="po-list-count">{rooms.length}</span>
+      <header className="po-header">
+        <button className="ui-btn icon" onClick={onExit} aria-label={t('lobby.back')} data-testid="online-back"><IconBack /></button>
+        <h1 className="po-title">{t('lobby.title')}</h1>
+        <div className="po-header-right">
+          <NamePlate />
+          <SettingsButton />
         </div>
+      </header>
 
-        <div className="po-list">
-          {rooms.length === 0 && (
-            <div className="po-list-empty">
-              {roomsLoading ? 'Ищем игры…' : 'Пока никто не ждёт — создайте своё лобби'}
-            </div>
-          )}
-          {rooms.map(r => (
-            <div className="po-room" key={r.code}>
-              <span className={`po-room-dot p-${r.hostColor}`} />
-              <div className="po-room-body">
-                <span className="po-room-name">{r.hostName || 'Игрок'}</span>
-                <span className="po-room-sub">
-                  играет за {r.hostColor === 'white' ? 'белых' : 'чёрных'} · {r.code}
-                </span>
-              </div>
-              <button
-                className="po-room-join"
-                disabled={busy}
-                onClick={() => onJoin(r.code)}
-              >
-                Войти
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="po-actions">
-        <button className="po-create-btn" disabled={busy} onClick={() => setCreateOpen(true)}>
-          + Создать лобби
-        </button>
-        <button className="po-create-btn po-bot-btn" disabled={busy} onClick={() => setBotOpen(true)}>
-          Играть с ИИ
-        </button>
-        <div className="po-code-join">
+      <div className="po-main">
+        <label className={`po-code${joinCode ? ' typing' : ''}`}>
+          <span className="po-code-ic"><IconKey /></span>
           <input
-            className="po-input po-code-input"
+            ref={codeRef}
             type="text"
-            placeholder="КОД"
+            inputMode="text"
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck="false"
+            placeholder={t('lobby.codePlaceholder')}
             value={joinCode}
-            maxLength={6}
-            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+            maxLength={CODE_LEN}
+            aria-label={t('lobby.codePlaceholder')}
+            onChange={e => setCode(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && joinCode.trim()) onJoin(joinCode.trim()) }}
+            data-testid="code-input"
           />
-          <button
-            className="po-code-btn"
-            disabled={busy || !joinCode.trim()}
-            onClick={() => onJoin(joinCode.trim())}
-          >
-            Войти
-          </button>
+          {joinCode
+            ? <span className="po-code-dots" aria-hidden="true">{Array.from({ length: CODE_LEN }, (_, i) => <i key={i} className={i < joinCode.length ? 'on' : ''} />)}</span>
+            : <button type="button" className="po-paste" onClick={paste}>{t('lobby.paste')}</button>}
+        </label>
+
+        <div className="po-list-head">
+          <span className="po-list-title">{t('lobby.openLobbies')}</span>
+          <span className="po-list-count">{rooms.length}</span>
+          <button className="ui-btn icon po-refresh" onClick={onRefresh} aria-label={t('lobby.refresh')} title={t('lobby.refresh')}><IconRefresh /></button>
         </div>
+
+        <div className="po-list ui-scroll">
+          {rooms.length === 0 && (
+            <div className="po-empty">{t(roomsLoading ? 'lobby.searching' : 'lobby.none')}</div>
+          )}
+          <div className="po-grid">
+            {rooms.map(r => (
+              <button className="po-row" key={r.code} disabled={busy} onClick={() => onJoin(r.code)} data-room={r.code}>
+                <ColorAvatar color={r.hostColor ?? 'random'} />
+                <span className="po-row-name">{r.hostName || t('lobby.player')}</span>
+                <IconChevron />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button className="ui-btn primary po-create" disabled={busy} onClick={() => setCreateOpen(true)} data-testid="create-lobby">
+          <IconPlus /> {t('lobby.create')}
+        </button>
       </div>
 
-      <div className="po-error-slot">
-        {errorMsg && (
-          <div className="po-error" key={errorMsg}>
-            <span className="po-error-icon">!</span>
-            <span>{errorMsg}</span>
-          </div>
-        )}
-      </div>
+      {errorMsg && <div className="ui-toast" role="status" key={errorMsg}>{errorMsg}</div>}
 
       {createOpen && (
-        <div className="po-modal-overlay" onClick={() => setCreateOpen(false)}>
-          <div className="po-modal" onClick={e => e.stopPropagation()}>
-            <div className="po-modal-head">
-              <span className="po-modal-title">Новое лобби</span>
-              <button className="po-modal-close" onClick={() => setCreateOpen(false)} title="Закрыть">✕</button>
-            </div>
-
-            <div className="po-modal-field">
-              <span className="po-modal-label">Кто может зайти</span>
-              <div className="po-opt-row">
-                <button
-                  type="button"
-                  className={`po-opt${visibility === 'public' ? ' selected' : ''}`}
-                  onClick={() => setVisibility('public')}
-                >
-                  <span className="po-opt-name">Открытое</span>
-                  <span className="po-opt-hint">видно в списке</span>
-                  {visibility === 'public' && <span className="po-opt-check">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className={`po-opt${visibility === 'private' ? ' selected' : ''}`}
-                  onClick={() => setVisibility('private')}
-                >
-                  <span className="po-opt-name">Приватное</span>
-                  <span className="po-opt-hint">только по коду</span>
-                  {visibility === 'private' && <span className="po-opt-check">✓</span>}
-                </button>
-              </div>
-            </div>
-
-            <div className="po-modal-field">
-              <span className="po-modal-label">Ваш цвет</span>
-              <div className="po-opt-row">
-                <button
-                  type="button"
-                  className={`po-color-opt${hostColor === 'white' ? ' selected' : ''} white`}
-                  onClick={() => setHostColor('white')}
-                >
-                  <span className="po-color-dot white" /> Белые
-                  {hostColor === 'white' && <span className="po-color-check">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className={`po-color-opt${hostColor === 'black' ? ' selected' : ''} black`}
-                  onClick={() => setHostColor('black')}
-                >
-                  <span className="po-color-dot black" /> Чёрные
-                  {hostColor === 'black' && <span className="po-color-check">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className={`po-color-opt${hostColor === 'random' ? ' selected' : ''} random`}
-                  onClick={() => setHostColor('random')}
-                >
-                  <span className="po-color-dot random" /> Случайно
-                  {hostColor === 'random' && <span className="po-color-check">✓</span>}
-                </button>
-              </div>
-            </div>
-
-            <button className="po-btn po-modal-submit" disabled={busy} onClick={submitCreate}>
-              Создать
-            </button>
+        <Modal
+          title={t('lobby.newLobby')}
+          onClose={() => setCreateOpen(false)}
+          headExtra={<span className="po-modal-kings"><Piece type="king" color="white" size={26} center thin /><Piece type="king" color="black" size={26} center thin /></span>}
+        >
+          <div className="ui-label po-field-label">{t('lobby.yourColor')}</div>
+          <ColorSeg value={hostColor} onChange={setHostColor} />
+          <div className="ui-label po-field-label">{t('lobby.access')}</div>
+          <div className="ui-seg" role="radiogroup" aria-label={t('lobby.access')}>
+            {['public', 'private'].map(v => (
+              <button key={v} type="button" role="radio" aria-checked={visibility === v} className={visibility === v ? 'on' : ''} onClick={() => setVisibility(v)}>
+                {t(v === 'public' ? 'lobby.public' : 'lobby.private')}
+              </button>
+            ))}
           </div>
-        </div>
+          <button className="ui-btn primary big po-modal-submit" disabled={busy} onClick={() => { onCreate(hostColor, visibility); setCreateOpen(false) }} data-testid="create-submit">
+            <IconPlus /> {t('lobby.createBtn')}
+          </button>
+        </Modal>
       )}
 
       {botOpen && (
-        <div className="po-modal-overlay" onClick={() => setBotOpen(false)}>
-          <div className="po-modal" onClick={e => e.stopPropagation()}>
-            <div className="po-modal-head">
-              <span className="po-modal-title">Игра с ИИ</span>
-              <button className="po-modal-close" onClick={() => setBotOpen(false)} title="Закрыть">✕</button>
-            </div>
-
-            <div className="po-modal-field">
-              <span className="po-modal-label">Уровень</span>
-              <div className="po-opt-row">
-                {BOT_LEVELS.map(l => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    className={`po-opt${botLevel === l.id ? ' selected' : ''}`}
-                    onClick={() => setBotLevel(l.id)}
-                  >
-                    <span className="po-opt-name">{l.name}</span>
-                    <span className="po-opt-hint">{l.hint}</span>
-                    {botLevel === l.id && <span className="po-opt-check">✓</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="po-modal-field">
-              <span className="po-modal-label">Ваш цвет</span>
-              <div className="po-opt-row">
-                {COLORS.map(c => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`po-color-opt${botColor === c.id ? ' selected' : ''} ${c.id}`}
-                    onClick={() => setBotColor(c.id)}
-                  >
-                    <span className={`po-color-dot ${c.id}`} /> {c.name}
-                    {botColor === c.id && <span className="po-color-check">✓</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button className="po-btn po-modal-submit" disabled={busy} onClick={submitBot}>
-              Начать
-            </button>
+        <Modal title={t('lobby.botTitle')} onClose={() => setBotOpen(false)}>
+          <div className="ui-label po-field-label">{t('lobby.level')}</div>
+          <div className="ui-seg" role="radiogroup" aria-label={t('lobby.level')}>
+            {levels.map(l => (
+              <button key={l.id} type="button" role="radio" aria-checked={botLevel === l.id} className={botLevel === l.id ? 'on' : ''} onClick={() => setBotLevel(l.id)}>
+                {l.name}
+              </button>
+            ))}
           </div>
-        </div>
+          <p className="po-hint">{levels.find(l => l.id === botLevel)?.hint}</p>
+          <div className="ui-label po-field-label">{t('lobby.yourColor')}</div>
+          <ColorSeg value={botColor} onChange={setBotColor} />
+          <button className="ui-btn primary big po-modal-submit" disabled={busy} onClick={() => { onPlayBot?.(botLevel, botColor); setBotOpen(false) }} data-testid="bot-start">
+            {t('lobby.start')}
+          </button>
+        </Modal>
       )}
+
     </div>
   )
 }

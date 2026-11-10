@@ -1,3 +1,4 @@
+import { boardName } from '../game/boardPatterns'
 import './BoardThumbnail.css'
 
 // Exact miniature of a board pattern — shape + blocked cells precisely, so
@@ -18,7 +19,7 @@ export default function BoardThumbnail({ boardPattern, cellSize = 8 }) {
         width: cols * cellSize,
         height: rows * cellSize,
       }}
-      title={`${boardPattern.name} · ${rows}×${cols}`}
+      title={`${boardName(boardPattern)} · ${rows}×${cols}`}
     >
       {ranks.map(rank => files.map(col => {
         const sq = `${String.fromCharCode(97 + col)}${rank}`
