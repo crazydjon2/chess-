@@ -792,3 +792,25 @@
   .mx-tray-strip { min-height: 86px; }
   .mx-screen .bd-frame { box-shadow: 0 4px 0 var(--board-frame-depth1), 0 8px 0 var(--board-frame-depth2), inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 2px var(--board-frame-rim); border-radius: 14px; }
 }
+
+/* Phones: header never squeezes the exit button; the title clips first,
+   the board name goes on very narrow screens. The recruit piece picker
+   always fits the screen width (options share it). */
+@media (max-width: 600px) {
+  .mx-header-left { flex: 1 1 auto; min-width: 0; gap: 8px; }
+  .mx-header-left > .ui-btn { flex-shrink: 0; }
+  .mx-title-compact { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .mx-title-row { min-width: 0; white-space: nowrap; overflow: hidden; }
+  .mx-title-phase { overflow: hidden; text-overflow: ellipsis; }
+  .mx-actions { flex-shrink: 0; }
+  .mx-actions .ui-btn.keep-lbl { padding: 0 12px; font-size: 14px; }
+  .pk-pop { max-width: calc(100vw - 16px); gap: 4px; padding: 5px; }
+  .pk-opt { flex: 1 1 0; width: auto; min-width: 0; height: 62px; }
+  .pk-opt .pz { width: 30px !important; height: 30px !important; }
+  .pk-ok { flex: 0 0 52px; width: 52px; height: 62px; }
+  .pk-sep { margin: 4px 0; }
+}
+@media (max-width: 380px) {
+  .mx-title-sub { display: none; }
+  .mx-title-row .ui-badge-round { display: none; }
+}

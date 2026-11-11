@@ -49,10 +49,10 @@ function readVar(el, name, fallback) {
 // share of the (projected) square height the base line sits below its centre
 const BASE_DROP = 0.14
 
-export function projectFrame(W, H, tiltDeg, scale) {
+export function projectFrame(W, H, tiltDeg, scale, persp = 2.4) {
   if (!tiltDeg) return { w: W * scale, h: H * scale, cy: 0 }
   const a = (tiltDeg * Math.PI) / 180
-  const P = W * 2.4
+  const P = W * persp
   const oy = H * 0.62
   const proj = (x, y) => {
     const ys = y * scale, xs = x * scale
@@ -90,18 +90,20 @@ function useBoardFit(cols, rows) {
     const co = readVar(el, '--board-coord', COORD)
     const pad = fp * 2 + co
     // pieces on the back rank stand up above the frame: keep room for them
-    const HEAD = 0.45
+    const HEAD = readVar(el, '--board-head', 0.45)
+    // camera distance in frame widths: farther = less perspective widening
+    const persp = readVar(el, '--board-persp', 2.4)
     // projected size is ~proportional to the flat size: two refinements settle it
     let cell = Math.min((w - pad) / cols, (h - pad) / rows)
     for (let i = 0; i < 3; i++) {
       const W = cols * cell + pad, H = rows * cell + pad
-      const p = projectFrame(W, H, tilt, scale)
+      const p = projectFrame(W, H, tilt, scale, persp)
       cell = Math.min((w * W / p.w - pad) / cols, ((h - HEAD * cell) * H / p.h - pad) / rows)
     }
     cell = Math.max(8, Math.floor(cell))
-    const p = projectFrame(cols * cell + pad, rows * cell + pad, tilt, scale)
+    const p = projectFrame(cols * cell + pad, rows * cell + pad, tilt, scale, persp)
     const dy = Math.round(-p.cy + HEAD * cell / 2 - depth / 2)
-    setFit(prev => (prev.cell === cell && prev.tilt === tilt && prev.dy === dy && prev.fp === fp && prev.co === co ? prev : { cell, tilt, dx: 0, dy, fp, co }))
+    setFit(prev => (prev.cell === cell && prev.tilt === tilt && prev.dy === dy && prev.fp === fp && prev.co === co && prev.persp === persp ? prev : { cell, tilt, dx: 0, dy, fp, co, persp }))
   }, [cols, rows])
   useLayoutEffect(() => {
     compute()
@@ -458,8 +460,8 @@ export default function BoardView({
 
   const gridW = cols * cell
   const gridH = rows * cell
-  const frameW = gridW + FRAME_PAD * 2 + COORD
-  const frameH = gridH + FRAME_PAD * 2 + COORD
+  const frameW = gridW + fit.fp * 2 + fit.co
+  const frameH = gridH + fit.fp * 2 + fit.co
 
   return (
     <div className="bd-scene" ref={sceneRef} data-board={boardSkin} {...testAttrs}>
@@ -468,7 +470,7 @@ export default function BoardView({
         <div
           ref={frameRef}
           className={`bd-frame${fit.tilt ? ' tilted' : ''}`}
-          style={{ width: frameW, height: frameH, padding: `${fit.fp}px ${fit.fp}px 0`, gridTemplateColumns: `${fit.co}px auto`, gridTemplateRows: `auto ${fit.co}px`, '--cell': `${cell}px`, '--persp': `${Math.round(frameW * 2.4)}px` }}
+          style={{ width: frameW, height: frameH, padding: `${fit.fp}px ${fit.fp}px 0`, gridTemplateColumns: `${fit.co}px auto`, gridTemplateRows: `auto ${fit.co}px`, '--cell': `${cell}px`, '--persp': `${Math.round(frameW * (fit.persp ?? 2.4))}px` }}
         >
           <div className="bd-ranks" style={{ height: gridH }}>
             {ranks.map(r => <span key={r}>{r}</span>)}

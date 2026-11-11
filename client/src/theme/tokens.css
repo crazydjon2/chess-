@@ -137,9 +137,11 @@
   :root {
     --board-tilt: 22deg;
     --board-scale: 1;
-    --board-pad: 6px;
-    --board-coord: 14px;
-    --board-fill: 0.98;
+    --board-pad: 4px;
+    --board-coord: 12px;
+    --board-fill: 0.99;
     --board-depth: 10px;
+    --board-head: 0.3;     /* less headroom above the back rank */
+    --board-persp: 4;      /* farther camera: the near rank widens less */
   }
 }
