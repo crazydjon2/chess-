@@ -12,7 +12,8 @@
     "balance:quick": "node tools/balance/run.js --preset quick",
     "balance:deep": "node tools/balance/run.js --preset deep",
     "ui-test": "node tools/ui-e2e/run.js",
-    "ui-test:all": "node tools/ui-e2e/run.js --all-profiles"
+    "ui-test:all": "node tools/ui-e2e/run.js --all-profiles",
+    "ui-test:lang": "node tools/ui-e2e/langcheck.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

@@ -30,7 +30,7 @@ function Mini({ cells }) {
 const STEP_BOARDS = [
   { cells: { 1: { p: ['king', 'white'] }, 8: { home: true }, 9: { home: true }, 10: { home: true, p: ['knight', 'black'], ghost: true }, 11: { home: true }, 12: { home: true }, 13: { home: true, p: ['king', 'black'] }, 14: { home: true }, 15: { home: true } }, badge: 'coin' },
   { cells: { 0: { p: ['rook', 'white'] }, 2: { p: ['king', 'white'] }, 4: { dot: true }, 6: { dot: true }, 11: { dot: true }, 13: { p: ['knight', 'black'], sel: true } }, badge: 'card' },
-  { cells: { 5: { p: ['king', 'white'], sel: true }, 10: { p: ['queen', 'black'] }, 12: { p: ['king', 'black'] } }, badge: 'hearts' },
+  { cells: { 5: { p: ['king', 'white'], sel: true }, 10: { p: ['queen', 'black'] }, 12: { p: ['king', 'black'] } } },
 ]
 
 function GameTab() {
@@ -48,10 +48,9 @@ function GameTab() {
               <Mini cells={STEP_BOARDS[i].cells} />
               {STEP_BOARDS[i].badge === 'coin' && <span className="htp-badge coin"><span className="ui-coin" />11</span>}
               {STEP_BOARDS[i].badge === 'card' && <span className="htp-badge card"><CardIcon id="meteor" size={34} radius={8} iconScale={0.6} /></span>}
-              {STEP_BOARDS[i].badge === 'hearts' && <span className="htp-badge hearts"><i className="on" /><i /></span>}
             </div>
             <div className="htp-step-body">
-              <div className="htp-step-title"><span className="htp-num">{i + 1}</span>{s.title}</div>
+              <div className="htp-step-title"><span className="htp-num">{i + 1}</span><span className="htp-step-name">{s.title}</span></div>
               <p className="htp-step-desc">{s.desc}</p>
             </div>
           </div>

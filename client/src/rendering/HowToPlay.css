@@ -55,19 +55,6 @@
 }
 .htp-badge.card { right: -16px; bottom: -14px; transform: rotate(14deg); }
 .htp-badge.card .card-icon { box-shadow: 0 0 0 3px var(--c-accent), 0 4px 0 var(--c-panel-depth); }
-.htp-badge.hearts {
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 4px;
-  padding: 4px 7px;
-  border-radius: 8px;
-  background: var(--c-inset);
-  box-shadow: 0 3px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge);
-}
-.htp-badge.hearts i { width: 9px; height: 9px; border-radius: 50%; background: var(--c-text-mute); }
-.htp-badge.hearts i.on { background: var(--c-heart); }
 .htp-step-title { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 800; font-size: 18px; }
 .htp-num {
   width: 26px;
@@ -213,3 +200,20 @@
   .htp-round-row { font-size: 13px; }
   .htp-card-art .card-icon { height: 96px !important; }
 }
+
+/* long words (es "Reclutamiento", de compounds) wrap instead of pushing
+   the step card past the window */
+.htp-step-body { flex: 1 1 auto; min-width: 0; }
+.htp-step-title { min-width: 0; overflow-wrap: break-word; line-height: 1.15; }
+/* narrow phones: smaller picture so the title gets the room it needs */
+@media (max-width: 600px) { .htp-step-title { font-size: 16px; } }
+@media (max-width: 420px) {
+  .htp-mini { grid-template-columns: repeat(4, 30px); grid-template-rows: repeat(4, 30px); }
+  .htp-step { padding: 12px; gap: 12px; }
+  .htp-step-title { font-size: 15px; gap: 8px; }
+  .htp-rounds .ui-badge-round { font-size: 10px; padding: 3px 6px; max-width: 100%; }
+}
+/* the title shrinks with its card so one long word (es «Reclutamiento»,
+   pt «Recrutamento») still fits whole; breaks only as a last resort */
+.htp-step-body { container-type: inline-size; }
+.htp-step-name { min-width: 0; font-size: min(1em, calc((100cqi - 36px) / 9.5)); overflow-wrap: anywhere; }
