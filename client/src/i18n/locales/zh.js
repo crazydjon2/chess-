@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "画面",
   'settings.liveBackground': "动态背景",
+  // feedback form
+  'feedback.button': "反馈",
+  'feedback.title': "反馈",
+  'feedback.placeholder': "Bug、想法、不爽的地方——直接说",
+  'feedback.send': "发送",
+  'feedback.thanks': "谢谢！我们会看的。",
+  'feedback.error': "发送失败，请重试。",
 }

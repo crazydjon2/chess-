@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "Grafik",
   'settings.liveBackground': "Hareketli arka plan",
+  // feedback form
+  'feedback.button': "Geri bildirim",
+  'feedback.title': "Geri bildirim",
+  'feedback.placeholder': "Hata, fikir, sinir bozan bir şey — yaz",
+  'feedback.send': "Gönder",
+  'feedback.thanks': "Teşekkürler! Okuyacağız.",
+  'feedback.error': "Gönderilemedi. Tekrar dene.",
 }

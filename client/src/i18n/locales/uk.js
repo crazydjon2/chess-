@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "Графіка",
   'settings.liveBackground': "Живий фон",
+  // feedback form
+  'feedback.button': "Написати нам",
+  'feedback.title': "Відгук",
+  'feedback.placeholder': "Баг, ідея, що дратує — пишіть як є",
+  'feedback.send': "Надіслати",
+  'feedback.thanks': "Дякуємо! Прочитаємо.",
+  'feedback.error': "Не надіслалося. Спробуйте ще раз.",
 }

@@ -6,9 +6,12 @@ import App from './App.jsx'
 import { SkinProvider } from './skins/SkinContext'
 import { applyTheme, savedThemeId } from './theme/themes'
 import { installInteractions } from './theme/interactions'
+import { trackVisit } from './analytics'
+import { getLang } from './i18n'
 
 applyTheme(savedThemeId())
 installInteractions()
+trackVisit(getLang())
 
 // No StrictMode wrapper — its dev-mode double-render/double-effect pass
 // made every screen switch do its mount work twice (including OnlineApp's

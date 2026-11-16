@@ -196,3 +196,5 @@
 /* "What's new" lives in the top bar as an icon (dot = unseen notes) */
 .mm-news { position: relative; --mi-bg: var(--c-tile-news); }
 .mm-news .mm-dot { top: -3px; right: -3px; box-shadow: 0 0 0 3px var(--c-panel); }
+/* feedback envelope: gold seal */
+.mm-mail { --mi-c: var(--c-tile-online); }

@@ -21,7 +21,9 @@ export const ABANDONED_ROOM_MS = 5 * 60 * 1000
 // reclaims the seat from a fresh socket after a reload or a dropped
 // connection. Later, a logged-in account can take this token's place.
 function newSeat(socket, name) {
-  return { socketId: socket.id, connected: true, name: sanitizeName(name), token: randomUUID() }
+  // vid: the anonymous analytics visitor id the socket connected with (see
+  // server/analytics.js) — lets game events be credited to that visitor.
+  return { socketId: socket.id, connected: true, name: sanitizeName(name), token: randomUUID(), vid: socket.data?.vid ?? null }
 }
 
 function generateCode() {
@@ -199,10 +201,27 @@ export function setBotHook(fn) { botHook = fn }
 let roundHook = null
 export function setRoundHook(fn) { roundHook = fn }
 
-// Every round ending goes through here, so telemetry sees all of them.
-function endRound(room, match, result) {
+// Product analytics hook (see analytics.js): (room, eventName) for
+// match_start / rematch / round_done / match_done.
+let eventHook = null
+export function setEventHook(fn) { eventHook = fn }
+function emitEvent(room, name) {
+  try { eventHook?.(room, name) } catch (e) { console.error('[events]', e) }
+}
+
+// `match` is the state right before the result, `next` right after.
+function noteRound(room, match, result, next) {
   roundHook?.(room, match, result)
-  return applyRoundResult(match, result)
+  emitEvent(room, 'round_done')
+  if (next.phase === 'match_over') emitEvent(room, 'match_done')
+}
+
+// Every round ending goes through here (plus handleAnswerDraw's agreed
+// draw), so telemetry sees all of them.
+function endRound(room, match, result) {
+  const next = applyRoundResult(match, result)
+  noteRound(room, match, result, next)
+  return next
 }
 
 // Tells everyone in the room the current seat state (who's connected, who
@@ -492,9 +511,10 @@ function handleTurnTimeout(io, room) {
   broadcastMatch(io, room, { type: 'timeout', color })
 }
 
-export function startMatch(io, room) {
+export function startMatch(io, room, { rematch = false } = {}) {
   room.matchId = randomUUID()
   room.match = createMatch()
+  emitEvent(room, rematch ? 'rematch' : 'match_start')
   broadcastMatch(io, room)
   // A started room is no longer joinable — drop it from everyone's browser.
   broadcastLobbyList(io)
@@ -509,7 +529,7 @@ export function handleRematch(io, socket) {
   const other = color === 'white' ? 'black' : 'white'
   const rematch = { white: false, black: false, ...room.match.rematch, [color]: true }
   if (room.players[other]?.bot) rematch[other] = true
-  if (rematch.white && rematch.black) { startMatch(io, room); return }
+  if (rematch.white && rematch.black) { startMatch(io, room, { rematch: true }); return }
   room.match = { ...room.match, rematch }
   broadcastMatch(io, room)
 }
@@ -615,7 +635,7 @@ export function handleAnswerDraw(io, socket, answer) {
   const color = socket.data.color
   const res = tryAnswerDraw(room.match, color, !!accept)
   if (res.error) { socket.emit('game_error', { message: res.error }); return }
-  if (res.ended) roundHook?.(room, room.match, res.match.lastRoundResult)
+  if (res.ended) noteRound(room, room.match, res.match.lastRoundResult, res.match)
   room.match = res.match
   if (res.ended && room.match.phase !== 'match_over') swapPlayerColors(io, room)
   broadcastMatch(io, room, { type: accept ? 'draw_accepted' : 'draw_declined', color })

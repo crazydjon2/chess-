@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "グラフィック",
   'settings.liveBackground': "動く背景",
+  // feedback form
+  'feedback.button': "フィードバック",
+  'feedback.title': "フィードバック",
+  'feedback.placeholder': "バグ、アイデア、不満など何でもどうぞ",
+  'feedback.send': "送信",
+  'feedback.thanks': "ありがとう！必ず読みます。",
+  'feedback.error': "送信できませんでした。もう一度お試しください。",
 }

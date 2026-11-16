@@ -3,6 +3,7 @@ import { useState } from 'react'
 import HowToPlay from './HowToPlay'
 import { SettingsButton } from './Settings'
 import NamePlate from './NamePlate'
+import { FeedbackButton } from './Feedback'
 import { Piece, CardIcon } from '../skins/Piece'
 import { IconRobot, IconHelp, IconMegaphone, IconPalette } from './ui/Icons'
 import './MainMenu.css'
@@ -28,6 +29,7 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, un
           <IconMegaphone size={26} />
           {unseenPatch && <span className="mm-dot" aria-label={t('menu.newBadge')} />}
         </button>
+        <FeedbackButton className="mm-mail" />
         <SettingsButton />
       </div>
 

@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "Grafika",
   'settings.liveBackground': "Animowane tło",
+  // feedback form
+  'feedback.button': "Napisz do nas",
+  'feedback.title': "Opinia",
+  'feedback.placeholder': "Błąd, pomysł, coś irytuje — napisz",
+  'feedback.send': "Wyślij",
+  'feedback.thanks': "Dzięki! Przeczytamy.",
+  'feedback.error': "Nie wysłano. Spróbuj ponownie.",
 }

@@ -1,0 +1,99 @@
+.og {
+  position: relative;
+  width: 1200px;
+  height: 630px;
+  overflow: hidden;
+  background: var(--c-bg);
+  font-family: 'Rubik', system-ui, sans-serif;
+  color: #FFF6E8;
+}
+.og-glow {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(520px 420px at 860px 300px, rgba(242, 181, 68, 0.22), transparent 70%),
+    radial-gradient(600px 500px at 120px 640px, rgba(224, 97, 74, 0.16), transparent 70%);
+}
+/* faint giant checkerboard in the background */
+.og-checks {
+  position: absolute; inset: -40px;
+  background-image: conic-gradient(rgba(255,255,255,0.035) 25%, transparent 0 50%, rgba(255,255,255,0.035) 0 75%, transparent 0);
+  background-size: 120px 120px;
+  transform: rotate(-8deg);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 45%, #000 100%);
+}
+
+/* ── left: name + pitch ─────────────────────────────────────────── */
+.og-left { position: absolute; left: 64px; top: 70px; width: 560px; }
+.og-logo {
+  font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 88px; line-height: 1; letter-spacing: 0.01em;
+  color: #FFF6E8; text-shadow: 0 8px 0 #1A110E;
+}
+.og-logo b { color: var(--c-accent); text-shadow: 0 8px 0 #6E4B10; }
+.og-tag { margin-top: 34px; font-size: 44px; font-weight: 700; line-height: 1.15; color: #F1E5D6; }
+.og-tag em { font-style: normal; color: var(--c-accent); }
+.og-chips { display: flex; gap: 12px; margin-top: 34px; }
+.og-chips span {
+  padding: 10px 18px; border-radius: 999px; font-size: 22px; font-weight: 700;
+  background: rgba(255, 246, 232, 0.08); box-shadow: inset 0 0 0 2px rgba(255, 246, 232, 0.16); color: #F1E5D6;
+}
+.og-url { margin-top: 44px; font-family: 'Unbounded', sans-serif; font-weight: 800; font-size: 30px; color: var(--c-accent); letter-spacing: 0.02em; }
+
+/* ── right: the moment ──────────────────────────────────────────── */
+.og-scene { position: absolute; left: 650px; top: 0; width: 550px; height: 630px; }
+.og-board {
+  --cell: 86px;
+  position: absolute; left: 70px; top: 120px;
+  width: calc(var(--cell) * 5); height: calc(var(--cell) * 5);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 12px; border-radius: 22px;
+  background: var(--board-frame);
+  box-shadow: 0 0 0 4px var(--board-frame-rim), 0 14px 0 var(--board-frame-depth1), 0 30px 50px rgba(0,0,0,0.5);
+  transform: rotate(-7deg);
+}
+.og-sq { box-shadow: var(--board-sq-gloss); }
+.og-sq.lt { background: var(--board-sq-light); }
+.og-sq.dk { background: var(--board-sq-dark); }
+.og-sq:first-child { border-top-left-radius: 10px; }
+.og-sq:nth-child(5) { border-top-right-radius: 10px; }
+.og-sq:nth-child(21) { border-bottom-left-radius: 10px; }
+.og-sq:last-of-type { border-bottom-right-radius: 10px; }
+.og-sq.impact { background: radial-gradient(circle, #FFE3A3 0%, #F26B3A 70%); }
+
+.og-pc, .og-stone {
+  position: absolute;
+  left: calc(12px + var(--c) * var(--cell)); top: calc(12px + var(--r) * var(--cell));
+  width: var(--cell); height: var(--cell);
+  display: grid; place-items: center;
+  transform: rotate(7deg); /* stand upright on the rotated board */
+}
+.og-pc { z-index: 2; }
+.og-pc .pz { filter: drop-shadow(0 4px 0 rgba(30, 15, 10, 0.35)); }
+.og-pc.frozen .pz { filter: drop-shadow(3px 0 0 var(--piece-fx-frozen)) drop-shadow(-3px 0 0 var(--piece-fx-frozen)) drop-shadow(0 3px 0 var(--piece-fx-frozen)) drop-shadow(0 -3px 0 var(--piece-fx-frozen)); }
+.og-pc.shielded .pz { filter: drop-shadow(3px 0 0 var(--piece-fx-shield)) drop-shadow(-3px 0 0 var(--piece-fx-shield)) drop-shadow(0 3px 0 var(--piece-fx-shield)) drop-shadow(0 -3px 0 var(--piece-fx-shield)); }
+.og-pc.hit { z-index: 4; transform: rotate(-28deg) translate(-10px, 6px) scale(1.08); }
+.og-bubble { position: absolute; inset: 2px; border-radius: 50%; border: 4px solid var(--piece-fx-shield); background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.45), rgba(143,162,255,0.12) 55%, transparent 70%); }
+.og-ice { position: absolute; right: -2px; top: -6px; font-size: 30px; color: #DFF6FF; text-shadow: 0 2px 0 #2B6F8A; }
+.og-sweat { position: absolute; right: -14px; top: -16px; font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 30px; color: #FFF6E8; text-shadow: 0 3px 0 #16141F, 0 0 8px rgba(0,0,0,0.4); transform: rotate(14deg); }
+
+.og-burst { position: absolute; z-index: 3; width: 230px; height: 230px; left: calc(12px + 2.5 * var(--cell) - 115px); top: calc(12px + 2.5 * var(--cell) - 115px); }
+.og-bonk {
+  position: absolute; z-index: 5; left: 205px; top: 150px;
+  font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 50px; color: #FFF6E8;
+  -webkit-text-stroke: 3px #16141F; paint-order: stroke fill;
+  text-shadow: 0 6px 0 #16141F; transform: rotate(-4deg);
+}
+
+/* meteor diving in from the top-right */
+.og-meteor { position: absolute; z-index: 6; left: 330px; top: -28px; width: 260px; height: 260px; transform: rotate(36deg); }
+.og-rock { position: absolute; left: 50px; top: 90px; filter: drop-shadow(0 8px 0 rgba(0,0,0,0.35)); }
+.og-rock .card-icon, .og-rock > * { box-shadow: 0 0 0 5px #16141F, 0 0 40px 10px rgba(255, 150, 60, 0.55); }
+.og-trail {
+  position: absolute; left: 82px; top: -170px; width: 90px; height: 290px; border-radius: 45px;
+  background: linear-gradient(180deg, transparent, rgba(255, 198, 90, 0.35) 40%, rgba(255, 140, 60, 0.85));
+  filter: blur(2px);
+}
+
+/* the player's hand peeking in at the bottom */
+.og-hand { position: absolute; z-index: 7; left: 270px; top: 530px; }
+.og-card { position: absolute; left: var(--x); top: var(--y); transform: rotate(var(--a)); filter: drop-shadow(0 10px 0 rgba(0,0,0,0.35)); }
+.og-card > * { box-shadow: 0 0 0 4px #16141F; }

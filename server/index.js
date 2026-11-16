@@ -11,26 +11,40 @@ import {
   handleMove, handlePlayCard, handleSurrender, handleOfferDraw, handleAnswerDraw,
   leaveRoom, handleDisconnect,
   subscribeLobby, unsubscribeLobby, broadcastLobbyList, broadcastMatchTo,
-  setBotHook, setRoundHook,
+  setBotHook, setRoundHook, setEventHook,
 } from './rooms.js'
 import { createBotRoom, onRoomUpdate } from './bot.js'
 import { openStatsDb, createRoundRecorder, DEFAULT_DB, BALANCE_VERSION } from './stats.js'
+import { createAnalytics, rateLimiter, isVid } from './analytics.js'
+import { createFeedback } from './feedback.js'
 import { mountAdmin } from './admin.js'
 
 setBotHook(onRoomUpdate)
 
-// Balance telemetry (see stats.js; read with `npm run stats` or /admin/stats).
-let statsDb = null
+// One SQLite file holds balance telemetry (stats.js), product analytics
+// (analytics.js) and player feedback (feedback.js). STATS=off disables all.
+let statsDb = null, analytics = null, feedback = null
 if (process.env.STATS !== 'off') {
   const file = process.env.STATS_DB || DEFAULT_DB
   try {
     statsDb = await openStatsDb(file)
     setRoundHook(createRoundRecorder(statsDb))
-    console.log(`[stats] recording rounds to ${file} (balance ${BALANCE_VERSION})`)
+    analytics = createAnalytics(statsDb)
+    feedback = createFeedback(statsDb)
+    console.log(`[stats] recording to ${file} (balance ${BALANCE_VERSION})`)
   } catch (e) {
     console.error('[stats] disabled:', e.message)
   }
 }
+
+// Game events → the analytics counters of every human seated in the room.
+setEventHook((room, name) => {
+  if (!analytics) return
+  const event = room.bot ? `bot_${name}` : name
+  for (const seat of [room.players.white, room.players.black]) {
+    if (seat?.vid && !seat.bot) analytics.track(seat.vid, event)
+  }
+})
 
 const PORT = process.env.PORT || 3001
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -38,10 +52,31 @@ const CLIENT_DIST = path.join(__dirname, '../client/dist')
 
 const app = express()
 app.use(cors())
+// Behind the host's proxy (Railway): req.ip = the real client IP, for rate limits.
+app.set('trust proxy', true)
 
 // Must come before the SPA catch-all below.
 app.get('/healthz', (_req, res) => res.send('ok'))
 mountAdmin(app, () => statsDb)
+
+// Bodies arrive as text/plain JSON (navigator.sendBeacon and a "simple"
+// fetch — no CORS preflight from the dev client), parsed here.
+const textBody = (limit) => express.text({ limit, type: () => true })
+function parseJson(s) { try { return JSON.parse(s) } catch { return null } }
+
+const eventsLimit = rateLimiter(60, 60_000)
+app.post('/api/e', textBody('4kb'), (req, res) => {
+  if (analytics && eventsLimit(req.ip)) analytics.ingest(parseJson(req.body))
+  res.status(204).end()
+})
+
+const feedbackLimit = rateLimiter(5, 10 * 60_000)
+app.post('/api/feedback', textBody('16kb'), (req, res) => {
+  if (!feedback) return res.status(503).json({ error: 'err.server' })
+  if (!feedbackLimit(req.ip)) return res.status(429).json({ error: 'err.tooMany' })
+  const ok = feedback.submit(parseJson(req.body))
+  res.status(ok ? 200 : 400).json(ok ? { ok: true } : { error: 'err.badRequest' })
+})
 
 // Serves the built client (client/dist) from this same process/port, so the
 // whole app — game server AND static site — is one deployable service with
@@ -80,6 +115,10 @@ function on(socket, event, handler) {
 }
 
 io.on('connection', (socket) => {
+  // Anonymous analytics id from client/src/analytics.js (io auth payload);
+  // rooms.js copies it onto the seat this socket takes.
+  socket.data.vid = isVid(socket.handshake.auth?.vid) ? socket.handshake.auth.vid : null
+
   // ── Lobby browser ────────────────────────────────────────────────────
   // Subscribing returns the current list immediately AND registers for
   // pushes; the client unsubscribes when it leaves the browse screen so
@@ -99,6 +138,7 @@ io.on('connection', (socket) => {
       return
     }
     reply(res)
+    analytics?.track(socket.data.vid, 'room_create')
     // The creator is now sitting in a room, not browsing — and a new
     // public room just became joinable for everyone who still is.
     unsubscribeLobby(socket)
@@ -128,6 +168,7 @@ io.on('connection', (socket) => {
       return
     }
     reply(res)
+    analytics?.track(socket.data.vid, 'room_join')
     unsubscribeLobby(socket)
 
     // Just let both seats know the room is now full — the HOST decides when
@@ -189,7 +230,7 @@ io.on('connection', (socket) => {
 })
 
 httpServer.listen(PORT, () => {
-  console.log(`Chess+ server listening on http://localhost:${PORT}`)
+  console.log(`Mischess server listening on http://localhost:${PORT}`)
 })
 
 // Hosts stop the container with SIGTERM on every deploy — close the stats DB

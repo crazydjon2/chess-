@@ -36,7 +36,7 @@ export const CARD_DEFS = {
     get desc() { return t('card.smoke_screen.desc') },
     accent: '#7f8c8d',
     glyph:  '☁',
-    cost:   14,
+    cost:   9,
   },
   meteor: {
     id:     'meteor',
@@ -52,7 +52,7 @@ export const CARD_DEFS = {
     get desc() { return t('card.unstable.desc') },
     accent: '#8e44ad',
     glyph:  '☯',
-    cost:   6,
+    cost:   10,
   },
   shield: {
     id:     'shield',

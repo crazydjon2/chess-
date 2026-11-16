@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "Grafica",
   'settings.liveBackground': "Sfondo animato",
+  // feedback form
+  'feedback.button': "Invia feedback",
+  'feedback.title': "Feedback",
+  'feedback.placeholder': "Bug, idea, qualcosa di fastidioso: scrivici",
+  'feedback.send': "Invia",
+  'feedback.thanks': "Grazie! Lo leggeremo.",
+  'feedback.error': "Invio non riuscito. Riprova.",
 }

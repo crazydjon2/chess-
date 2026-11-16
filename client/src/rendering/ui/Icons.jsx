@@ -60,6 +60,9 @@ export function IconHelp({ size = 22 }) {
 export function IconMegaphone({ size = 22 }) {
   return <svg className="ic ic-megaphone mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.megaphone }} />
 }
+export function IconMail({ size = 22 }) {
+  return <svg className="ic ic-mail mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.mail }} />
+}
 export function IconPalette({ size = 22 }) {
   return <svg className="ic ic-palette mi-svg" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" dangerouslySetInnerHTML={{ __html: MENU_ICON_SVG.palette }} />
 }

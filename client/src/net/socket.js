@@ -1,14 +1,6 @@
 import { io } from 'socket.io-client'
-
-// In production the server serves this same built client (see
-// server/index.js), so the socket just connects same-origin — no URL
-// needed at all. In dev, Vite's dev server (5173) and the Node server
-// (3001) are different origins, so that needs pointing out explicitly —
-// same host the page was opened on, so localhost, LAN and VPN addresses all
-// reach the server. VITE_SERVER_URL always overrides both (e.g. testing
-// against a server on another machine from a dev client).
-const SERVER_URL = import.meta.env.VITE_SERVER_URL
-  || (import.meta.env.DEV ? `http://${window.location.hostname}:3001` : undefined)
+import { SERVER_URL } from './serverUrl'
+import { visitorId } from '../analytics'
 
 // Lazily-created singleton — only connects once the player actually enters
 // online mode, not on app load.
@@ -16,7 +8,9 @@ let socket = null
 
 export function getSocket() {
   if (!socket) {
-    socket = io(SERVER_URL, { autoConnect: false })
+    // auth.vid: anonymous analytics id, so the server can count this
+    // visitor's rooms/matches (server/analytics.js).
+    socket = io(SERVER_URL, { autoConnect: false, auth: { vid: visitorId } })
   }
   return socket
 }

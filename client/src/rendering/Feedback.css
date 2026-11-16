@@ -1,0 +1,14 @@
+.po-nick-input.fb-text {
+  height: 150px;
+  padding: 14px 16px;
+  resize: none;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+/* honeypot field: off-screen, never seen or focused by people */
+.fb-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.po-nick-input::placeholder { color: var(--c-text-dim); font-weight: 500; }
+.fb-error { color: var(--c-danger, #e0614a); }
+.fb-thanks { margin: 18px 0 0; font-size: 18px; font-weight: 700; text-align: center; }

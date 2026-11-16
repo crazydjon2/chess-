@@ -361,4 +361,11 @@ export default {
   // redesign (2026-11)
   'settings.graphics': "그래픽",
   'settings.liveBackground': "움직이는 배경",
+  // feedback form
+  'feedback.button': "의견 보내기",
+  'feedback.title': "의견",
+  'feedback.placeholder': "버그, 아이디어, 불편한 점 — 편하게 적어 주세요",
+  'feedback.send': "보내기",
+  'feedback.thanks': "고마워요! 꼭 읽을게요.",
+  'feedback.error': "전송 실패. 다시 시도해 주세요.",
 }

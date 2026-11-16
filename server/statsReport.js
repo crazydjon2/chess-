@@ -1,6 +1,7 @@
 // Balance report from REAL games (rows recorded by stats.js). Used by the
 // CLI (tools/stats/run.js → npm run stats) and by the server's /admin/stats.
 import { BALANCE_VERSION } from './stats.js'
+import { esc, num, pct, date, table, bar, page } from './reportKit.js'
 import { CARD_DEFS } from '../client/src/game/cards.js'
 import { SHOP_PIECE_TYPES, SHOP_PRICES } from '../client/src/game/economy.js'
 
@@ -15,7 +16,7 @@ export function buildStatsReport(all, opts = {}) {
   const { rows, ver, mode, notes } = filter(all, o)
   notes.unshift(...(opts.notes ?? []))
   const a = analyze(rows)
-  const html = render(a, { date: date(Date.now()), ver, mode, notes, versions: versions(all) })
+  const html = render(a, { date: date(Date.now()), ver, mode, notes, versions: versions(all), nav: !!opts.nav })
   const summary = [
     `Раундов: ${a.n} (решённых ${a.decisive}), матчей ${a.matches}, игроков ${a.players} · версия ${ver} · режим ${mode}`,
     ...notes.map(n => '  ! ' + n),
@@ -199,19 +200,7 @@ function versions(all) {
 const PIECE_NAMES = { pawn: 'Пешка', knight: 'Конь', bishop: 'Слон', rook: 'Ладья', queen: 'Ферзь', king: 'Король' }
 function pieceName(t) { return PIECE_NAMES[t] ?? t }
 const END_NAMES = { king_captured: 'Взятие короля', elimination: 'Уничтожение', checkmate: 'Мат', timeout: 'Время', surrender: 'Сдача', draw: 'Ничья', stalemate: 'Пат', no_moves: 'Нет ходов', abandoned: 'Брошен' }
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-const num = (x, d = 0) => (x == null || Number.isNaN(x) ? '—' : Number(x).toFixed(d))
-const pct = x => (x == null || Number.isNaN(x) ? '—' : `${Math.round(x * 100)}%`)
-const date = t => new Date(t).toISOString().slice(0, 16).replace('T', ' ')
 const SEV = { high: ['Важно', 'sev-high'], medium: ['Обратить внимание', 'sev-med'] }
-
-function table(head, rows) {
-  return `<div class="tw"><table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
-}
-function bar(x) {
-  if (x == null || Number.isNaN(x)) return '—'
-  return `<span class="bar"><span style="width:${Math.max(0, Math.min(100, x * 100))}%"></span></span> ${pct(x)}`
-}
 // Sample too small to mean anything → greyed.
 const weak = (n, html, min = 20) => n < min ? `<span class="weak" title="мало данных">${html}</span>` : html
 
@@ -263,21 +252,6 @@ function render(a, meta) {
       meta.versions.map(v => [`<code>${esc(v.ver)}</code>${v.ver === BALANCE_VERSION ? ' <i class="tag">текущая</i>' : ''}`, v.n, v.pvp, date(v.from), date(v.to)])) + '</section>')
   }
 
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Статистика Mischess</title><style>
-:root{--bg:#f7f2e8;--fg:#241708;--muted:#7a6a55;--card:#fffaf0;--line:#e3d8c3;--bar:#c9a227;--high:#c0392b;--med:#d68910;--up:#1e8449;--down:#c0392b}
-@media (prefers-color-scheme:dark){:root{--bg:#1b1712;--fg:#f1e9da;--muted:#b3a58e;--card:#252019;--line:#3a3227;--bar:#d4ac2b;--up:#58d68d;--down:#ec7063}}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header,section{max-width:1100px;margin:0 auto;padding:16px}
-section{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:14px auto}
-h1{margin:8px 0 2px;font-size:24px}h2{margin:0 0 10px;font-size:19px}h3{margin:16px 0 6px;font-size:15px;color:var(--muted)}
-.meta,.hint{color:var(--muted);margin:0 0 8px}.note{margin:6px 0 0;padding:6px 10px;border-left:3px solid var(--med);background:var(--card)}
-.flags{list-style:none;padding:0;margin:0}.flags li{padding:8px 0;border-bottom:1px solid var(--line)}
-.sev{display:inline-block;min-width:92px;font-size:12px;font-weight:700;margin-right:8px;padding:2px 8px;border-radius:999px;color:#fff;text-align:center}
-.sev-high{background:var(--high)}.sev-med{background:var(--med)}
-.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
-.bar{display:inline-block;width:80px;height:8px;background:var(--line);border-radius:4px;vertical-align:middle;overflow:hidden}.bar span{display:block;height:100%;background:var(--bar)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kpis div{border:1px solid var(--line);border-radius:10px;padding:10px}.kpis span{display:block;color:var(--muted);font-size:13px}.kpis b{font-size:22px}.kpis i{color:var(--muted);font-size:12px;margin-left:4px}
-.up{color:var(--up)}.down{color:var(--down)}.weak{opacity:.45}.ci{color:var(--muted);font-size:12px;font-style:normal}.tag{color:var(--muted);font-size:12px}code{font-size:13px}
-</style></head><body>${s.join('\n')}</body></html>`
+  return page('Статистика Mischess', s.join('\n'), meta.nav ? '/admin/stats' : undefined)
 }
 

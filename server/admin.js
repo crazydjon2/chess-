@@ -1,5 +1,7 @@
 // Owner-only pages, behind HTTP Basic auth (any username, password =
-// STATS_KEY). Without STATS_KEY set they don't exist at all (404).
+// STATS_KEY). Without STATS_KEY set they don't exist at all.
+//   /admin/funnel      — visitors → matches funnel, retention, sources (?days=N)
+//   /admin/feedback    — what players wrote in the in-game feedback form
 //   /admin/stats       — the live balance report (same as `npm run stats`);
 //                        ?ver=all|<hash> &mode=pvp|bot|all &days=N
 //   /admin/stats.db    — a consistent copy of the SQLite file, for
@@ -9,6 +11,7 @@ import { tmpdir } from 'os'
 import path from 'path'
 import { unlink } from 'fs'
 import { loadRounds, buildStatsReport } from './statsReport.js'
+import { buildFunnelReport, buildFeedbackPage } from './funnelReport.js'
 
 function sameSecret(a, b) {
   // Hash first so lengths always match (timingSafeEqual requires it).
@@ -33,17 +36,33 @@ export function mountAdmin(app, getDb) {
     res.set('WWW-Authenticate', 'Basic realm="Mischess admin", charset="UTF-8"').status(401).send('Нужен пароль')
   })
 
-  app.get('/admin/stats', (req, res) => {
+  // Every page needs the DB; reply 503 when stats are off.
+  const withDb = (fn) => (req, res) => {
     const db = getDb()
     if (!db) return res.status(503).send('Статистика выключена (STATS=off или нет node:sqlite)')
+    res.set('Cache-Control', 'no-store')
+    fn(db, req, res)
+  }
+
+  app.get('/admin', (_req, res) => res.redirect('/admin/funnel'))
+
+  app.get('/admin/funnel', withDb((db, req, res) => {
+    const days = Math.min(365, Math.max(1, Number(req.query.days) || 14))
+    res.type('html').send(buildFunnelReport(db, { days }))
+  }))
+
+  app.get('/admin/feedback', withDb((db, _req, res) => res.type('html').send(buildFeedbackPage(db))))
+
+  app.get('/admin/stats', withDb((db, req, res) => {
     const { ver, mode, days } = req.query
     const { html } = buildStatsReport(loadRounds(db), {
+      nav: true,
       ...(typeof ver === 'string' && { ver }),
       ...(typeof mode === 'string' && { mode }),
       ...(days && { days: Number(days) }),
     })
-    res.set('Cache-Control', 'no-store').type('html').send(html)
-  })
+    res.type('html').send(html)
+  }))
 
   app.get('/admin/stats.db', (_req, res) => {
     const db = getDb()

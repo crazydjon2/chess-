@@ -7,6 +7,7 @@ import BoardThumbnail from './BoardThumbnail'
 import { Piece, CardIcon } from '../skins/Piece'
 import { IconClose } from './ui/Icons'
 import Overlay from './ui/Overlay'
+import { track } from '../analytics'
 import './HowToPlay.css'
 
 // Tiny 4×4 illustration boards for the "Партия" steps.
@@ -139,6 +140,7 @@ function BoardsTab() {
 
 export default function HowToPlay({ onClose }) {
   const [tab, setTab] = useState('game')
+  useEffect(() => { track('howto_open') }, [])
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)

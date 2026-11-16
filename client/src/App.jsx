@@ -8,6 +8,7 @@ import MainMenu from './rendering/MainMenu'
 import MenuLayout from './rendering/MenuLayout'
 import PageTransition from './rendering/PageTransition'
 import { PATCH_NOTES } from './game/patchNotes'
+import { track } from './analytics'
 // last on purpose: hover/press feedback overrides the screens' own styles
 import './theme/interactions.css'
 
@@ -50,6 +51,9 @@ export default function App() {
   const navigate = useNavigate()
   const mode = modeFor(location.pathname) // null | 'online' | 'sandbox'
   const [patchNotesOpen, setPatchNotesOpen] = useState(false)
+
+  // Funnel step: reached the online screen (browser or a room via invite link).
+  useEffect(() => { if (mode === 'online') track('online_open') }, [mode])
 
   // Old-style invite links (…/?room=KX92F) still work — forwarded to the
   // room's own address.

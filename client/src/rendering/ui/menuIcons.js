@@ -44,6 +44,13 @@ export const MENU_ICON_SVG = {
     <path d="M7 18 H15 L34 8 V40 L15 30 H7 A2 2 0 0 1 5 28 V20 A2 2 0 0 1 7 18 Z M15 18 V30" fill="none" ${st(3.2)}/>
     <path d="M39.5 18.5 A7.5 7.5 0 0 1 39.5 29.5" fill="none" ${st(3.4)}/>`,
 
+  mail: `
+    <rect x="5" y="11" width="38" height="27" rx="4" fill="${W}"/>
+    <path d="M30 11 H39 A4 4 0 0 1 43 15 V34 A4 4 0 0 1 39 38 H30 Z" fill="${SH}"/>
+    <path d="M6.5 13.5 L24 27 L41.5 13.5" fill="none" ${st(3)}/>
+    <rect x="5" y="11" width="38" height="27" rx="4" fill="none" ${st(3.2)}/>
+    <circle cx="38" cy="12" r="5" fill="${ACC}" ${st(2.4)}/>`,
+
   palette: `
     <path d="M24 5 C12.5 5 5 13.5 5 23.5 C5 34 13 43 23.5 43 C27 43 28.5 40.5 28.5 38 C28.5 35 26 34 26 31.5 C26 29 28 27.5 31 27.5 H35.5 C40.5 27.5 43 24 43 19.5 C43 11 34.5 5 24 5 Z" fill="${W}" ${st(3.2)}/>
     <circle cx="14" cy="22.5" r="3.6" fill="#E0614A" ${st(2.2)}/>

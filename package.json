@@ -14,7 +14,8 @@
     "ui-test": "node tools/ui-e2e/run.js",
     "ui-test:all": "node tools/ui-e2e/run.js --all-profiles",
     "ui-test:lang": "node tools/ui-e2e/langcheck.js",
-    "stats": "node --no-warnings=ExperimentalWarning tools/stats/run.js"
+    "stats": "node --no-warnings=ExperimentalWarning tools/stats/run.js",
+    "og": "node tools/og/render.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
