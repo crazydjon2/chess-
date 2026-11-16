@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { isMuted, setMuted, getVolume, setVolume, previewVolume, isMusicOn, setMusicOn, getMusicVolume, setMusicVolume } from '../sound'
 import { LANGUAGES, useLang, setLang, t } from '../i18n'
 import { IconClose, IconDown, IconCheck, IconSettings } from './ui/Icons'
 import { isAmbientOn, setAmbientOn } from './ui/ambientPref'
 import Overlay from './ui/Overlay'
+import { Flag } from './ui/Flags'
 import './Settings.css'
 
 // Language name in the CURRENT UI language ("английский"), shown next to
@@ -15,7 +16,18 @@ function localizedName(code, uiLang) {
 function LangPicker() {
   const lang = useLang()
   const [open, setOpen] = useState(false)
+  // Where the list fits: { up, max } — measured on open so it never runs off-screen.
+  const [place, setPlace] = useState({ up: false, max: 300 })
   const ref = useRef(null)
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return
+    const r = ref.current.getBoundingClientRect()
+    const vh = window.visualViewport?.height ?? window.innerHeight
+    const below = vh - r.bottom - 16
+    const above = r.top - 16
+    const up = below < 300 && above > below
+    setPlace({ up, max: Math.max(120, Math.min(300, up ? above : below)) })
+  }, [open])
   useEffect(() => {
     if (!open) return
     const onDoc = e => { if (!ref.current?.contains(e.target)) setOpen(false) }
@@ -28,12 +40,12 @@ function LangPicker() {
   return (
     <div className="set-lang" ref={ref}>
       <button type="button" className={`set-lang-btn${open ? ' open' : ''}`} onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} aria-label={t('settings.language')}>
-        <span className="set-lang-code">{current.code.toUpperCase()}</span>
+        <Flag code={current.code} className="set-lang-flag" />
         <span className="set-lang-name">{current.label}</span>
         <IconDown up={open} />
       </button>
       {open && (
-        <div className="set-lang-list ui-scroll" role="listbox">
+        <div className={`set-lang-list ui-scroll${place.up ? ' up' : ''}`} role="listbox" style={{ maxHeight: place.max }}>
           {list.map(l => (
             <button
               key={l.code}
@@ -43,7 +55,7 @@ function LangPicker() {
               className={`set-lang-opt${l.code === lang ? ' on' : ''}`}
               onClick={() => { setLang(l.code); setOpen(false) }}
             >
-              <span className="set-lang-code">{l.code.toUpperCase()}</span>
+              <Flag code={l.code} className="set-lang-flag" />
               <span className="set-lang-name" lang={l.code}>{l.label}</span>
               {l.code === lang ? <IconCheck size={18} /> : <span className="set-lang-local">{localizedName(l.code, lang)}</span>}
             </button>

@@ -77,19 +77,13 @@
 }
 .set-lang-btn.open { box-shadow: inset 0 0 0 3px var(--c-accent); }
 .set-lang-btn .set-lang-name { flex: 1; font-size: 17px; font-weight: 700; }
-.set-lang-code {
-  width: 38px;
-  height: 34px;
-  border-radius: var(--r-small);
-  background: var(--c-panel-hi);
-  box-shadow: var(--sh-inset);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--c-text-dim);
+.set-lang-flag {
+  width: 36px;
+  height: 24px;
+  margin-left: 4px;
+  border-radius: 6px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--c-edge);
 }
 .set-lang-list {
   position: absolute;
@@ -97,13 +91,13 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: 5;
-  max-height: min(300px, 50dvh);
   padding: 6px;
   border-radius: 16px;
   background: var(--c-panel);
   box-shadow: 0 6px 0 var(--c-panel-depth), inset 0 0 0 2px var(--c-edge), 0 18px 40px rgba(0,0,0,0.5);
   animation: ui-pop-in 0.18s var(--ease-out) both;
 }
+.set-lang-list.up { top: auto; bottom: calc(100% + 8px); }
 .set-lang-opt {
   height: 42px;
   padding: 0 12px 0 6px;
@@ -118,5 +112,4 @@
 
 @media (max-width: 600px) {
   .set-row { grid-template-columns: 80px 1fr 34px 56px; gap: 10px; }
-  .set-lang-list { top: auto; bottom: calc(100% + 8px); }
 }

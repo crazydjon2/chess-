@@ -185,7 +185,6 @@ export default function GameView({
                   id={card.id}
                   selected={hand.selectedCardId === card.id}
                   disabled={!handActive}
-                  showDesc={hand.selectedCardId === card.id}
                   onClick={() => hand.onCardClick?.(card)}
                 />
               ))}

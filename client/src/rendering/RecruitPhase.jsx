@@ -242,7 +242,6 @@ export default function RecruitPhase({ match, myColor, room, onPick, onDone, onE
                 price={c.cost}
                 disabled={c.disabled && cardSel !== c.id}
                 selected={cardSel === c.id}
-                showDesc={cardSel === c.id}
                 onClick={() => { play('select'); setCell(null); setCardSel(cardSel === c.id ? null : c.id) }}
                 action={cardSel === c.id ? (
                   <button className="ui-btn primary cd-buy" disabled={c.disabled} onClick={e => { e.stopPropagation(); buyCard(c.id) }} data-testid="buy-card">
