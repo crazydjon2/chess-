@@ -25,7 +25,7 @@ export default function MatchLayout({
               {phase === 'sandbox' ? <IconBack /> : <IconExit size={22} />}
             </button>
           )}
-          <div className="mx-logo">CHESS<span>+</span></div>
+          <div className="mx-logo"><span>MIS</span>CHESS</div>
           <div className="mx-title-compact">
             <div className="mx-title-row">
               {round != null && <span className="ui-badge-round sm">{t('score.roundShort', { n: round })}</span>}

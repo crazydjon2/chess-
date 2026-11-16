@@ -217,7 +217,7 @@ const weak = (n, html, min = 20) => n < min ? `<span class="weak" title="мал�
 
 function render(a, meta) {
   const s = []
-  s.push(`<header><h1>Chess+ — статистика живых игр</h1><p class="meta">${esc(meta.date)} · версия баланса ${esc(meta.ver)} · режим ${esc(meta.mode)} · ${a.n} раундов, ${a.matches} матчей, ${a.players} игроков</p>${meta.notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}</header>`)
+  s.push(`<header><h1>Mischess — статистика живых игр</h1><p class="meta">${esc(meta.date)} · версия баланса ${esc(meta.ver)} · режим ${esc(meta.mode)} · ${a.n} раундов, ${a.matches} матчей, ${a.players} игроков</p>${meta.notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}</header>`)
 
   if (!a.n) {
     s.push('<section><p>Данных пока нет. Сыграй несколько раундов на сервере и запусти отчёт снова.</p></section>')
@@ -263,7 +263,7 @@ function render(a, meta) {
       meta.versions.map(v => [`<code>${esc(v.ver)}</code>${v.ver === BALANCE_VERSION ? ' <i class="tag">текущая</i>' : ''}`, v.n, v.pvp, date(v.from), date(v.to)])) + '</section>')
   }
 
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Статистика Chess+</title><style>
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Статистика Mischess</title><style>
 :root{--bg:#f7f2e8;--fg:#241708;--muted:#7a6a55;--card:#fffaf0;--line:#e3d8c3;--bar:#c9a227;--high:#c0392b;--med:#d68910;--up:#1e8449;--down:#c0392b}
 @media (prefers-color-scheme:dark){:root{--bg:#1b1712;--fg:#f1e9da;--muted:#b3a58e;--card:#252019;--line:#3a3227;--bar:#d4ac2b;--up:#58d68d;--down:#ec7063}}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}

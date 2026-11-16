@@ -32,7 +32,7 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, un
       </div>
 
       <div className="mm-center">
-        <h1 className="mm-logo">CHESS<b>+</b></h1>
+        <h1 className="mm-logo"><b>MIS</b>CHESS</h1>
 
         <div className="mm-fan" aria-hidden="true">
           {FAN.map((f, i) => (

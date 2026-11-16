@@ -30,7 +30,7 @@ export function mountAdmin(app, getDb) {
 
   app.use('/admin', (req, res, next) => {
     if (authorized(req, key)) return next()
-    res.set('WWW-Authenticate', 'Basic realm="Chess+ admin", charset="UTF-8"').status(401).send('Нужен пароль')
+    res.set('WWW-Authenticate', 'Basic realm="Mischess admin", charset="UTF-8"').status(401).send('Нужен пароль')
   })
 
   app.get('/admin/stats', (req, res) => {
@@ -52,6 +52,6 @@ export function mountAdmin(app, getDb) {
     // take while the server keeps writing.
     const file = path.join(tmpdir(), `chessplus-stats-${randomUUID()}.db`)
     db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`)
-    res.download(file, `chessplus-stats-${new Date().toISOString().slice(0, 10)}.db`, () => unlink(file, () => {}))
+    res.download(file, `mischess-stats-${new Date().toISOString().slice(0, 10)}.db`, () => unlink(file, () => {}))
   })
 }
