@@ -23,7 +23,7 @@ COPY --from=build /app/server/node_modules server/node_modules
 COPY server server
 # The bot (server/bot.js) reuses the balance lab's AI.
 COPY tools/balance/lib tools/balance/lib
-# Mount a persistent volume here, or the stats are lost on every deploy.
-VOLUME /data
+# Mount a persistent volume at /data (Railway: Volumes tab; docker: -v name:/data),
+# or the stats are lost on every deploy. No VOLUME line — Railway rejects it.
 EXPOSE 3001
 CMD ["node", "--disable-warning=ExperimentalWarning", "server/index.js"]
