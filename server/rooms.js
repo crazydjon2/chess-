@@ -169,6 +169,9 @@ function anyHumanSeated(room) {
 }
 
 function deleteRoom(room) {
+  // A round still being fought when everyone's gone never reaches
+  // applyRoundResult — log it as abandoned so rage-quits show up in stats.
+  if (room.match?.phase === 'battle' && room.match.gameState) roundHook?.(room, room.match, { type: 'abandoned' })
   clearTurnTimer(room)
   clearAbandonCheck(room)
   if (room.bot?.timer) clearTimeout(room.bot.timer)
@@ -190,6 +193,17 @@ function scheduleAbandonCheck(room) {
 // any AI dependency.
 let botHook = null
 export function setBotHook(fn) { botHook = fn }
+
+// Balance telemetry hook (see stats.js) — told about every round that ends,
+// with the match as it stood right before the result was applied.
+let roundHook = null
+export function setRoundHook(fn) { roundHook = fn }
+
+// Every round ending goes through here, so telemetry sees all of them.
+function endRound(room, match, result) {
+  roundHook?.(room, match, result)
+  return applyRoundResult(match, result)
+}
 
 // Tells everyone in the room the current seat state (who's connected, who
 // the host is) WITHOUT starting anything — the lobby uses this to show the
@@ -472,13 +486,14 @@ function handleTurnTimeout(io, room) {
   if (match?.phase !== 'battle' || !match.gameState?.timers) return
   const color = match.gameState.turn
   const oppColor = color === 'white' ? 'black' : 'white'
-  const newMatch = applyRoundResult(match, { type: 'timeout', winner: oppColor, loser: color })
+  const newMatch = endRound(room, match, { type: 'timeout', winner: oppColor, loser: color })
   room.match = newMatch
   if (newMatch.phase !== 'match_over') swapPlayerColors(io, room)
   broadcastMatch(io, room, { type: 'timeout', color })
 }
 
 export function startMatch(io, room) {
+  room.matchId = randomUUID()
   room.match = createMatch()
   broadcastMatch(io, room)
   // A started room is no longer joinable — drop it from everyone's browser.
@@ -542,7 +557,7 @@ function handleDraftTimeout(io, room) {
 function applyBattleResult(io, room, res) {
   let match = { ...room.match, gameState: res.gameState }
   if (res.result) {
-    match = applyRoundResult(match, res.result)
+    match = endRound(room, match, res.result)
     if (match.phase !== 'match_over') swapPlayerColors(io, room)
   }
   room.match = match
@@ -577,7 +592,7 @@ export function handleSurrender(io, socket) {
   if (!room?.match?.gameState || room.match.phase !== 'battle') return
   const color = socket.data.color
   const oppColor = color === 'white' ? 'black' : 'white'
-  const newMatch = applyRoundResult(room.match, { type: 'surrender', winner: oppColor, loser: color })
+  const newMatch = endRound(room, room.match, { type: 'surrender', winner: oppColor, loser: color })
   room.match = newMatch
   if (newMatch.phase !== 'match_over') swapPlayerColors(io, room)
   broadcastMatch(io, room, { type: 'surrender', color })
@@ -600,6 +615,7 @@ export function handleAnswerDraw(io, socket, answer) {
   const color = socket.data.color
   const res = tryAnswerDraw(room.match, color, !!accept)
   if (res.error) { socket.emit('game_error', { message: res.error }); return }
+  if (res.ended) roundHook?.(room, room.match, res.match.lastRoundResult)
   room.match = res.match
   if (res.ended && room.match.phase !== 'match_over') swapPlayerColors(io, room)
   broadcastMatch(io, room, { type: accept ? 'draw_accepted' : 'draw_declined', color })

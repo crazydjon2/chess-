@@ -11,11 +11,26 @@ import {
   handleMove, handlePlayCard, handleSurrender, handleOfferDraw, handleAnswerDraw,
   leaveRoom, handleDisconnect,
   subscribeLobby, unsubscribeLobby, broadcastLobbyList, broadcastMatchTo,
-  setBotHook,
+  setBotHook, setRoundHook,
 } from './rooms.js'
 import { createBotRoom, onRoomUpdate } from './bot.js'
+import { openStatsDb, createRoundRecorder, DEFAULT_DB, BALANCE_VERSION } from './stats.js'
+import { mountAdmin } from './admin.js'
 
 setBotHook(onRoomUpdate)
+
+// Balance telemetry (see stats.js; read with `npm run stats` or /admin/stats).
+let statsDb = null
+if (process.env.STATS !== 'off') {
+  const file = process.env.STATS_DB || DEFAULT_DB
+  try {
+    statsDb = await openStatsDb(file)
+    setRoundHook(createRoundRecorder(statsDb))
+    console.log(`[stats] recording rounds to ${file} (balance ${BALANCE_VERSION})`)
+  } catch (e) {
+    console.error('[stats] disabled:', e.message)
+  }
+}
 
 const PORT = process.env.PORT || 3001
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +38,10 @@ const CLIENT_DIST = path.join(__dirname, '../client/dist')
 
 const app = express()
 app.use(cors())
+
+// Must come before the SPA catch-all below.
+app.get('/healthz', (_req, res) => res.send('ok'))
+mountAdmin(app, () => statsDb)
 
 // Serves the built client (client/dist) from this same process/port, so the
 // whole app — game server AND static site — is one deployable service with
@@ -172,3 +191,12 @@ io.on('connection', (socket) => {
 httpServer.listen(PORT, () => {
   console.log(`Chess+ server listening on http://localhost:${PORT}`)
 })
+
+// Hosts stop the container with SIGTERM on every deploy — close the stats DB
+// cleanly so the WAL is checkpointed into the main file.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    try { statsDb?.close() } catch {}
+    process.exit(0)
+  })
+}

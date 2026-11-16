@@ -111,7 +111,7 @@ function startBattle(match) {
     undefined, timeIncrement
   )
 
-  return { ...match, phase: 'battle', gameState }
+  return { ...match, phase: 'battle', gameState, battleStartedAt: Date.now() }
 }
 
 // Either player may offer a draw at any time during the battle — at most

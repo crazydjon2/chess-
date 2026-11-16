@@ -26,3 +26,7 @@ dist-ssr
 # Tool output (balance lab / UI tester reports)
 tools/balance/reports/
 tools/ui-e2e/reports/
+
+# Balance telemetry DB (server/stats.js)
+server/data/
+tools/stats/reports/

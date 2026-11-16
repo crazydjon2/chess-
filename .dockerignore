@@ -1,0 +1,10 @@
+**/node_modules
+client/dist
+client/design
+client/*.png
+tools
+!tools/balance/lib
+server/data
+.git
+.claude
+**/*.test.js

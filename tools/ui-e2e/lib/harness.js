@@ -25,7 +25,7 @@ export function buildClient() {
 
 export function startServer(port) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, ['server/index.js'], { cwd: ROOT, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] })
+    const proc = spawn(process.execPath, ['server/index.js'], { cwd: ROOT, env: { ...process.env, PORT: String(port), STATS: 'off' /* test matches must not pollute balance stats */ }, stdio: ['ignore', 'pipe', 'pipe'] })
     const logs = []
     const onData = d => {
       const t = d.toString()
