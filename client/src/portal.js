@@ -37,10 +37,17 @@ export function initPortal() {
   return ready
 }
 
-// Room code from a CrazyGames invite link (…?room=KX92F on their page).
+// Room code the game was opened with (a CrazyGames invite link / party).
 export async function portalInviteRoom() {
   await ready
-  try { return sdk?.game?.getInviteParam?.('room') || null } catch { return null }
+  try { return sdk?.game?.inviteParams?.room || sdk?.game?.getInviteParam?.('room') || null } catch { return null }
+}
+
+// A friend invite accepted while the game is already running.
+export function onPortalJoinRoom(cb) {
+  const listener = params => { if (params?.room) cb(String(params.room)) }
+  ready?.then(() => { try { sdk?.game?.addJoinRoomListener?.(listener) } catch { /* ignore */ } })
+  return () => { try { sdk?.game?.removeJoinRoomListener?.(listener) } catch { /* ignore */ } }
 }
 
 // CrazyGames "play with friends": the party leader should land straight in
@@ -50,13 +57,20 @@ export async function portalInstantMultiplayer() {
   try { return !!sdk?.game?.isInstantMultiplayer } catch { return false }
 }
 
-// The portal's own invite button (in its UI, next to the game) while we sit
-// in a room waiting for the opponent; null hides it.
-export function portalInviteButton(code) {
+// Room data for the portal's friends UI: which room we're in and whether a
+// friend can still join it (only while we wait for the opponent). null =
+// we left the room.
+let inRoom = false
+export function portalRoom(code, joinable) {
   ready?.then(() => {
     try {
-      if (code) sdk?.game?.showInviteButton?.({ room: code })
-      else sdk?.game?.hideInviteButton?.()
+      if (code) {
+        inRoom = true
+        sdk?.game?.updateRoom?.({ roomId: code, isJoinable: !!joinable, inviteParams: { room: code } })
+      } else if (inRoom) {
+        inRoom = false
+        sdk?.game?.leftRoom?.()
+      }
     } catch { /* ignore */ }
   })
 }
@@ -64,7 +78,7 @@ export function portalInviteButton(code) {
 // Share link for a room: the portal's own invite URL (never our site).
 export async function portalInviteLink(code) {
   await ready
-  try { return sdk?.game?.inviteLink?.({ room: code }) || null } catch { return null }
+  try { return (await sdk?.game?.inviteLink?.({ room: code })) || null } catch { return null }
 }
 
 // Ref-counted and settled a tick later: recruit → battle unmounts and

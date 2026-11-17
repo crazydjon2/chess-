@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { SettingsButton } from './Settings'
 import { Piece } from '../skins/Piece'
 import { IconBack, IconLink, IconGlobe, IconLock, IconCheck } from './ui/Icons'
-import { PORTAL, portalInviteLink, portalInviteButton } from '../portal'
+import { PORTAL, portalInviteLink } from '../portal'
 import './WaitingRoom.css'
 
 function useElapsed(running) {
@@ -48,16 +48,18 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
   const code = room?.code ?? ''
   const isPrivate = room?.visibility === 'private'
 
-  // portal: its own invite button shows while we wait in a room
+  // portal: the invite must be the portal's own link, never our site —
+  // fetched up front so the copy itself stays a direct click
+  const [portalLink, setPortalLink] = useState(null)
   useEffect(() => {
     if (!PORTAL || !code) return
-    portalInviteButton(code)
-    return () => portalInviteButton(null)
+    let live = true
+    portalInviteLink(code).then(l => { if (live) setPortalLink(l) })
+    return () => { live = false }
   }, [code])
 
   async function copyLink() {
-    // on a portal the invite must be the portal's own link, never our site
-    const link = PORTAL ? await portalInviteLink(code) : `${window.location.origin}/room/${code}`
+    const link = PORTAL ? (portalLink ?? await portalInviteLink(code)) : `${window.location.origin}/room/${code}`
     const ok = await copyText(link ?? code)
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800) }
   }

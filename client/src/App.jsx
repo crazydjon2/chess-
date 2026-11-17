@@ -1,5 +1,5 @@
 import { useLang } from './i18n'
-import { PORTAL, portalInviteRoom, portalInstantMultiplayer } from './portal'
+import { PORTAL, portalInviteRoom, portalInstantMultiplayer, onPortalJoinRoom } from './portal'
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import OnlineApp from './OnlineApp'
@@ -71,6 +71,10 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // portal: a friend invite accepted while the game is open → into that room
+  useEffect(() => (PORTAL ? onPortalJoinRoom(c => navigate(`/room/${c.trim().toUpperCase()}`)) : undefined)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  , [])
   const [unseenPatch, setUnseenPatch] = useState(hasUnseenPatch)
 
   function openPatchNotes() {

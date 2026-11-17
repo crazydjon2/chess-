@@ -1,4 +1,5 @@
 import { t, tErr, playerName } from './i18n'
+import { PORTAL, portalRoom } from './portal'
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
 import { useMatch, useNavigate, useLocation } from 'react-router'
 import GameView from './rendering/GameView'
@@ -262,6 +263,13 @@ export default function OnlineApp({ onExit }) {
     }
     setBusy(false)
   }
+
+  // Portal friends UI: our room, joinable only while the opponent's seat is empty.
+  const roomCode = room?.code ?? null
+  const joinable = phase === 'waiting' && !(room && room.players?.[room.color === 'white' ? 'black' : 'white'])
+  useEffect(() => {
+    if (PORTAL) portalRoom(roomCode, joinable)
+  }, [roomCode, joinable])
 
   const instantDoneRef = useRef(false)
   useEffect(() => {
