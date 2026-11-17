@@ -15,7 +15,10 @@
     "ui-test:all": "node tools/ui-e2e/run.js --all-profiles",
     "ui-test:lang": "node tools/ui-e2e/langcheck.js",
     "stats": "node --no-warnings=ExperimentalWarning tools/stats/run.js",
-    "og": "node tools/og/render.mjs"
+    "og": "node tools/og/render.mjs",
+    "trailer:capture": "node tools/trailer/capture.mjs",
+    "trailer": "node tools/trailer/render.mjs",
+    "trailer:clips": "node tools/trailer/clips.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

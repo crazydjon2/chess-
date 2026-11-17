@@ -229,6 +229,11 @@ export default function RecruitPhase({ match, myColor, room, onPick, onDone, onE
           {started && myTurn && needKing && !cell && (
             <div className="mx-hint" role="status">{t('recruit.placeKing')}</div>
           )}
+          {/* after the king: keep telling new players that squares are the
+              shop, until they've bought their first piece */}
+          {started && myTurn && !needKing && !cell && Object.keys(ds.placed?.[myColor] ?? {}).length < 2 && free.length > 0 && (
+            <div className="mx-hint" role="status">{t('recruit.tapSquare')}</div>
+          )}
         </>
       )}
       right={(

@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Postaw króla na swojej połowie",
+  'recruit.tapSquare': 'Dotknij pola, aby kupić figurę',
   'recruit.free': "za darmo",
   'err.placeKingFirst': "Najpierw postaw króla",
   'battle.start': "Bitwa!",

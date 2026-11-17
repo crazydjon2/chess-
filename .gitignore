@@ -30,3 +30,6 @@ tools/ui-e2e/reports/
 # Balance telemetry DB (server/stats.js)
 server/data/
 tools/stats/reports/
+tools/trailer/footage/
+tools/trailer/.frames/
+tools/trailer/out/

@@ -92,7 +92,18 @@
 .sq-void { fill: var(--board-sq-void); }
 
 /* Flat highlights */
-.hl-home { fill: var(--board-hl-home); }
+/* recruit "tap here": gold frame + light tint on every free square; all
+   frames breathe together, slowly — present but not nagging */
+.hl-home { fill: var(--board-hl-home); stroke: var(--board-hl-home-ring); stroke-width: 7; animation: bd-home-breathe 2.8s ease-in-out infinite; }
+/* appear / disappear: soft fade (leaving frames are kept ~320ms by BoardView) */
+.hl-home-wrap { animation: bd-home-in 0.38s ease-out both; }
+.hl-home-wrap.leaving { animation: bd-home-out 0.3s ease-in forwards; pointer-events: none; }
+@keyframes bd-home-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bd-home-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes bd-home-breathe {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.55; }
+}
 .hl-move { fill: var(--board-hl-move); }
 .hl-capture { fill: var(--board-hl-capture); }
 .hl-card { fill: var(--board-hl-card); animation: bd-breathe 1.6s ease-in-out infinite; }
@@ -279,7 +290,8 @@
 @keyframes bd-core { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .bd-piece.moving, .bd-piece.capturing, .bd-piece.bouncing, .hl-check, .hl-card, .fog-layer, .meteor-ring, .bd-piece.unstable .bd-art { animation: none; }
+  .bd-piece.moving, .bd-piece.capturing, .bd-piece.bouncing, .hl-check, .hl-home, .hl-card, .fog-layer, .meteor-ring, .bd-piece.unstable .bd-art, .hl-home-wrap { animation: none; }
+  .hl-home-wrap.leaving { opacity: 0; }
 }
 
 

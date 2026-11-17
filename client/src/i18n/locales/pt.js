@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Coloque seu rei na sua metade",
+  'recruit.tapSquare': 'Toque numa casa para comprar uma peça',
   'recruit.free': "grátis",
   'err.placeKingFirst': "Coloque o rei primeiro",
   'battle.start': "Batalha!",

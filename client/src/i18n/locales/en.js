@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Place your king on your half",
+  'recruit.tapSquare': 'Tap a square to buy a piece',
   'recruit.free': "free",
   'err.placeKingFirst': "Place your king first",
   'battle.start': "Battle!",

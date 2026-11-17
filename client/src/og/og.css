@@ -97,3 +97,15 @@
 .og-hand { position: absolute; z-index: 7; left: 270px; top: 530px; }
 .og-card { position: absolute; left: var(--x); top: var(--y); transform: rotate(var(--a)); filter: drop-shadow(0 10px 0 rgba(0,0,0,0.35)); }
 .og-card > * { box-shadow: 0 0 0 4px #16141F; }
+
+/* ── itch.io cover (630×500, ?cover): name on top, the moment below ── */
+.og.cover { width: 630px; height: 500px; }
+.og.cover .og-glow { background: radial-gradient(420px 360px at 420px 330px, rgba(242, 181, 68, 0.24), transparent 70%), radial-gradient(400px 300px at 60px 520px, rgba(224, 97, 74, 0.16), transparent 70%); }
+.og.cover .og-left { left: 34px; top: 34px; width: 330px; }
+.og.cover .og-logo { font-size: 52px; text-shadow: 0 5px 0 #1A110E; }
+.og.cover .og-logo b { text-shadow: 0 5px 0 #6E4B10; }
+.og.cover .og-tag { margin-top: 22px; font-size: 28px; }
+.og.cover .og-chips { flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 24px; }
+.og.cover .og-chips span { font-size: 17px; padding: 7px 14px; }
+.og.cover .og-url { margin-top: 26px; font-size: 20px; }
+.og.cover .og-scene { left: 250px; top: 40px; transform: scale(0.74); transform-origin: 0 0; }

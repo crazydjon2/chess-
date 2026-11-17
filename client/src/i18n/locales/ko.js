@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "내 진영에 킹을 놓으세요",
+  'recruit.tapSquare': '칸을 눌러 기물을 구매하세요',
   'recruit.free': "무료",
   'err.placeKingFirst': "먼저 킹을 놓으세요",
   'battle.start': "전투 시작!",

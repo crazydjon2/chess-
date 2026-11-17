@@ -6,6 +6,6 @@ import OgCard from './OgCard'
 
 createRoot(document.getElementById('root')).render(
   <SkinProvider>
-    <OgCard />
+    <OgCard cover={new URLSearchParams(location.search).has('cover')} />
   </SkinProvider>,
 )

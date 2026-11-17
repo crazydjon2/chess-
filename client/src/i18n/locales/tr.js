@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Şahını kendi yarına koy",
+  'recruit.tapSquare': 'Taş almak için bir kareye dokun',
   'recruit.free': "bedava",
   'err.placeKingFirst': "Önce şahını koy",
   'battle.start': "Savaş!",

@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Coloca tu rey en tu mitad",
+  'recruit.tapSquare': 'Toca una casilla para comprar una pieza',
   'recruit.free': "gratis",
   'err.placeKingFirst': "Primero coloca tu rey",
   'battle.start': "¡A luchar!",

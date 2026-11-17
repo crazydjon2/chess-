@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Постав короля на свою половину",
+  'recruit.tapSquare': 'Натисни на клітинку, щоб купити фігуру',
   'recruit.free': "даром",
   'err.placeKingFirst': "Спершу постав короля",
   'battle.start': "Бій!",

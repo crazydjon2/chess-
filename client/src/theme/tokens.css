@@ -73,7 +73,8 @@
   --board-frame-depth2: #150E0C;
   --board-grid-rim: #1A110E;
   --board-coord: #CDB8AA;
-  --board-hl-home: rgba(242, 181, 68, 0.32);     /* recruit: where you can place */
+  --board-hl-home: rgba(242, 181, 68, 0.18);     /* recruit: tint inside a free square */
+  --board-hl-home-ring: #F2B544;                 /* recruit: frame around a free square */
   --board-hl-move: rgba(242, 181, 68, 0.45);     /* legal move */
   --board-hl-capture: rgba(224, 97, 74, 0.55);   /* legal capture */
   --board-hl-select: #F2B544;                    /* selected piece outline */

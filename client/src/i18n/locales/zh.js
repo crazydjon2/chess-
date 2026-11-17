@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "把国王放到你的半场",
+  'recruit.tapSquare': '点击格子购买棋子',
   'recruit.free': "免费",
   'err.placeKingFirst': "请先放置国王",
   'battle.start': "开战！",

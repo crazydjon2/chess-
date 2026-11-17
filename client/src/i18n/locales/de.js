@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "Stell deinen König auf deine Hälfte",
+  'recruit.tapSquare': 'Tippe auf ein Feld, um eine Figur zu kaufen',
   'recruit.free': "gratis",
   'err.placeKingFirst': "Stell zuerst deinen König",
   'battle.start': "Kampf!",

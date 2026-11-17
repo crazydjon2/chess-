@@ -18,9 +18,10 @@ const PIECES = [
   { at: [4, 4], type: 'king', color: 'white' },
 ]
 
-export default function OgCard() {
+// cover: the itch.io cover (630×500) — same scene, stacked layout
+export default function OgCard({ cover = false }) {
   return (
-    <div className="og" data-og-ready="1">
+    <div className={`og${cover ? ' cover' : ''}`} data-og-ready="1">
       <div className="og-glow" />
       <div className="og-checks" />
 

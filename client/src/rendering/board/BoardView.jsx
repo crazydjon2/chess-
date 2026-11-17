@@ -11,7 +11,7 @@
 //                 (and is itself clickable — you click what you see).
 // Piece art comes from the active skin (skins/Piece.jsx); the board only
 // sizes and positions it, so any skin works without touching this file.
-import { useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { squareName, cellXY } from '../../game/coords'
 import { Piece, usePieceSkin } from '../../skins/Piece'
@@ -69,6 +69,26 @@ export function projectFrame(W, H, tiltDeg, scale, persp = 2.4) {
 }
 
 // Largest cell size whose (projected) framed board fits the scene, centred.
+// Squares that just left `list` stay a moment (flagged leaving) so their
+// highlight can fade out instead of vanishing.
+const HOME_FADE_MS = 320
+function useLingering(list) {
+  const key = list.join(' ')
+  const [leaving, setLeaving] = useState([])
+  const prev = useRef(list)
+  useEffect(() => {
+    const now = new Set(list)
+    const gone = prev.current.filter(sq => !now.has(sq))
+    prev.current = list
+    setLeaving(l => [...l.filter(sq => !now.has(sq) && !gone.includes(sq)), ...gone])
+    if (!gone.length) return
+    const t = setTimeout(() => setLeaving(l => l.filter(sq => !gone.includes(sq))), HOME_FADE_MS)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return leaving.filter(sq => !list.includes(sq))
+}
+
 function useBoardFit(cols, rows) {
   const ref = useRef(null)
   const frameRef = useRef(null)
@@ -198,10 +218,27 @@ export default function BoardView({
   })
 
   // ── Flat highlights ───────────────────────────────────────────────
-  const hl = highlights.map(({ square, kind }, i) => {
+  // recruit: a free square must read as "tap me" — a solid gold frame
+  // around the square with a light tint inside, gently breathing; frames
+  // fade in when they appear and fade out (lingering) when they go
+  const homeSquares = highlights.filter(h => h.kind === 'home').map(h => h.square)
+  const homeLeaving = useLingering(homeSquares)
+  const homeEl = (square, leaving) => {
     const { x, y } = atSq(square)
-    return <rect key={`hl-${kind}-${square}-${i}`} x={x * U} y={y * U} width={U} height={U} className={HL_CLASS[kind] ?? 'hl-move'} />
-  })
+    return (
+      <g key={`hl-home-${square}`} className={`hl-home-wrap${leaving ? ' leaving' : ''}`}>
+        <rect x={x * U + 5} y={y * U + 5} width={U - 10} height={U - 10} rx={6} className="hl-home" />
+      </g>
+    )
+  }
+  const hl = [
+    ...homeSquares.map(sq => homeEl(sq, false)),
+    ...homeLeaving.map(sq => homeEl(sq, true)),
+    ...highlights.filter(h => h.kind !== 'home').map(({ square, kind }, i) => {
+      const { x, y } = atSq(square)
+      return <rect key={`hl-${kind}-${square}-${i}`} x={x * U} y={y * U} width={U} height={U} className={HL_CLASS[kind] ?? 'hl-move'} />
+    }),
+  ]
   const ghostTargets = borderTargets
     .filter(sq => !extra.has(sq))
     .map(sq => {

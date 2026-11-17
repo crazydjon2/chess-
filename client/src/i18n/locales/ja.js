@@ -354,6 +354,7 @@ export default {
 
   // redesign (2026-11)
   'recruit.placeKing': "キングを自陣に置こう",
+  'recruit.tapSquare': 'マスをタップして駒を買おう',
   'recruit.free': "無料",
   'err.placeKingFirst': "先にキングを置いてください",
   'battle.start': "対局開始！",

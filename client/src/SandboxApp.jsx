@@ -25,6 +25,9 @@ const SANDBOX_BOARD = { rows: 8, cols: 8, blockedCells: ['d4', 'e5'] }
 const ALL_CARD_IDS = Object.keys(CARD_DEFS)
 
 function freshSandboxState() {
+  // Dev-only: tools/clips injects a staged position to film (never in prod builds).
+  const clip = import.meta.env.DEV && typeof window !== 'undefined' ? window.__clipScenario : null
+  if (clip) return createDraftRoundState(clip.board, clip.white, clip.black, clip.cards.white, clip.cards.black, null)
   return createDraftRoundState(
     SANDBOX_BOARD,
     {
