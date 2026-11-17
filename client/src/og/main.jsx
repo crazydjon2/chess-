@@ -3,9 +3,12 @@ import '../theme/tokens.css'
 import '../theme/base.css'
 import { SkinProvider } from '../skins/SkinContext'
 import OgCard from './OgCard'
+import StoreArt from './StoreArt'
+
+const q = new URLSearchParams(location.search)
 
 createRoot(document.getElementById('root')).render(
   <SkinProvider>
-    <OgCard cover={new URLSearchParams(location.search).has('cover')} />
+    {q.get('store') ? <StoreArt kind={q.get('store')} shots={q.get('shots')} /> : <OgCard cover={q.has('cover')} />}
   </SkinProvider>,
 )

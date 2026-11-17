@@ -109,3 +109,33 @@
 .og.cover .og-chips span { font-size: 17px; padding: 7px 14px; }
 .og.cover .og-url { margin-top: 26px; font-size: 20px; }
 .og.cover .og-scene { left: 250px; top: 40px; transform: scale(0.74); transform-origin: 0 0; }
+
+/* ── store-page section art (StoreArt.jsx, ?store=how|cards) ─────── */
+.st {
+  width: 900px; box-sizing: border-box; padding: 34px 36px 38px;
+  background: #3B2A24; color: #F7EFE8; font-family: 'Rubik', system-ui, sans-serif;
+}
+.st-title {
+  font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 30px; letter-spacing: 0.02em;
+  color: var(--c-accent); text-shadow: 0 4px 0 #1A110E; text-align: center; margin-bottom: 26px;
+}
+.st-steps { display: flex; align-items: flex-start; gap: 14px; }
+.st-step { flex: 1; min-width: 0; }
+.st-arrow { align-self: center; font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 40px; color: var(--c-accent); margin-top: 20px; }
+.st-head { display: flex; align-items: center; gap: 10px; font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 22px; margin-bottom: 12px; }
+.st-num {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: var(--c-accent); color: #2A1D19; font-size: 18px; box-shadow: 0 3px 0 #A97A1E;
+}
+.st-shot { border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 3px #52403A, 0 6px 0 #150E0C; }
+.st-shot img { display: block; width: 100%; }
+.st-step p { margin: 14px 2px 0; font-size: 17px; line-height: 1.4; color: #E6D8CC; }
+.st-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.st-card {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px 12px 12px; border-radius: 14px;
+  background: #2A1D19; box-shadow: inset 0 0 0 2px #52403A, 0 4px 0 #150E0C;
+}
+.st-card > :first-child { flex: none; box-shadow: 0 0 0 2.5px #16141F; }
+.st-card div > b { display: block; font-size: 19px; font-weight: 800; margin-bottom: 3px; }
+.st-card div > span { display: block; font-size: 15px; line-height: 1.3; color: #CDB8AA; }
+.st-card:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 7px); }

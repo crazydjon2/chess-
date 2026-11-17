@@ -1,7 +1,9 @@
 // Store-page images (itch.io etc.) into tools/trailer/out/itch/:
 //   cover.png        630×500 @2x (client/og.html?cover)
 //   1-menu.png …     1280×720 @1.5x screenshots of the real game (English)
-//   node tools/trailer/itch.mjs
+//   store-*.png      description section art (client/src/og/StoreArt.jsx)
+//   node tools/trailer/itch.mjs            # everything
+//   node tools/trailer/itch.mjs --store    # section art only
 // Menu + recruit run against a local game server with the BUILT client
 // (npm run build first); battle shots are staged in the dev sandbox.
 import { chromium } from 'playwright-core'
@@ -40,14 +42,31 @@ async function newPage(viewport = VP, dpr = DPR) {
 const shot = async (page, name) => { await page.screenshot({ path: path.join(OUT, name) }); console.log(name) }
 
 const { createServer } = await import(pathToFileURL(path.join(CLIENT, 'node_modules/vite/dist/node/index.js')).href)
-const vite = await createServer({ root: CLIENT, configFile: path.join(CLIENT, 'vite.config.js'), server: { port: 0 }, logLevel: 'error' })
+const vite = await createServer({ root: CLIENT, configFile: path.join(CLIENT, 'vite.config.js'), server: { port: 0, fs: { allow: [ROOT] } }, logLevel: 'error' })
 await vite.listen()
 const base = vite.resolvedUrls.local[0].replace(/\/$/, '')
 const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], {
   cwd: ROOT, env: { ...process.env, PORT: String(PORT), STATS: 'off' }, stdio: 'ignore',
 })
 
+// --store: only the description section art (needs the screenshots below)
+async function storeArt() {
+  const shots = `/@fs/${OUT.replace(/\\/g, '/')}/`
+  for (const kind of ['how', 'cards']) {
+    const page = await newPage({ width: 900, height: 600 }, 2)
+    await page.goto(`${base}/og.html?store=${kind}&shots=${encodeURIComponent(shots)}`)
+    await page.waitForSelector('[data-og-ready]')
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => Promise.all([...document.images].map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r }))))
+    await sleep(300)
+    await page.locator('.st').screenshot({ path: path.join(OUT, `store-${kind}.png`) })
+    console.log(`store-${kind}.png`)
+    await page.close()
+  }
+}
+
 try {
+  if (process.argv.includes('--store')) { await storeArt(); throw 'done' }
   // ── cover ──
   {
     const page = await newPage({ width: 630, height: 500 }, 2)
@@ -143,6 +162,9 @@ try {
     await shot(page, '2-recruit.png')
     await page.close()
   }
+  await storeArt()
+} catch (e) {
+  if (e !== 'done') throw e
 } finally {
   server.kill()
   await browser.close()

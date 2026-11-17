@@ -43,6 +43,8 @@ export default function OnlineApp({ onExit }) {
   const urlCode = useMatch('/room/:code')?.params.code?.toUpperCase() ?? null
   // Main menu's "Против ИИ" lands here with the bot dialog open.
   const openBotOnEnter = !!useLocation().state?.bot
+  // Portal "play with friends" lands here: straight into a new private room.
+  const instantOnEnter = !!useLocation().state?.instant
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -260,6 +262,17 @@ export default function OnlineApp({ onExit }) {
     }
     setBusy(false)
   }
+
+  const instantDoneRef = useRef(false)
+  useEffect(() => {
+    if (!instantOnEnter || instantDoneRef.current || room) return
+    instantDoneRef.current = true
+    const socket = connectSocket()
+    const go = () => handleCreate('random', 'private')
+    if (socket.connected) go()
+    else socket.once('connect', go)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instantOnEnter])
 
   // A private room against the AI — the server seats the bot and starts
   // the match straight away (see server/bot.js).
