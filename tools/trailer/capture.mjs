@@ -1,6 +1,7 @@
 // Records raw footage for the trailer into tools/trailer/footage/<shot>.mp4.
 //   node tools/trailer/capture.mjs            # all shots
 //   node tools/trailer/capture.mjs draft      # one shot
+//   node tools/trailer/capture.mjs --desktop meteor  # 16:9 desktop layout → footage-desktop/
 // Draft footage is a real match vs the bot on a local game server (built
 // client); battle shots are staged in the dev sandbox (see shots.mjs).
 import { chromium } from 'playwright-core'
@@ -14,12 +15,14 @@ import { SANDBOX_SHOTS } from './shots.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '../..')
 const CLIENT = path.join(ROOT, 'client')
-const FOOTAGE = path.join(HERE, 'footage')
+const DESKTOP = process.argv.includes('--desktop')
+const FOOTAGE = path.join(HERE, DESKTOP ? 'footage-desktop' : 'footage')
 const FRAMES = path.join(HERE, '.frames')
-const VIEWPORT = { width: 432, height: 768 }, DPR = 2.5   // → 1080×1920
+const VIEWPORT = DESKTOP ? { width: 1280, height: 720 } : { width: 432, height: 768 }
+const DPR = DESKTOP ? 1.5 : 2.5   // → 1920×1080 / 1080×1920
 const PORT = 4391
 
-const wanted = process.argv.slice(2)
+const wanted = process.argv.slice(2).filter(a => !a.startsWith('--'))
 const want = id => !wanted.length || wanted.includes(id)
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 fs.mkdirSync(FOOTAGE, { recursive: true })
@@ -160,8 +163,12 @@ async function shootSandbox(ids) {
           await cell(to).click({ force: true }); await wait(pause)
         },
         async card(cardId, target, pause = 1100) {
-          await page.locator(`.mx-tray .cd-tile[data-card="${cardId}"]`).first().click({ force: true }); await wait(420)
-          await page.locator('.cd-pop .cd-pop-main').click({ force: true }); await wait(450)
+          if (DESKTOP) {
+            await page.locator(`.cd-row[data-card="${cardId}"]`).first().click({ force: true }); await wait(600)
+          } else {
+            await page.locator(`.mx-tray .cd-tile[data-card="${cardId}"]`).first().click({ force: true }); await wait(420)
+            await page.locator('.cd-pop .cd-pop-main').click({ force: true }); await wait(450)
+          }
           await cell(target).click({ force: true }); await wait(pause)
         },
       }

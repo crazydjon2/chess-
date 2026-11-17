@@ -31,5 +31,6 @@ tools/ui-e2e/reports/
 server/data/
 tools/stats/reports/
 tools/trailer/footage/
+tools/trailer/footage-desktop/
 tools/trailer/.frames/
 tools/trailer/out/
