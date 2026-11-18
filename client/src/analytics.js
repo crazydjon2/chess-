@@ -3,7 +3,6 @@
 // are batched and sent with sendBeacon; game events (rooms, matches) are
 // counted by the server itself, so only UI-level events are sent from here.
 import { API_BASE } from './net/serverUrl'
-import { PORTAL } from './portal'
 
 const VID_KEY = 'chessplus_vid'
 const VID_RE = /^[a-z0-9]{8,32}$/
@@ -53,7 +52,6 @@ export function track(event) {
 }
 
 function source() {
-  if (PORTAL) return PORTAL // opened inside a portal's iframe
   try {
     const p = new URLSearchParams(location.search)
     const utm = p.get('utm_source') || p.get('ref')

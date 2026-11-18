@@ -1,0 +1,21 @@
+/* Small inline "find opponents on Discord" link (empty lobby, match end). */
+.dc-nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #5865F2;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 3px 0 #3C45A5;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.dc-nudge:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #3C45A5; }
+.dc-nudge:active { transform: translateY(2px); box-shadow: 0 1px 0 #3C45A5; }
+.dc-nudge:focus-visible { outline: 3px solid var(--c-focus, #FFFFFF); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .dc-nudge, .dc-nudge:hover, .dc-nudge:active { transition: none; transform: none; }
+}

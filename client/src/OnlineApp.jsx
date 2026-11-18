@@ -1,5 +1,4 @@
 import { t, tErr, playerName } from './i18n'
-import { PORTAL, portalRoom } from './portal'
 import { useState, useEffect, useReducer, useCallback, useRef } from 'react'
 import { useMatch, useNavigate, useLocation } from 'react-router'
 import GameView from './rendering/GameView'
@@ -7,6 +6,7 @@ import Lobby from './rendering/Lobby'
 import RecruitPhase from './rendering/RecruitPhase'
 import RoundSummary, { resultLine } from './rendering/RoundSummary'
 import ResultModal from './rendering/match/ResultModal'
+import { DiscordNudge } from './rendering/ui/Discord'
 import { SettingsButton } from './rendering/Settings'
 import { IconFlag, IconExit } from './rendering/ui/Icons'
 import { Piece } from './skins/Piece'
@@ -44,8 +44,6 @@ export default function OnlineApp({ onExit }) {
   const urlCode = useMatch('/room/:code')?.params.code?.toUpperCase() ?? null
   // Main menu's "Против ИИ" lands here with the bot dialog open.
   const openBotOnEnter = !!useLocation().state?.bot
-  // Portal "play with friends" lands here: straight into a new private room.
-  const instantOnEnter = !!useLocation().state?.instant
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -263,24 +261,6 @@ export default function OnlineApp({ onExit }) {
     }
     setBusy(false)
   }
-
-  // Portal friends UI: our room, joinable only while the opponent's seat is empty.
-  const roomCode = room?.code ?? null
-  const joinable = phase === 'waiting' && !(room && room.players?.[room.color === 'white' ? 'black' : 'white'])
-  useEffect(() => {
-    if (PORTAL) portalRoom(roomCode, joinable)
-  }, [roomCode, joinable])
-
-  const instantDoneRef = useRef(false)
-  useEffect(() => {
-    if (!instantOnEnter || instantDoneRef.current || room) return
-    instantDoneRef.current = true
-    const socket = connectSocket()
-    const go = () => handleCreate('random', 'private')
-    if (socket.connected) go()
-    else socket.once('connect', go)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instantOnEnter])
 
   // A private room against the AI — the server seats the bot and starts
   // the match straight away (see server/bot.js).
@@ -640,6 +620,7 @@ export default function OnlineApp({ onExit }) {
               secondary={{ label: t('online.toMenu'), onClick: handleLeave }}
               primary={opponentLeft ? undefined : { label: rematch[myColor] ? t('common.waitingOpponent') : t('online.rematch'), onClick: () => getSocket().emit('rematch'), disabled: !!rematch[myColor] }}
               note={!rematch[myColor] && rematch[oppColor] ? t('online.rematchAsked', { name: names[oppColor] }) : null}
+              footer={<DiscordNudge />}
             />
           )}
         </GameView>

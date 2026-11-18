@@ -18,11 +18,8 @@ const PIECES = [
   { at: [4, 4], type: 'king', color: 'white' },
 ]
 
-// variant: '' = the og:image (1200×630); 'cover' = itch.io cover (630×500);
-// 'cg-wide' | 'cg-tall' | 'cg-square' = CrazyGames covers (16:9, 2:3, 1:1)
-// — no URL / store chips there (portals forbid pointing players elsewhere).
+// variant: '' = the og:image (1200×630); 'cover' = itch.io cover (630×500).
 export default function OgCard({ variant = '' }) {
-  const portal = variant.startsWith('cg-')
   return (
     <div className={`og ${variant}`} data-og-ready="1">
       <div className="og-glow" />
@@ -31,10 +28,10 @@ export default function OgCard({ variant = '' }) {
       <div className="og-left">
         <div className="og-logo"><b>MIS</b>CHESS</div>
         <div className="og-tag">Chess, but the cards<br /><em>break the rules.</em></div>
-        {!portal && <div className="og-chips">
+        <div className="og-chips">
           <span>Free</span><span>Online 1v1</span><span>In your browser</span>
-        </div>}
-        {!portal && <div className="og-url">mischess.com</div>}
+        </div>
+        <div className="og-url">mischess.com</div>
       </div>
 
       <div className="og-scene">

@@ -9,6 +9,7 @@ export default function ResultModal({
   me, opp,                          // { color, name, score }
   roundsToWin = 2, showDots = true,
   primary, secondary, note,         // primary/secondary: { label, onClick, disabled, countdownMs }
+  footer,                           // optional extra row under the actions
 }) {
   const side = (p, mine) => (
     <div className="rs-side">
@@ -45,6 +46,7 @@ export default function ResultModal({
           )}
         </div>
         {note && <p className="rs-note">{note}</p>}
+        {footer && <div className="rs-footer">{footer}</div>}
       </div>
     </Overlay>
   )

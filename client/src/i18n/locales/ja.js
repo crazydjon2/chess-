@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': '遊び方',
   'menu.whatsNew': '更新情報',
   'menu.skins': 'ショップ',
+  'community.findOpponents': 'Discordで対戦相手を探す',
   'menu.soon': '近日公開',
   'menu.soonTag': "近日",
   'menu.newBadge': 'NEW',

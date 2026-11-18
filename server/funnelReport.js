@@ -75,7 +75,7 @@ export function buildFunnelReport(db, { days = 14, now = Date.now() } = {}) {
 
   const s = []
   s.push(`<header><h1>Mischess — воронка</h1><p class="meta">${esc(date(now))} UTC · последние ${days} дн. (${from} — ${to}) · <a href="?days=7">7</a> · <a href="?days=30">30</a> · <a href="?days=90">90</a> дн.</p></header>`)
-  s.push(`<section><h2>Воронка</h2><p class="hint">Уникальные посетители за период; доля — от зашедших. Посетитель = браузер (без логина один человек на двух устройствах — два посетителя).</p>${table(['Шаг', 'Посетителей', 'Доля'], funnel(HUMAN_STEPS))}<h3>Игра с ИИ</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel(BOT_STEPS))}</section>`)
+  s.push(`<section><h2>Воронка</h2><p class="hint">Уникальные посетители за период; доля — от зашедших. Посетитель = браузер (без логина один человек на двух устройствах — два посетителя).</p>${table(['Шаг', 'Посетителей', 'Доля'], funnel(HUMAN_STEPS))}<h3>Игра с ИИ</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel(BOT_STEPS))}<h3>Сообщество</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel([['Нажали Discord', ['discord_click']]]))}</section>`)
   s.push(`<section><h2>Возвращаются ли</h2><p class="hint">Из тех, кто впервые зашёл в этот день: какая доля вернулась на следующий день (D1), ровно через неделю (D7), хоть раз за неделю. Для браузерной игры D1 ≥ 20% — хорошо.</p>
     <div class="kpis"><div><span>D1</span><b>${pct(tot('d1', 1) / totSize(1))}</b></div><div><span>D7</span><b>${pct(tot('d7', 7) / totSize(7))}</b></div><div><span>Вернулись за неделю</span><b>${pct(tot('w1', 1) / totSize(1))}</b></div></div>
     ${table(['Первый визит', 'Новых', 'D1', 'D7', 'За неделю'], cohortRows)}</section>`)

@@ -8,7 +8,7 @@
 // matches) are reported by the server itself from rooms.js hooks, using the
 // visitor id the socket presented on connect.
 
-export const CLIENT_EVENTS = new Set(['visit', 'online_open', 'howto_open', 'feedback_open'])
+export const CLIENT_EVENTS = new Set(['visit', 'online_open', 'howto_open', 'feedback_open', 'discord_click'])
 // Match events in a bot room are tracked with a 'bot_' prefix (see
 // index.js's event hook), so human-vs-human play is never mixed with AI play.
 export const SERVER_EVENTS = new Set([

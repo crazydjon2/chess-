@@ -122,6 +122,7 @@
 }
 .po-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .po-empty { padding: 30px 0; text-align: center; color: var(--c-text-dim); }
+.po-empty-dc { margin-top: 14px; }
 .po-row {
   height: 64px;
   border: 0;

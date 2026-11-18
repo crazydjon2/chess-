@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': '玩法',
   'menu.whatsNew': '更新内容',
   'menu.skins': '商店',
+  'community.findOpponents': '在 Discord 上找对手',
   'menu.soon': '即将推出',
   'menu.soonTag': "即将",
   'menu.newBadge': '新',

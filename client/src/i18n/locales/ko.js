@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': '게임 방법',
   'menu.whatsNew': '새로운 소식',
   'menu.skins': '상점',
+  'community.findOpponents': 'Discord에서 상대 찾기',
   'menu.soon': '곧 출시',
   'menu.soonTag': "곧",
   'menu.newBadge': 'NEW',

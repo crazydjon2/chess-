@@ -6,6 +6,7 @@ import NamePlate from './NamePlate'
 import { FeedbackButton } from './Feedback'
 import { Piece, CardIcon } from '../skins/Piece'
 import { IconRobot, IconHelp, IconMegaphone, IconPalette } from './ui/Icons'
+import { DiscordLink, IconDiscord } from './ui/Discord'
 import './MainMenu.css'
 
 const FAN = [
@@ -66,6 +67,9 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, un
             <button className="mm-minor" onClick={() => setHowToPlayOpen(true)} data-testid="menu-howto">
               <span className="mm-mi help"><IconHelp /></span>{t('menu.howToPlay')}
             </button>
+            <DiscordLink className="mm-minor" data-testid="menu-discord">
+              <span className="mm-mi discord"><IconDiscord /></span>Discord
+            </DiscordLink>
             <button className="mm-minor off" disabled title={t('menu.soon')}>
               <span className="mm-mi skins"><IconPalette /></span>{t('menu.skins')}
               <span className="mm-soon">{t('menu.soonTag')}</span>

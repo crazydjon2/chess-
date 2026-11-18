@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': 'Jak grać',
   'menu.whatsNew': 'Co nowego',
   'menu.skins': 'Sklep',
+  'community.findOpponents': 'Szukaj przeciwników na Discordzie',
   'menu.soon': 'Wkrótce',
   'menu.soonTag': "wkrótce",
   'menu.newBadge': 'NOWE',

@@ -139,22 +139,3 @@
 .st-card div > b { display: block; font-size: 19px; font-weight: 800; margin-bottom: 3px; }
 .st-card div > span { display: block; font-size: 15px; line-height: 1.3; color: #CDB8AA; }
 .st-card:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 7px); }
-
-/* ── CrazyGames covers (?cover=cg-wide|cg-tall|cg-square) ─────────── */
-.og.cg-wide { width: 1200px; height: 675px; }
-.og.cg-wide .og-left { top: 190px; }
-.og.cg-wide .og-logo { font-size: 84px; }
-.og.cg-wide .og-tag { font-size: 44px; }
-.og.cg-wide .og-scene { top: 22px; left: 680px; }
-
-.og.cg-tall, .og.cg-square { display: flex; flex-direction: column; align-items: center; }
-.og.cg-tall { width: 800px; height: 1200px; }
-.og.cg-square { width: 800px; height: 800px; }
-.og.cg-tall .og-left, .og.cg-square .og-left { position: relative; left: auto; top: auto; width: auto; text-align: center; margin-top: 70px; z-index: 8; }
-.og.cg-square .og-left { margin-top: 44px; }
-.og.cg-tall .og-logo { font-size: 104px; }
-.og.cg-square .og-logo { font-size: 92px; }
-.og.cg-tall .og-tag { font-size: 50px; margin-top: 28px; }
-.og.cg-square .og-tag { display: none; }
-.og.cg-tall .og-scene { left: 90px; top: 380px; transform: scale(1.18); transform-origin: 0 0; }
-.og.cg-square .og-scene { left: 92px; top: 150px; transform: scale(1.0); transform-origin: 0 0; }

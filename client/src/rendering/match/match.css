@@ -528,6 +528,7 @@
   animation: rs-bar linear both;
 }
 .rs-note { font-size: 13px; color: var(--c-text-dim); margin-top: 12px; }
+.rs-footer { margin-top: 14px; display: flex; justify-content: center; }
 @keyframes rs-bar { from { width: 100%; } to { width: 0; } }
 @keyframes rs-spin { to { transform: rotate(360deg); } }
 

@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': 'Як грати',
   'menu.whatsNew': 'Що нового',
   'menu.skins': 'Магазин',
+  'community.findOpponents': 'Шукай суперників у Discord',
   'menu.soon': 'Скоро',
   'menu.soonTag': "скоро",
   'menu.newBadge': 'НОВЕ',

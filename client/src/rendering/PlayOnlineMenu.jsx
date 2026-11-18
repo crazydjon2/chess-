@@ -5,6 +5,7 @@ import { Piece } from '../skins/Piece'
 import { IconBack, IconChevron, IconKey, IconPlus, IconRefresh } from './ui/Icons'
 import Modal from './ui/Modal'
 import NamePlate from './NamePlate'
+import { DiscordNudge } from './ui/Discord'
 import './PlayOnlineMenu.css'
 
 const CODE_LEN = 5
@@ -105,7 +106,10 @@ export default function PlayOnlineMenu({
 
         <div className="po-list ui-scroll">
           {rooms.length === 0 && (
-            <div className="po-empty">{t(roomsLoading ? 'lobby.searching' : 'lobby.none')}</div>
+            <div className="po-empty">
+              {t(roomsLoading ? 'lobby.searching' : 'lobby.none')}
+              {!roomsLoading && <div className="po-empty-dc"><DiscordNudge /></div>}
+            </div>
           )}
           <div className="po-grid">
             {rooms.map(r => (

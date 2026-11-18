@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': 'Nasıl oynanır',
   'menu.whatsNew': 'Yenilikler',
   'menu.skins': 'Mağaza',
+  'community.findOpponents': "Discord'da rakip bul",
   'menu.soon': 'Yakında',
   'menu.soonTag': "yakında",
   'menu.newBadge': 'YENİ',

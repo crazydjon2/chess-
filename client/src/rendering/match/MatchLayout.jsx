@@ -1,6 +1,4 @@
-import { useEffect } from 'react'
 import { t } from '../../i18n'
-import { portalGameplay } from '../../portal'
 import { boardName } from '../../game/boardPatterns'
 import { IconBack, IconExit } from '../ui/Icons'
 import './match.css'
@@ -18,12 +16,6 @@ export default function MatchLayout({
   const size = boardPattern ? `${boardPattern.cols}×${boardPattern.rows}` : ''
   const bName = boardPattern?.id ? boardName(boardPattern) : ''
   const sub = [bName, size].filter(Boolean).join(' · ')
-  // portals want to know when the player is actually in a match
-  useEffect(() => {
-    if (phase === 'sandbox') return
-    portalGameplay(true)
-    return () => portalGameplay(false)
-  }, [phase])
   return (
     <div className={`mx-screen ${phase} ${className}`}>
       <header className="mx-header">

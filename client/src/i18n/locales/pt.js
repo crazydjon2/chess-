@@ -108,6 +108,7 @@ export default {
   'menu.howToPlay': 'Como jogar',
   'menu.whatsNew': 'Novidades',
   'menu.skins': 'Loja',
+  'community.findOpponents': 'Encontre adversários no Discord',
   'menu.soon': 'Em breve',
   'menu.soonTag': "em breve",
   'menu.newBadge': 'NOVO',
