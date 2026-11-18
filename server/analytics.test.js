@@ -23,7 +23,7 @@ describe('analytics', () => {
       { day, vid: VID, event: 'online_open', n: 3 },
       { day, vid: VID, event: 'visit', n: 1 },
     ])
-    expect({ ...db.prepare('SELECT * FROM visitors').get() }).toEqual({ vid: VID, first_day: day, source: 'reddit', lang: 'en', device: 'mobile' })
+    expect({ ...db.prepare('SELECT * FROM visitors').get() }).toEqual({ vid: VID, first_day: day, source: 'reddit', lang: 'en', device: 'mobile', ua: '' })
   })
 
   it('keeps the first visit attribution', () => {
@@ -31,6 +31,20 @@ describe('analytics', () => {
     day = '2026-11-17'
     a.ingest({ vid: VID, events: ['visit'], meta: { source: 'tiktok' } })
     expect(db.prepare('SELECT first_day, source FROM visitors').get()).toMatchObject({ first_day: '2026-11-16', source: 'reddit' })
+  })
+
+  it('stores the first visit User-Agent, clipped', () => {
+    a.ingest({ vid: VID, events: ['visit'] }, 'HeadlessChrome/131 ' + 'x'.repeat(500))
+    const ua = db.prepare('SELECT ua FROM visitors').get().ua
+    expect(ua.startsWith('HeadlessChrome/131')).toBe(true)
+    expect(ua.length).toBe(200)
+  })
+
+  it('adds the ua column to an older visitors table', async () => {
+    const old = await openStatsDb(':memory:')
+    old.exec("CREATE TABLE visitors (vid TEXT PRIMARY KEY, first_day TEXT NOT NULL, source TEXT, lang TEXT, device TEXT)")
+    createAnalytics(old).ingest({ vid: VID, events: ['visit'] }, 'Mozilla/5.0')
+    expect(old.prepare('SELECT ua FROM visitors').get().ua).toBe('Mozilla/5.0')
   })
 
   it('ignores junk: bad ids, unknown events, non-objects', () => {

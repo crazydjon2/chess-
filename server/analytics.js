@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS visitors (
   first_day TEXT NOT NULL,      -- YYYY-MM-DD (UTC)
   source    TEXT,               -- utm_source or referrer host, '' = direct
   lang      TEXT,
-  device    TEXT                -- 'mobile' | 'desktop'
+  device    TEXT,               -- 'mobile' | 'desktop'
+  ua        TEXT                -- User-Agent header of the first visit (clipped), to spot bots/scanners
 );
 CREATE TABLE IF NOT EXISTS daily (
   day   TEXT NOT NULL,
@@ -44,8 +45,10 @@ const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : null)
 
 export function createAnalytics(db, { now = () => Date.now() } = {}) {
   db.exec(SCHEMA)
+  // Older databases predate the ua column.
+  if (!db.prepare('PRAGMA table_info(visitors)').all().some(c => c.name === 'ua')) db.exec('ALTER TABLE visitors ADD COLUMN ua TEXT')
   const bump = db.prepare('INSERT INTO daily (day, vid, event) VALUES (?, ?, ?) ON CONFLICT(day, vid, event) DO UPDATE SET n = n + 1')
-  const addVisitor = db.prepare('INSERT OR IGNORE INTO visitors (vid, first_day, source, lang, device) VALUES (?, ?, ?, ?, ?)')
+  const addVisitor = db.prepare('INSERT OR IGNORE INTO visitors (vid, first_day, source, lang, device, ua) VALUES (?, ?, ?, ?, ?, ?)')
 
   function track(vid, event) {
     if (!isVid(vid)) return
@@ -53,7 +56,8 @@ export function createAnalytics(db, { now = () => Date.now() } = {}) {
   }
 
   // Body of POST /api/e: { vid, events: string[], meta?: { source, lang, device } }
-  function ingest(body) {
+  // ua = the request's User-Agent header (stored only for a visitor's first visit).
+  function ingest(body, ua = '') {
     if (!body || !isVid(body.vid) || !Array.isArray(body.events)) return false
     const events = body.events.filter(e => CLIENT_EVENTS.has(e)).slice(0, 20)
     if (!events.length) return false
@@ -61,7 +65,7 @@ export function createAnalytics(db, { now = () => Date.now() } = {}) {
       db.exec('BEGIN')
       if (events.includes('visit')) {
         const m = body.meta ?? {}
-        addVisitor.run(body.vid, today(now()), clip(m.source, 60) ?? '', clip(m.lang, 8), m.device === 'mobile' ? 'mobile' : 'desktop')
+        addVisitor.run(body.vid, today(now()), clip(m.source, 60) ?? '', clip(m.lang, 8), m.device === 'mobile' ? 'mobile' : 'desktop', clip(ua, 200) ?? '')
       }
       for (const e of events) bump.run(today(now()), body.vid, e)
       db.exec('COMMIT')

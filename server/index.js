@@ -66,7 +66,7 @@ function parseJson(s) { try { return JSON.parse(s) } catch { return null } }
 
 const eventsLimit = rateLimiter(60, 60_000)
 app.post('/api/e', textBody('4kb'), (req, res) => {
-  if (analytics && eventsLimit(req.ip)) analytics.ingest(parseJson(req.body))
+  if (analytics && eventsLimit(req.ip)) analytics.ingest(parseJson(req.body), req.get('user-agent'))
   res.status(204).end()
 })
 
