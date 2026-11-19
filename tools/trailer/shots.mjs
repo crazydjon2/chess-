@@ -76,6 +76,19 @@ export const SANDBOX_SHOTS = {
     tail: 900,
   },
 
+  // Meme "back rank mate?": boxed king, black rook already on the back
+  // rank. Stone on d1 → the rook smashes into it and bounces.
+  backrank: {
+    position: pos('Ke1 Pd2 Pe2 Pf2 Ne3', 'Kc5 Ra1 Pd5 Pe5', { white: ['barricade', 'meteor', 'shield'] }),
+    async play(a) {
+      await a.sleep(1200) // still frame for the question
+      await a.card('barricade', 'd1', 1000) // a card doesn't end the turn
+      await a.move('e3', 'c2', 700)
+      await a.move('a1', 'd1', 1600) // hits the stone: 2 HP → 1, rook bounces
+    },
+    tail: 900,
+  },
+
   // Unstable: the enemy queen starts shape-shifting.
   unstable: {
     position: pos('Ke1 Qc1 Pa2 Pb2 Nb1', 'Kf6 Qd4 Ra6 Pe5 Pf5', { white: ['unstable', 'meteor', 'shield'] }),

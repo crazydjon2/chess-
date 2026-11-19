@@ -47,7 +47,11 @@
   --lift: 0px;
   --press: 1;
   transform: perspective(900px) rotateX(calc(var(--ty, 0) * var(--fx-tilt) * -1)) rotateY(calc(var(--tx, 0) * var(--fx-tilt))) translateY(var(--lift)) scale(var(--press));
-  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease, filter 0.18s ease;
+  /* Only transform is eased (runs on the compositor). Shadow/filter swap
+     instantly: easing them repainted the tile — and, without its own layer,
+     the whole page — on every frame, halving the frame rate while hovering. */
+  transition: transform 0.18s var(--ease-out);
+  will-change: transform;
 }
 [data-tilt]:active { --press: 0.97; --lift: var(--fx-press); }
 @media (hover: hover) and (pointer: fine) {
@@ -68,7 +72,8 @@
   .mm-minor:hover:not(:disabled) .mm-mi .ic { transform: rotate(-10deg) scale(1.15); }
   .mm-minor.off:hover .mm-soon { animation: fx-nudge 0.4s ease; }
 }
-.mm-minor { transition: transform var(--fx-speed) var(--ease-pop), box-shadow var(--fx-speed) ease, filter 0.15s ease; }
+.mm-minor { transition: transform var(--fx-speed) var(--ease-pop); will-change: transform; } /* see [data-tilt] */
+.mm-hero-art .pz { will-change: transform; }
 .mm-minor:active:not(:disabled) { transform: translateY(var(--fx-press)) scale(0.98); }
 @keyframes fx-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px) rotate(-4deg); } 60% { transform: translateY(-14px) rotate(4deg); } }
 @keyframes fx-nudge { 0%, 100% { transform: none; } 30% { transform: translateX(-3px) rotate(-3deg); } 70% { transform: translateX(3px) rotate(3deg); } }

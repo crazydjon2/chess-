@@ -3,6 +3,7 @@
 // Footage: tools/trailer/capture.mjs (432×768 logical, 9:16); `from`/`to`
 // and every `at` below are seconds in that footage.
 import { CardIcon } from '../skins/Piece'
+import { QUIZZES, QUIZ_H, QuizClip, quizDuration } from './Quiz'
 import './trailer.css'
 
 export const CLIP_W = 432, CLIP_H = 540
@@ -49,8 +50,11 @@ export const CLIPS = {
     title: 'STONE', sub: 'the rook bounces off', color: '#9BC46A',
     stamp: { at: 3.8, text: 'CLONK!' }, cy: 330, z0: 1, z1: 1.06,
   },
+
+  // 9:16 meme quizzes (Quiz.jsx)
+  ...Object.fromEntries(Object.entries(QUIZZES).map(([id, q]) => [id, { src: q.src, h: QUIZ_H, quiz: q }])),
 }
-export const clipDuration = c => (c.to - c.from) / (c.speed ?? 1) + END
+export const clipDuration = c => c.quiz ? quizDuration(c.quiz) : (c.to - c.from) / (c.speed ?? 1) + END
 
 function Stamp({ t, t0, text, color }) {
   const lt = t - t0
@@ -79,6 +83,7 @@ function EndCard({ t }) {
 
 export function Clip({ id, t, footage }) {
   const c = CLIPS[id]
+  if (c.quiz) return <QuizClip c={c.quiz} t={t} footage={footage} />
   const body = (c.to - c.from) / (c.speed ?? 1)
   const ft = Math.min(c.to, c.from + t * (c.speed ?? 1)) // footage time
   const zoom = lerp(c.z0, c.z1, easeOut(prog(t, 0, body)))

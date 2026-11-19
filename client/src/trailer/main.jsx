@@ -5,6 +5,7 @@ import '../theme/base.css'
 import { SkinProvider } from '../skins/SkinContext'
 import Trailer, { DURATION, SOURCES as TRAILER_SOURCES } from './Trailer'
 import { Clip, CLIPS, clipDuration } from './Clips'
+import { quizSfx } from './Quiz'
 
 // window.__seek(t): render the frame at time t (seconds) — videos seeked,
 // DOM updated, two frames painted — then resolve. Driven by
@@ -21,6 +22,7 @@ function draw(t) {
 }
 
 window.__duration = clip ? clipDuration(CLIPS[clip]) : DURATION
+window.__sfx = clip && CLIPS[clip].quiz ? quizSfx(CLIPS[clip].quiz) : null // sound cues → clips.mjs
 window.__seek = async (t) => {
   current = t
   draw(t)

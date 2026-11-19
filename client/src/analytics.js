@@ -64,11 +64,17 @@ function source() {
   return ''
 }
 
-// Once per page load. The source/lang/device meta is stored only for a
+// IANA time zone of the browser ('America/New_York') — tells where players
+// are (and when to post) without IPs or geolocation.
+function timeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { return '' }
+}
+
+// Once per page load. The source/lang/device/tz meta is stored only for a
 // visitor's very first visit (server ignores it afterwards).
 export function trackVisit(lang) {
   const mobile = window.matchMedia?.('(pointer: coarse)').matches || /Mobi|Android/i.test(navigator.userAgent)
-  meta = { source: source(), lang, device: mobile ? 'mobile' : 'desktop' }
+  meta = { source: source(), lang, device: mobile ? 'mobile' : 'desktop', tz: timeZone() }
   track('visit')
   flush()
 }

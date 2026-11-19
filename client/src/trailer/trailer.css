@@ -157,4 +157,35 @@
   font-weight: 800; font-size: 14px; color: #F2B544; opacity: 0.9;
   -webkit-text-stroke: 1.5px #16141F; paint-order: stroke fill; text-shadow: 0 2px 0 #16141F;
 }
+/* 9:16 meme quizzes (Quiz.jsx) */
+.qz-bg { position: absolute; inset: 0;
+  background: radial-gradient(110% 70% at 50% 55%, #4A3328 0%, #2A1D19 55%, #140E0B 100%); }
+.qz-bg::after { content: ''; position: absolute; inset: 0; opacity: 0.07;
+  background: repeating-linear-gradient(135deg, #F2B544 0 2px, transparent 2px 22px); }
+.qz-words { position: absolute; z-index: 6; left: 0; right: 0; text-align: center; font-weight: 900; line-height: 1.12;
+  text-transform: uppercase; letter-spacing: -0.01em; color: #FFF6E8;
+  -webkit-text-stroke: 3px #16141F; paint-order: stroke fill; text-shadow: 0 5px 0 #16141F, 0 10px 24px rgba(0,0,0,0.5); }
+.qz-words .qz-hl { color: #F2B544; }
+.qz-kicker { position: absolute; z-index: 6; left: 0; right: 0; top: 60px; text-align: center;
+  font-family: 'Rubik', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: 0.14em; text-transform: uppercase; color: #CDB8AA;
+  text-shadow: 0 3px 0 #16141F; }
+.qz-dim { position: absolute; z-index: 3; left: 8px; right: 8px; background: #0B0706; border-radius: 14px; pointer-events: none; }
+.qz-arrow { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.qz-timer { position: absolute; z-index: 5; left: 50%; top: 238px; width: 170px; height: 190px; }
+.qz-timer svg { position: absolute; inset: 0; filter: drop-shadow(0 8px 0 #16141F) drop-shadow(0 14px 22px rgba(0,0,0,0.5)); }
+.qz-timer b { position: absolute; left: 50%; top: 105px; font-weight: 900; font-size: 64px; line-height: 1; color: #16141F; }
+.qz-obvious { position: absolute; z-index: 6; left: 50%; top: 360px; transform: translateX(-50%); white-space: nowrap; }
+.qz-obvious span { display: block; font-weight: 900; font-size: 34px; text-transform: uppercase; color: #FFF6E8;
+  -webkit-text-stroke: 3px #16141F; paint-order: stroke fill; text-shadow: 0 5px 0 #16141F; }
+.qz-obvious i { position: absolute; left: -10px; right: -10px; top: 50%; height: 8px; margin-top: -4px; background: #FF4A3D;
+  border-radius: 4px; transform-origin: left center; box-shadow: 0 3px 0 #16141F; }
+.qz-hand { position: absolute; z-index: 5; left: 0; right: 0; top: 395px; display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; }
+.qz-card { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.qz-card .card-icon { box-shadow: 0 0 0 4px #16141F, 0 8px 0 #16141F, 0 0 calc(40px * var(--g)) calc(12px * var(--g)) var(--c); }
+.qz-card span { font-weight: 900; font-size: 18px; text-transform: uppercase; color: #FFF6E8;
+  -webkit-text-stroke: 2px #16141F; paint-order: stroke fill; text-shadow: 0 3px 0 #16141F; }
+.qz-pick span { color: var(--c); }
+.qz-desc { flex-basis: 100%; text-align: center; margin-top: 10px; font-weight: 900; font-size: 24px; text-transform: uppercase; color: #FFF6E8;
+  -webkit-text-stroke: 2.5px #16141F; paint-order: stroke fill; text-shadow: 0 4px 0 #16141F; }
+.qz-flash { position: absolute; inset: 0; z-index: 7; mix-blend-mode: multiply; pointer-events: none; }
 .cl-free { font-family: 'Rubik', sans-serif; font-weight: 800; font-size: 18px; color: #CDB8AA; }

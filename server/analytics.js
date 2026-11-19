@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS visitors (
   source    TEXT,               -- utm_source or referrer host, '' = direct
   lang      TEXT,
   device    TEXT,               -- 'mobile' | 'desktop'
-  ua        TEXT                -- User-Agent header of the first visit (clipped), to spot bots/scanners
+  ua        TEXT,               -- User-Agent header of the first visit (clipped), to spot bots/scanners
+  tz        TEXT                -- browser IANA time zone ('Europe/Berlin'), where players are
 );
 CREATE TABLE IF NOT EXISTS daily (
   day   TEXT NOT NULL,
@@ -42,20 +43,23 @@ CREATE INDEX IF NOT EXISTS daily_event ON daily(event, day);
 export const today = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
 
 const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : null)
+const TZ_RE = /^[A-Za-z0-9_+\-/]{1,40}$/
+const timeZone = s => (typeof s === 'string' && TZ_RE.test(s) ? s : '')
 
 export function createAnalytics(db, { now = () => Date.now() } = {}) {
   db.exec(SCHEMA)
-  // Older databases predate the ua column.
-  if (!db.prepare('PRAGMA table_info(visitors)').all().some(c => c.name === 'ua')) db.exec('ALTER TABLE visitors ADD COLUMN ua TEXT')
+  // Older databases predate the ua / tz columns.
+  const cols = new Set(db.prepare('PRAGMA table_info(visitors)').all().map(c => c.name))
+  for (const c of ['ua', 'tz']) if (!cols.has(c)) db.exec(`ALTER TABLE visitors ADD COLUMN ${c} TEXT`)
   const bump = db.prepare('INSERT INTO daily (day, vid, event) VALUES (?, ?, ?) ON CONFLICT(day, vid, event) DO UPDATE SET n = n + 1')
-  const addVisitor = db.prepare('INSERT OR IGNORE INTO visitors (vid, first_day, source, lang, device, ua) VALUES (?, ?, ?, ?, ?, ?)')
+  const addVisitor = db.prepare('INSERT OR IGNORE INTO visitors (vid, first_day, source, lang, device, ua, tz) VALUES (?, ?, ?, ?, ?, ?, ?)')
 
   function track(vid, event) {
     if (!isVid(vid)) return
     try { bump.run(today(now()), vid, event) } catch (e) { console.error('[analytics]', e.message) }
   }
 
-  // Body of POST /api/e: { vid, events: string[], meta?: { source, lang, device } }
+  // Body of POST /api/e: { vid, events: string[], meta?: { source, lang, device, tz } }
   // ua = the request's User-Agent header (stored only for a visitor's first visit).
   function ingest(body, ua = '') {
     if (!body || !isVid(body.vid) || !Array.isArray(body.events)) return false
@@ -65,7 +69,7 @@ export function createAnalytics(db, { now = () => Date.now() } = {}) {
       db.exec('BEGIN')
       if (events.includes('visit')) {
         const m = body.meta ?? {}
-        addVisitor.run(body.vid, today(now()), clip(m.source, 60) ?? '', clip(m.lang, 8), m.device === 'mobile' ? 'mobile' : 'desktop', clip(ua, 200) ?? '')
+        addVisitor.run(body.vid, today(now()), clip(m.source, 60) ?? '', clip(m.lang, 8), m.device === 'mobile' ? 'mobile' : 'desktop', clip(ua, 200) ?? '', timeZone(m.tz))
       }
       for (const e of events) bump.run(today(now()), body.vid, e)
       db.exec('COMMIT')

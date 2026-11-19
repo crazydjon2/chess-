@@ -66,8 +66,9 @@ export function buildFunnelReport(db, { days = 14, now = Date.now() } = {}) {
   const totSize = n => cohorts.filter(c => mature(c.day, n)).reduce((a, c) => a + c.size, 0)
 
   // Where new visitors come from, and whether they actually play.
+  // `col` is a visitors column, or a SQL expression over `v` (trusted constants only).
   const breakdown = (col, empty = '(прямой заход)') => db.prepare(`
-    SELECT COALESCE(NULLIF(v.${col}, ''), '${empty}') k, COUNT(*) n,
+    SELECT COALESCE(NULLIF(${/^\w+$/.test(col) ? `v.${col}` : col}, ''), '${empty}') k, COUNT(*) n,
       SUM(EXISTS(SELECT 1 FROM daily d WHERE d.vid = v.vid AND d.event IN ('match_start', 'bot_match_start'))) played,
       SUM(EXISTS(SELECT 1 FROM daily d WHERE d.vid = v.vid AND d.day > v.first_day)) back
     FROM visitors v WHERE v.first_day BETWEEN ? AND ? GROUP BY k ORDER BY n DESC LIMIT 30`).all(from, to)
@@ -83,6 +84,8 @@ export function buildFunnelReport(db, { days = 14, now = Date.now() } = {}) {
   s.push(`<section><h2>Откуда приходят</h2><p class="hint">Новые посетители за период. Чтобы различать свои посты, давай ссылки с меткой: <code>mischess.com/?utm_source=reddit</code>, <code>?utm_source=tiktok</code>…</p>${table(['Источник', 'Новых', 'Начали матч', 'Вернулись'], breakdown('source'))}
     <h3>Устройства</h3>${table(['Устройство', 'Новых', 'Начали матч', 'Вернулись'], breakdown('device'))}
     <h3>Языки</h3>${table(['Язык', 'Новых', 'Начали матч', 'Вернулись'], breakdown('lang'))}
+    <h3>Регионы</h3><p class="hint">По часовому поясу браузера (первая часть: America, Europe, Asia…). Записывается с 19.11.2026 — у ранних посетителей пусто.</p>${table(['Регион', 'Новых', 'Начали матч', 'Вернулись'], breakdown("CASE WHEN instr(v.tz, '/') > 0 THEN substr(v.tz, 1, instr(v.tz, '/') - 1) ELSE v.tz END", '(не записан)'))}
+    <h3>Часовые пояса</h3><p class="hint">Где живут игроки и когда постить: America/New_York, Europe/Berlin, Asia/Kolkata…</p>${table(['Часовой пояс', 'Новых', 'Начали матч', 'Вернулись'], breakdown('tz', '(не записан)'))}
     <h3>Браузеры (User-Agent)</h3><p class="hint">Чтобы отличать людей от ботов и сканеров ссылок.</p>${table(['User-Agent', 'Новых', 'Начали матч', 'Вернулись'], breakdown('ua', '(не записан)'))}</section>`)
   return page('Воронка Mischess', s.join('\n'), '/admin/funnel')
 }

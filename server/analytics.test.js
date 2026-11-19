@@ -17,13 +17,19 @@ describe('analytics', () => {
   const rows = () => db.prepare('SELECT day, vid, event, n FROM daily ORDER BY event').all().map(r => ({ ...r }))
 
   it('counts per (day, visitor, event) instead of storing raw events', () => {
-    a.ingest({ vid: VID, events: ['visit', 'online_open', 'online_open'], meta: { source: 'reddit', lang: 'en', device: 'mobile' } })
+    a.ingest({ vid: VID, events: ['visit', 'online_open', 'online_open'], meta: { source: 'reddit', lang: 'en', device: 'mobile', tz: 'America/New_York' } })
     a.ingest({ vid: VID, events: ['online_open'] })
     expect(rows()).toEqual([
       { day, vid: VID, event: 'online_open', n: 3 },
       { day, vid: VID, event: 'visit', n: 1 },
     ])
-    expect({ ...db.prepare('SELECT * FROM visitors').get() }).toEqual({ vid: VID, first_day: day, source: 'reddit', lang: 'en', device: 'mobile', ua: '' })
+    expect({ ...db.prepare('SELECT * FROM visitors').get() }).toEqual({ vid: VID, first_day: day, source: 'reddit', lang: 'en', device: 'mobile', ua: '', tz: 'America/New_York' })
+  })
+
+  it('drops a malformed time zone', () => {
+    a.ingest({ vid: VID, events: ['visit'], meta: { tz: "x'); DROP TABLE visitors;--" } })
+    a.ingest({ vid: 'zyxwvuts9876', events: ['visit'], meta: { tz: 'y'.repeat(41) } })
+    expect(db.prepare('SELECT tz FROM visitors').all().map(r => r.tz)).toEqual(['', ''])
   })
 
   it('keeps the first visit attribution', () => {
@@ -40,11 +46,11 @@ describe('analytics', () => {
     expect(ua.length).toBe(200)
   })
 
-  it('adds the ua column to an older visitors table', async () => {
+  it('adds the ua and tz columns to an older visitors table', async () => {
     const old = await openStatsDb(':memory:')
     old.exec("CREATE TABLE visitors (vid TEXT PRIMARY KEY, first_day TEXT NOT NULL, source TEXT, lang TEXT, device TEXT)")
-    createAnalytics(old).ingest({ vid: VID, events: ['visit'] }, 'Mozilla/5.0')
-    expect(old.prepare('SELECT ua FROM visitors').get().ua).toBe('Mozilla/5.0')
+    createAnalytics(old).ingest({ vid: VID, events: ['visit'], meta: { tz: 'Asia/Kolkata' } }, 'Mozilla/5.0')
+    expect({ ...old.prepare('SELECT ua, tz FROM visitors').get() }).toEqual({ ua: 'Mozilla/5.0', tz: 'Asia/Kolkata' })
   })
 
   it('ignores junk: bad ids, unknown events, non-objects', () => {
@@ -79,11 +85,13 @@ describe('analytics', () => {
   })
 
   it('funnel report renders with data', () => {
-    a.ingest({ vid: VID, events: ['visit', 'online_open'], meta: { source: 'reddit' } })
+    a.ingest({ vid: VID, events: ['visit', 'online_open'], meta: { source: 'reddit', tz: 'Europe/Berlin' } })
     a.track(VID, 'match_start')
     const html = buildFunnelReport(db, { days: 7, now: Date.parse(`${day}T12:00:00Z`) })
     expect(html).toContain('Mischess — воронка')
     expect(html).toContain('reddit')
+    expect(html).toContain('Europe/Berlin') // time zone table
+    expect(html).toMatch(/<td>Europe<\/td>/) // region table
   })
 })
 

@@ -34,3 +34,6 @@ tools/trailer/footage/
 tools/trailer/footage-desktop/
 tools/trailer/.frames/
 tools/trailer/out/
+# third-party SFX (Pixabay forbids redistributing the raw files; see sfx/LICENSES.md)
+tools/trailer/sfx/pixabay/
+tools/trailer/sfx/kenney/
