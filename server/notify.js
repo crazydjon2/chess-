@@ -68,7 +68,13 @@ export function _resetNotifyForTests() { lastSent = 0 }
 // exactly what Telegram/Discord answered.
 export async function sendTestPing(env = process.env) {
   if (!notifyEnabled(env)) {
-    return `Уведомления выключены: нет ${!env.ADMIN_TG_TOKEN ? 'ADMIN_TG_TOKEN' : !env.ADMIN_TG_CHAT ? 'ADMIN_TG_CHAT' : 'настроек'}.`
+    // Names only (never values) of anything that looks like it was meant to
+    // be these settings — catches typos, stray spaces, Cyrillic letters.
+    const similar = Object.keys(env).filter(k => /ADMIN|TG|TELEGRAM/i.test(k)).map(k => JSON.stringify(k))
+    return [
+      `Уведомления выключены: нет ${!env.ADMIN_TG_TOKEN ? 'ADMIN_TG_TOKEN' : !env.ADMIN_TG_CHAT ? 'ADMIN_TG_CHAT' : 'настроек'}.`,
+      `Похожие переменные, которые видит сервер: ${similar.length ? similar.join(', ') : 'нет ни одной'}`,
+    ].join('\n')
   }
   lastSent = 0
   await notifyAdmins(`✅ Тест уведомлений Mischess\n${SITE}`, { env })
