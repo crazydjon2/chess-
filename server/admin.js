@@ -2,6 +2,7 @@
 // STATS_KEY). Without STATS_KEY set they don't exist at all.
 //   /admin/funnel      — visitors → matches funnel, retention, sources (?days=N)
 //   /admin/feedback    — what players wrote in the in-game feedback form
+//   /admin/notify-test — send a test Telegram/Discord ping, show the reply
 //   /admin/stats       — the live balance report (same as `npm run stats`);
 //                        ?ver=all|<hash> &mode=pvp|bot|all &days=N
 //   /admin/stats.db    — a consistent copy of the SQLite file, for
@@ -12,6 +13,7 @@ import path from 'path'
 import { unlink } from 'fs'
 import { loadRounds, buildStatsReport } from './statsReport.js'
 import { buildFunnelReport, buildFeedbackPage } from './funnelReport.js'
+import { sendTestPing } from './notify.js'
 
 function sameSecret(a, b) {
   // Hash first so lengths always match (timingSafeEqual requires it).
@@ -50,6 +52,11 @@ export function mountAdmin(app, getDb) {
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 14))
     res.type('html').send(buildFunnelReport(db, { days }))
   }))
+
+  // Sends a test owner ping and shows what Telegram/Discord answered.
+  app.get('/admin/notify-test', async (_req, res) => {
+    res.set('Cache-Control', 'no-store').type('text/plain; charset=utf-8').send(await sendTestPing())
+  })
 
   app.get('/admin/feedback', withDb((db, _req, res) => res.type('html').send(buildFeedbackPage(db))))
 

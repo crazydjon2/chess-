@@ -41,8 +41,37 @@ export async function notifyAdmins(text, { env = process.env, fetchFn = globalTh
     }))
   }
   const results = await Promise.allSettled(jobs)
-  for (const r of results) if (r.status === 'rejected') console.error('[notify]', r.reason?.message ?? r.reason)
+  // Telegram/Discord answer a bad token / wrong chat id with a normal HTTP
+  // error, not a network failure — log those too, or a broken config is silent.
+  const report = []
+  for (const r of results) {
+    if (r.status === 'rejected') { report.push(`network error: ${r.reason?.message ?? r.reason}`); continue }
+    const res = r.value
+    if (res?.ok === false) {
+      let body = ''
+      try { body = (await res.text()).slice(0, 300) } catch { /* ignore */ }
+      report.push(`HTTP ${res.status}: ${body}`)
+    } else report.push('ok')
+  }
+  for (const line of report) if (line !== 'ok') console.error('[notify]', line)
+  lastReport = report
   return true
 }
 
+// What the last send got back — for /admin/notify-test.
+let lastReport = []
+export function lastNotifyReport() { return lastReport }
+
 export function _resetNotifyForTests() { lastSent = 0 }
+
+// /admin/notify-test: send a test ping now (ignores the 30 s gap) and say
+// exactly what Telegram/Discord answered.
+export async function sendTestPing(env = process.env) {
+  if (!notifyEnabled(env)) {
+    return `Уведомления выключены: нет ${!env.ADMIN_TG_TOKEN ? 'ADMIN_TG_TOKEN' : !env.ADMIN_TG_CHAT ? 'ADMIN_TG_CHAT' : 'настроек'}.`
+  }
+  lastSent = 0
+  await notifyAdmins(`✅ Тест уведомлений Mischess\n${SITE}`, { env })
+  const chats = String(env.ADMIN_TG_CHAT ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  return [`Чатов Telegram: ${chats.length} (${chats.join(', ')})`, `Discord: ${env.ADMIN_DISCORD_WEBHOOK ? 'да' : 'нет'}`, 'Ответы:', ...lastReport].join('\n')
+}
