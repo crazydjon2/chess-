@@ -9,7 +9,7 @@ describe('owner pings (notify.js)', () => {
     expect(await notifyAdmins('x', { env: {}, fetchFn: () => { throw new Error('no') } })).toBe(false)
   })
 
-  it('posts to every Telegram chat and the Discord webhook, without mentions, at most once per 30 s', async () => {
+  it('posts to every Telegram chat and the Discord webhook, without mentions', async () => {
     const calls = []
     const fetchFn = async (url, opts) => { calls.push({ url, body: JSON.parse(opts.body) }); return { ok: true } }
     const env = { ADMIN_TG_TOKEN: 'T', ADMIN_TG_CHAT: '-100, 42', ADMIN_DISCORD_WEBHOOK: 'https://discord.test/hook' }
@@ -19,8 +19,19 @@ describe('owner pings (notify.js)', () => {
     expect(calls.map(c => c.url)).toEqual(['https://api.telegram.org/botT/sendMessage', 'https://api.telegram.org/botT/sendMessage', 'https://discord.test/hook'])
     expect(calls.map(c => c.body.chat_id).slice(0, 2)).toEqual(['-100', '42'])
     expect(calls[2].body.allowed_mentions).toEqual({ parse: [] })
-    expect(await notifyAdmins(text, { env, fetchFn, now: 1_010_000 })).toBe(false)
-    expect(await notifyAdmins(text, { env, fetchFn, now: 1_031_000 })).toBe(true)
+  })
+
+  it('same player at most once per 2 min, different players always, 30 an hour overall', async () => {
+    const env = { ADMIN_DISCORD_WEBHOOK: 'https://discord.test/hook' }
+    const fetchFn = async () => ({ ok: true })
+    const send = (key, now) => notifyAdmins('x', { key, env, fetchFn, now })
+    expect(await send('alice', 1e6)).toBe(true)
+    expect(await send('alice', 1e6 + 20_000)).toBe(false) // left and searched again
+    expect(await send('bob', 1e6 + 21_000)).toBe(true)    // someone else — always
+    expect(await send('alice', 1e6 + 121_000)).toBe(true)
+    for (let i = 0; i < 27; i++) expect(await send(`p${i}`, 1e6 + 130_000 + i)).toBe(true)
+    expect(await send('late', 1e6 + 200_000)).toBe(false) // 30 within the hour
+    expect(await send('late', 1e6 + 3_700_000)).toBe(true)
   })
 
   it('a failing endpoint never throws', async () => {

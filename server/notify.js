@@ -5,9 +5,14 @@
 //   ADMIN_DISCORD_WEBHOOK            — Discord channel webhook URL
 //   PUBLIC_URL                       — site address for links (default https://mischess.com)
 const SITE = (process.env.PUBLIC_URL || 'https://mischess.com').replace(/\/$/, '')
-const MIN_GAP_MS = 30_000 // never more than one ping per 30 s, whatever happens
+// Spam guards: the same player (key = visitor id) at most once per 2 min —
+// leave-and-search-again shouldn't flood the group — and 30 pings an hour
+// overall. Different players always get their own ping.
+const SAME_KEY_GAP_MS = 2 * 60_000
+const HOURLY_CAP = 30
 
-let lastSent = 0
+const lastByKey = new Map() // key → last ping time
+let recent = []             // ping times within the last hour
 
 export function notifyEnabled(env = process.env) {
   return !!((env.ADMIN_TG_TOKEN && env.ADMIN_TG_CHAT) || env.ADMIN_DISCORD_WEBHOOK)
@@ -19,9 +24,16 @@ export function searchMessage({ name, code, waitedSec }) {
 }
 
 // Fire-and-forget: a failed ping must never touch the game.
-export async function notifyAdmins(text, { env = process.env, fetchFn = globalThis.fetch, now = Date.now() } = {}) {
-  if (!notifyEnabled(env) || now - lastSent < MIN_GAP_MS) return false
-  lastSent = now
+export async function notifyAdmins(text, { key = null, env = process.env, fetchFn = globalThis.fetch, now = Date.now() } = {}) {
+  if (!notifyEnabled(env)) return false
+  recent = recent.filter(t => now - t < 3600_000)
+  if (recent.length >= HOURLY_CAP) return false
+  if (key != null && now - (lastByKey.get(key) ?? -Infinity) < SAME_KEY_GAP_MS) return false
+  if (key != null) {
+    lastByKey.set(key, now)
+    if (lastByKey.size > 5000) lastByKey.clear()
+  }
+  recent.push(now)
   const jobs = []
   if (env.ADMIN_TG_TOKEN && env.ADMIN_TG_CHAT) {
     for (const chat of String(env.ADMIN_TG_CHAT).split(',').map(s => s.trim()).filter(Boolean)) {
@@ -62,9 +74,9 @@ export async function notifyAdmins(text, { env = process.env, fetchFn = globalTh
 let lastReport = []
 export function lastNotifyReport() { return lastReport }
 
-export function _resetNotifyForTests() { lastSent = 0 }
+export function _resetNotifyForTests() { lastByKey.clear(); recent = [] }
 
-// /admin/notify-test: send a test ping now (ignores the 30 s gap) and say
+// /admin/notify-test: send a test ping now and say
 // exactly what Telegram/Discord answered.
 export async function sendTestPing(env = process.env) {
   if (!notifyEnabled(env)) {
@@ -76,7 +88,6 @@ export async function sendTestPing(env = process.env) {
       `Похожие переменные, которые видит сервер: ${similar.length ? similar.join(', ') : 'нет ни одной'}`,
     ].join('\n')
   }
-  lastSent = 0
   await notifyAdmins(`✅ Тест уведомлений Mischess\n${SITE}`, { env })
   const chats = String(env.ADMIN_TG_CHAT ?? '').split(',').map(s => s.trim()).filter(Boolean)
   return [`Чатов Telegram: ${chats.length} (${chats.join(', ')})`, `Discord: ${env.ADMIN_DISCORD_WEBHOOK ? 'да' : 'нет'}`, 'Ответы:', ...lastReport].join('\n')

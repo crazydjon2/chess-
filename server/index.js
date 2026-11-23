@@ -250,7 +250,7 @@ io.on('connection', (socket) => {
         const w = hostWaits.get(res.code)
         setTimeout(() => {
           if (hostWaits.get(res.code) !== w) return // matched or gone
-          notifyAdmins(searchMessage({ name, code: res.code, waitedSec: Math.round(NOTIFY_AFTER_MS / 1000) })).catch(() => {})
+          notifyAdmins(searchMessage({ name, code: res.code, waitedSec: Math.round(NOTIFY_AFTER_MS / 1000) }), { key: socket.data.vid ?? socket.id }).catch(() => {})
         }, NOTIFY_AFTER_MS)
       }
     } else {
