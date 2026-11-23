@@ -142,6 +142,8 @@
 .po-row-name { flex: 1; min-width: 0; font-weight: 700; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .po-row svg { color: var(--c-text-dim); }
 
+.po-friend-hint { margin: 22px 4px; color: var(--c-text-dim); font-weight: 600; text-align: center; line-height: 1.4; }
+
 .po-create {
   flex-shrink: 0;
   height: 64px;

@@ -9,6 +9,11 @@ import { DiscordNudge } from './ui/Discord'
 import './PlayOnlineMenu.css'
 
 const CODE_LEN = 5
+// The open-rooms browser is hidden while the player base is tiny: it's
+// nearly always empty, and "Найти соперника" (main menu) already seats you
+// with whoever is waiting. Flip back on once there are enough players to
+// browse — public/private choice in the create dialog comes back with it.
+const SHOW_ROOM_LIST = false
 
 function ColorAvatar({ color, size = 'md' }) {
   if (color === 'random') return <span className={`ui-avatar ${size} random`}><span className="ui-avatar-q">?</span></span>
@@ -48,14 +53,15 @@ export default function PlayOnlineMenu({
     if (code.length === CODE_LEN && !busy) onJoin(code)
   }
 
-  async function paste() {
-    try {
-      const text = await navigator.clipboard.readText()
-      const m = text.toUpperCase().match(/ROOM\/([A-Z0-9]+)/) ?? text.toUpperCase().match(/[A-Z0-9]{5}/)
-      if (m) setCode(m[1] ?? m[0])
-    } catch {
-      codeRef.current?.focus()
-    }
+  // A plain paste (Ctrl+V / long-press → Paste) needs no clipboard
+  // permission, unlike navigator.clipboard.readText() behind a button, which
+  // made the browser ask every time. Accepts a bare code or a whole invite
+  // link (…/room/ABCDE) — maxLength would otherwise cut a link to "HTTPS".
+  function onPaste(e) {
+    const text = (e.clipboardData?.getData('text') ?? '').toUpperCase()
+    const m = text.match(/ROOM\/([A-Z0-9]+)/) ?? text.match(/\b[A-Z0-9]{5}\b/)
+    e.preventDefault()
+    if (m) setCode(m[1] ?? m[0])
   }
 
   const levels = [
@@ -90,14 +96,16 @@ export default function PlayOnlineMenu({
             maxLength={CODE_LEN}
             aria-label={t('lobby.codePlaceholder')}
             onChange={e => setCode(e.target.value)}
+            onPaste={onPaste}
             onKeyDown={e => { if (e.key === 'Enter' && joinCode.trim()) onJoin(joinCode.trim()) }}
             data-testid="code-input"
           />
-          {joinCode
-            ? <span className="po-code-dots" aria-hidden="true">{Array.from({ length: CODE_LEN }, (_, i) => <i key={i} className={i < joinCode.length ? 'on' : ''} />)}</span>
-            : <button type="button" className="po-paste" onClick={paste}>{t('lobby.paste')}</button>}
+          {joinCode && <span className="po-code-dots" aria-hidden="true">{Array.from({ length: CODE_LEN }, (_, i) => <i key={i} className={i < joinCode.length ? 'on' : ''} />)}</span>}
         </label>
 
+        {!SHOW_ROOM_LIST && <p className="po-friend-hint">{t('lobby.friendHint')}</p>}
+
+        {SHOW_ROOM_LIST && <>
         <div className="po-list-head">
           <span className="po-list-title">{t('lobby.openLobbies')}</span>
           <span className="po-list-count">{rooms.length}</span>
@@ -121,6 +129,7 @@ export default function PlayOnlineMenu({
             ))}
           </div>
         </div>
+        </>}
 
         <button className="ui-btn primary po-create" disabled={busy} onClick={() => setCreateOpen(true)} data-testid="create-lobby">
           <IconPlus /> {t('lobby.create')}
@@ -137,6 +146,7 @@ export default function PlayOnlineMenu({
         >
           <div className="ui-label po-field-label">{t('lobby.yourColor')}</div>
           <ColorSeg value={hostColor} onChange={setHostColor} />
+          {SHOW_ROOM_LIST && <>
           <div className="ui-label po-field-label">{t('lobby.access')}</div>
           <div className="ui-seg" role="radiogroup" aria-label={t('lobby.access')}>
             {['public', 'private'].map(v => (
@@ -145,7 +155,8 @@ export default function PlayOnlineMenu({
               </button>
             ))}
           </div>
-          <button className="ui-btn primary big po-modal-submit" disabled={busy} onClick={() => { onCreate(hostColor, visibility); setCreateOpen(false) }} data-testid="create-submit">
+          </>}
+          <button className="ui-btn primary big po-modal-submit" disabled={busy} onClick={() => { onCreate(hostColor, SHOW_ROOM_LIST ? visibility : 'private'); setCreateOpen(false) }} data-testid="create-submit">
             <IconPlus /> {t('lobby.createBtn')}
           </button>
         </Modal>

@@ -113,7 +113,7 @@ export function createRoom(socket, wantedColor, name, opts) {
   socket.join(code)
   socket.data.roomCode = code
   socket.data.color = color
-  return { code, color, host: room.host, visibility: room.visibility, players: publicPlayers(room), token: room.players[color].token }
+  return { code, color, host: room.host, visibility: room.visibility, quick: !!room.quick, players: publicPlayers(room), token: room.players[color].token }
 }
 
 export function joinRoom(socket, code, name) {
@@ -129,7 +129,7 @@ export function joinRoom(socket, code, name) {
   socket.join(key)
   socket.data.roomCode = key
   socket.data.color = openColor
-  return { code: key, color: openColor, host: room.host, visibility: room.visibility, players: publicPlayers(room), token: room.players[openColor].token }
+  return { code: key, color: openColor, host: room.host, visibility: room.visibility, quick: !!room.quick, players: publicPlayers(room), token: room.players[openColor].token }
 }
 
 // Reclaims a seat in a match in progress from a new socket (page reload,
@@ -148,7 +148,7 @@ export function rejoinRoom(socket, code, token) {
   socket.data.roomCode = key
   socket.data.color = color
   return {
-    code: key, color, host: room.host, visibility: room.visibility, players: publicPlayers(room), token,
+    code: key, color, host: room.host, visibility: room.visibility, quick: !!room.quick, players: publicPlayers(room), token,
     // For index.js to evict (see rejoin_room) — never sent to the client.
     replacedSocketId: previousSocketId !== socket.id ? previousSocketId : null,
   }
@@ -234,8 +234,45 @@ export function broadcastRoom(io, room) {
     code: room.code,
     host: room.host,
     visibility: room.visibility,
+    quick: !!room.quick,
+    startsAt: room.startsAt ?? null,
     players: publicPlayers(room),
   })
+}
+
+// "Найти соперника": sit down with whoever has waited longest in an open
+// public room, or open a new one and wait. Rooms made this way are `quick`
+// — the match starts by itself once both seats are filled (scheduleQuickStart).
+export function quickMatch(socket, name) {
+  const waiting = listOpenRooms()
+    .filter(r => rooms.get(r.code)?.players[rooms.get(r.code).host]?.socketId !== socket.id)
+    .sort((a, b) => a.createdAt - b.createdAt)[0]
+  if (waiting) {
+    const room = rooms.get(waiting.code)
+    room.quick = true
+    return { ...joinRoom(socket, waiting.code, name), created: false }
+  }
+  const res = createRoom(socket, 'random', name, { visibility: 'public' })
+  rooms.get(res.code).quick = true
+  return { ...res, quick: true, created: true }
+}
+
+export const QUICK_START_MS = 3000
+
+// Quick rooms skip the host's "Начать": both seats filled → a short
+// countdown (startsAt, shown by the client) → the match. Re-checked at the
+// end, since either player may have walked out meanwhile.
+export function scheduleQuickStart(io, room) {
+  if (!room.quick || room.match || !bothConnected(room)) return
+  clearTimeout(room.quickStartHandle)
+  room.startsAt = Date.now() + QUICK_START_MS
+  room.quickStartHandle = setTimeout(() => {
+    room.quickStartHandle = null
+    room.startsAt = null
+    if (rooms.get(room.code) === room && !room.match && bothConnected(room)) startMatch(io, room)
+    else if (rooms.get(room.code) === room) broadcastRoom(io, room)
+  }, QUICK_START_MS)
+  broadcastRoom(io, room)
 }
 
 // Only the host, only once both are actually here, only if not already

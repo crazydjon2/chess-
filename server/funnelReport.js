@@ -9,12 +9,23 @@ const shift = (day, n) => today(Date.parse(day) + n * DAY)
 // Funnel steps, in order. `any` = a visitor counts if they did any of these.
 const HUMAN_STEPS = [
   ['Зашли на сайт', ['visit']],
-  ['Открыли «Играть онлайн»', ['online_open']],
+  ['Открыли онлайн (любым путём)', ['online_open']],
   ['Создали или вошли в комнату', ['room_create', 'room_join']],
   ['Начали матч с человеком', ['match_start']],
   ['Доиграли раунд', ['round_done']],
   ['Доиграли матч', ['match_done']],
   ['Сыграли реванш', ['rematch']],
+]
+// Which door people take from the main menu, and how they bring friends.
+const DOOR_STEPS = [
+  ['Нажали «Найти соперника»', ['quick_search']],
+  ['Открыли «С другом»', ['friend_open']],
+  ['Открыли «Против ИИ»', ['bot_open']],
+]
+const INVITE_STEPS = [
+  ['Нажали «Позвать друга» (в поиске)', ['share_quick']],
+  ['Нажали «Отправить ссылку» (комната с другом)', ['share_friend']],
+  ['Пришли по чужой ссылке', ['invite_open']],
 ]
 const BOT_STEPS = [
   ['Начали матч с ИИ', ['bot_match_start']],
@@ -81,8 +92,8 @@ export function buildFunnelReport(db, { days = 14, now = Date.now() } = {}) {
   }
   const secs = ms => (ms < 60e3 ? `${Math.round(ms / 1e3)} с` : `${(ms / 60e3).toFixed(1)} мин`)
   const quant = (xs, q) => xs[Math.min(xs.length - 1, Math.floor(q * xs.length))]
-  const waitRows = kind => {
-    const rows = db.prepare('SELECT outcome, wait_ms, rooms_seen FROM waits WHERE kind = ? AND day BETWEEN ? AND ? ORDER BY wait_ms').all(kind, from, to)
+  const waitRows = (kind, vis) => {
+    const rows = db.prepare(`SELECT outcome, wait_ms, rooms_seen FROM waits WHERE kind = ? ${vis ? 'AND visibility IN (' + vis.map(() => '?').join(',') + ')' : ''} AND day BETWEEN ? AND ? ORDER BY wait_ms`).all(kind, ...(vis ?? []), from, to)
     const total = rows.length
     return Object.entries(WAIT_OUTCOMES[kind]).map(([o, label]) => {
       const xs = rows.filter(r => r.outcome === o).map(r => r.wait_ms)
@@ -93,10 +104,11 @@ export function buildFunnelReport(db, { days = 14, now = Date.now() } = {}) {
 
   const s = []
   s.push(`<header><h1>Mischess — воронка</h1><p class="meta">${esc(date(now))} UTC · последние ${days} дн. (${from} — ${to}) · <a href="?days=7">7</a> · <a href="?days=30">30</a> · <a href="?days=90">90</a> дн.</p></header>`)
-  s.push(`<section><h2>Воронка</h2><p class="hint">Уникальные посетители за период; доля — от зашедших. Посетитель = браузер (без логина один человек на двух устройствах — два посетителя).</p>${table(['Шаг', 'Посетителей', 'Доля'], funnel(HUMAN_STEPS))}<h3>Игра с ИИ</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel(BOT_STEPS))}<h3>Сообщество</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel([['Нажали Discord', ['discord_click']]]))}</section>`)
+  s.push(`<section><h2>Воронка</h2><p class="hint">Уникальные посетители за период; доля — от зашедших. Посетитель = браузер (без логина один человек на двух устройствах — два посетителя).</p>${table(['Шаг', 'Посетителей', 'Доля'], funnel(HUMAN_STEPS))}<h3>Куда нажимают в меню</h3>${table(['Кнопка', 'Посетителей', 'Доля'], funnel(DOOR_STEPS))}<h3>Приглашения</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel(INVITE_STEPS))}<h3>Игра с ИИ</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel(BOT_STEPS))}<h3>Сообщество</h3>${table(['Шаг', 'Посетителей', 'Доля'], funnel([['Нажали Discord', ['discord_click']]]))}</section>`)
   s.push(`<section><h2>Ожидание соперника</h2><p class="hint">Записывается с 23.11.2026. «Список комнат» — сколько человек смотрел на список и чем кончилось; «пустой список» — сколько из них увидели 0 комнат. «Своя комната» — сколько сидел один в созданной комнате.</p>
     <h3>Список комнат</h3>${table(['Чем кончилось', 'Раз', 'Доля', 'Медиана', '90%', 'Пустой список'], waitRows('browse'))}
-    <h3>Своя комната</h3>${table(['Чем кончилось', 'Раз', 'Доля', 'Медиана', '90%'], waitRows('host'))}</section>`)
+    <h3>«Найти соперника»</h3>${table(['Чем кончилось', 'Раз', 'Доля', 'Медиана', '90%'], waitRows('host', ['quick', 'public']))}
+    <h3>Комната «С другом»</h3>${table(['Чем кончилось', 'Раз', 'Доля', 'Медиана', '90%'], waitRows('host', ['private']))}</section>`)
   s.push(`<section><h2>Возвращаются ли</h2><p class="hint">Из тех, кто впервые зашёл в этот день: какая доля вернулась на следующий день (D1), ровно через неделю (D7), хоть раз за неделю. Для браузерной игры D1 ≥ 20% — хорошо.</p>
     <div class="kpis"><div><span>D1</span><b>${pct(tot('d1', 1) / totSize(1))}</b></div><div><span>D7</span><b>${pct(tot('d7', 7) / totSize(7))}</b></div><div><span>Вернулись за неделю</span><b>${pct(tot('w1', 1) / totSize(1))}</b></div></div>
     ${table(['Первый визит', 'Новых', 'D1', 'D7', 'За неделю'], cohortRows)}</section>`)

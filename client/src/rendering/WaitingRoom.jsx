@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { SettingsButton } from './Settings'
 import { Piece } from '../skins/Piece'
 import { IconBack, IconLink, IconGlobe, IconLock, IconCheck } from './ui/Icons'
+import { track } from '../analytics'
 import './WaitingRoom.css'
 
 function useElapsed(running) {
@@ -15,6 +16,18 @@ function useElapsed(running) {
   }, [running])
   const s = Math.floor((now - start) / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+// Seconds left of an n-second countdown that starts when `running` turns true.
+function useCountdown(running, n) {
+  const [left, setLeft] = useState(n)
+  useEffect(() => {
+    if (!running) { setLeft(n); return }
+    const t0 = Date.now()
+    const id = setInterval(() => setLeft(Math.max(0, n - Math.floor((Date.now() - t0) / 1000))), 200)
+    return () => clearInterval(id)
+  }, [running, n])
+  return left
 }
 
 async function copyText(text) {
@@ -37,7 +50,7 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
   const [copied, setCopied] = useState(false)
   const [starting, setStarting] = useState(false)
   const players = room?.players ?? {}
-  const myColor = room?.color
+  const myColor = room?.color ?? 'white' // unknown for a split second while a search is being placed
   const oppColor = myColor === 'white' ? 'black' : 'white'
   const me = players[myColor]
   const opp = players[oppColor]
@@ -46,9 +59,21 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
   const elapsed = useElapsed(!bothHere)
   const code = room?.code ?? ''
   const isPrivate = room?.visibility === 'private'
+  // "Найти соперника" room: a stranger or an invited friend, whoever comes
+  // first; the server starts the match by itself (rooms.js scheduleQuickStart).
+  const quick = !!room?.quick
+  const startsIn = useCountdown(quick && bothHere, 3)
 
-  async function copyLink() {
-    const ok = await copyText(`${window.location.origin}/room/${code}`)
+  // Phones get the native share sheet (Telegram, WhatsApp…); desktops copy.
+  async function shareLink() {
+    if (!code) return
+    track(quick ? 'share_quick' : 'share_friend')
+    const url = `${window.location.origin}/room/${code}`
+    const touch = window.matchMedia?.('(pointer: coarse)').matches
+    if (touch && navigator.share) {
+      try { await navigator.share({ title: 'Mischess', text: t('wait.shareText'), url }); return } catch (e) { if (e?.name === 'AbortError') return }
+    }
+    const ok = await copyText(url)
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800) }
   }
 
@@ -56,7 +81,7 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
     <div className="wr-screen">
       <header className="po-header">
         <button className="ui-btn icon" onClick={onLeave} aria-label={t('wait.cancel')} data-testid="wait-back"><IconBack /></button>
-        <h1 className="po-title">{t('wait.title')}</h1>
+        <h1 className="po-title">{t(quick ? 'wait.searchTitle' : 'wait.title')}</h1>
         <div className="po-header-right">
           <span className="po-me static">
             <span className="po-me-ini">{(playerName(me) || '?').charAt(0).toUpperCase()}</span>
@@ -68,16 +93,18 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
 
       <div className="wr-main">
         <section className="ui-panel wr-panel">
-          <span className="wr-vis">
-            {isPrivate ? <IconLock size={16} /> : <IconGlobe size={16} />}
-            {t(isPrivate ? 'wait.private' : 'wait.public')}
+          <span className="wr-vis" data-testid={quick ? 'quick-search' : undefined}>
+            {quick || !isPrivate ? <IconGlobe size={16} /> : <IconLock size={16} />}
+            {t(quick ? 'wait.randomOpp' : isPrivate ? 'wait.private' : 'wait.public')}
           </span>
-          <div className="wr-code" aria-label={t('wait.code')} data-testid="room-code">
-            {code.split('').map((ch, i) => <span key={i} className={`wr-tile${i % 2 ? ' d' : ''}`} style={{ '--i': i }}>{ch}</span>)}
-          </div>
-          <button className="ui-btn primary big wr-copy" onClick={copyLink}>
+          {!quick && (
+            <div className="wr-code" aria-label={t('wait.code')} data-testid="room-code">
+              {code.split('').map((ch, i) => <span key={i} className={`wr-tile${i % 2 ? ' d' : ''}`} style={{ '--i': i }}>{ch}</span>)}
+            </div>
+          )}
+          <button className={`ui-btn ${quick ? '' : 'primary big '}wr-copy`} onClick={shareLink} disabled={!code} data-testid="share-link">
             {copied ? <IconCheck size={20} /> : <IconLink />}
-            {t(copied ? 'wait.linkCopied' : 'wait.copyLink')}
+            {t(copied ? 'wait.linkCopied' : quick ? 'wait.inviteFriend' : 'wait.sendLink')}
           </button>
         </section>
 
@@ -102,12 +129,13 @@ export default function WaitingRoom({ room, errorMsg, onLeave, onStart }) {
         </div>
 
         <div className="wr-action">
-          {bothHere && isHost && (
+          {bothHere && quick && <span className="wr-note">{t('wait.startsIn', { n: startsIn })}</span>}
+          {bothHere && !quick && isHost && (
             <button className="ui-btn primary big" onClick={() => { if (!starting) { setStarting(true); onStart?.() } }} disabled={starting} data-testid="start-game">
               {t(starting ? 'wait.launching' : 'wait.startGame')}
             </button>
           )}
-          {bothHere && !isHost && <span className="wr-note">{t('wait.hostSoon')}</span>}
+          {bothHere && !quick && !isHost && <span className="wr-note">{t('wait.hostSoon')}</span>}
         </div>
       </div>
 

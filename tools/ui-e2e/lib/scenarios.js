@@ -48,7 +48,7 @@ export async function menuTour(browser, base, profile, rec, rng) {
     await page.locator('.ui-overlay:not(.leaving) .set-lang-opt[lang], .set-lang-opt').filter({ hasText: 'Русский' }).first().click()
     await checkLayout(page, rec, 'настройки', { mustSee: ['.set-card .ui-modal-close'] })
     await page.locator('.set-card .ui-modal-close').click()
-    if (!(await page.getByText('Играть онлайн').first().isVisible())) throw new Error('язык не вернулся на русский')
+    if (!(await page.getByText('Найти соперника').first().isVisible())) throw new Error('язык не вернулся на русский')
   })
 
   await rec.step(S, 'песочница: ходы и все карты', page, async () => {
@@ -101,20 +101,17 @@ export async function onlineMatch(browser, base, profile, rec, rng, opts = {}) {
   const b = await newPage(browser, opts.otherProfile ?? profile, rec, 'B')
   let code
 
-  await rec.step(S, 'A создаёт открытую комнату', [a, b], async () => {
-    await A.openOnline(a, base, 'Алиса')
-    await checkLayout(a, rec, 'онлайн-меню', { noScroll: isPhone(a), mustSee: ['[data-testid=create-lobby]', '[data-testid=code-input]'] })
-    code = await A.createRoom(a, { visibility: 'public', color: 'random' })
-    await checkLayout(a, rec, 'комната ожидания', { mustSee: ['[data-testid=room-code]', '[data-testid=wait-back]'] })
+  await rec.step(S, 'A ищет соперника', [a, b], async () => {
+    code = await A.quickMatch(a, base, 'Алиса')
+    await checkLayout(a, rec, 'поиск соперника', { mustSee: ['[data-testid=quick-search]', '[data-testid=share-link]', '[data-testid=wait-back]'] })
   }, { critical: true, shot: true })
 
-  await rec.step(S, 'B видит комнату в списке и входит', [a, b], async () => {
-    await A.openOnline(b, base, 'Борис')
-    await A.joinFromList(b, code)
+  await rec.step(S, 'B ищет соперника и попадает к A', [a, b], async () => {
+    const codeB = await A.quickMatch(b, base, 'Борис')
+    if (codeB !== code) throw new Error(`B попал в другую комнату: ${codeB} вместо ${code}`)
   }, { critical: true })
 
-  await rec.step(S, 'A запускает матч', [a, b], async () => {
-    await A.startMatch(a)
+  await rec.step(S, 'матч стартует сам после отсчёта', [a, b], async () => {
     await a.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
     await b.locator('.mx-screen.recruit').waitFor({ timeout: 10000 })
   }, { critical: true, shot: true })
@@ -129,9 +126,10 @@ export async function onlineMatch(browser, base, profile, rec, rng, opts = {}) {
     await a.locator('.ui-overlay:not(.leaving) .rs-card').waitFor({ timeout: 15000 })
     await checkLayout(a, rec, 'конец матча', { mustSee: ['.ui-overlay:not(.leaving) .rs-card .ui-btn'] })
     await b.locator('[data-testid=result-primary]').click()
-    await a.getByText('хочет реванш').waitFor({ timeout: 5000 })
+    await a.getByText('предлагает реванш').waitFor({ timeout: 5000 })
     await a.locator('.ui-overlay:not(.leaving) .rs-card .ui-btn:not(.primary)').click()
-    await a.waitForURL(/\/online$/, { timeout: 8000 })
+    // A search started from the main menu returns there.
+    await a.waitForURL(u => new URL(u).pathname === '/', { timeout: 8000 })
   }, { shot: true })
   await a.context().close(); await b.context().close()
 }

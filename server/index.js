@@ -11,13 +11,16 @@ import {
   handleMove, handlePlayCard, handleSurrender, handleOfferDraw, handleAnswerDraw,
   leaveRoom, handleDisconnect,
   subscribeLobby, unsubscribeLobby, broadcastLobbyList, broadcastMatchTo,
-  setBotHook, setRoundHook, setEventHook,
+  setBotHook, setRoundHook, setEventHook, quickMatch, scheduleQuickStart,
 } from './rooms.js'
 import { createBotRoom, onRoomUpdate } from './bot.js'
 import { openStatsDb, createRoundRecorder, DEFAULT_DB, BALANCE_VERSION } from './stats.js'
 import { createAnalytics, rateLimiter, isVid } from './analytics.js'
 import { createFeedback } from './feedback.js'
 import { mountAdmin } from './admin.js'
+import { notifyEnabled, notifyAdmins, searchMessage } from './notify.js'
+
+const NOTIFY_AFTER_MS = 10_000
 
 setBotHook(onRoomUpdate)
 
@@ -215,10 +218,46 @@ io.on('connection', (socket) => {
 
     // Just let both seats know the room is now full — the HOST decides when
     // to actually start (see handleStartMatch / 'start_match' below), so the
-    // second player no longer gets snapped straight into the draft.
+    // second player no longer gets snapped straight into the draft. A quick
+    // room (a friend followed the invite link of someone searching) starts
+    // by itself after a short countdown instead.
     const room = getRoomByCode(socket.data.roomCode)
     if (room) broadcastRoom(io, room)
+    if (room?.quick) scheduleQuickStart(io, room)
     // That room just filled up, so it drops out of the browser list.
+    broadcastLobbyList(io)
+  })
+
+  // "Найти соперника" — see rooms.js's quickMatch.
+  on(socket, 'quick_match', ({ name }, reply) => {
+    let res
+    try {
+      res = quickMatch(socket, name)
+    } catch (e) {
+      reply({ error: e.message })
+      return
+    }
+    const { created, ...publicRes } = res
+    reply(publicRes)
+    analytics?.track(socket.data.vid, 'quick_search')
+    analytics?.track(socket.data.vid, created ? 'room_create' : 'room_join')
+    endBrowse(socket, created ? 'created' : 'joined')
+    unsubscribeLobby(socket)
+    if (created) {
+      hostWaits.set(res.code, { vid: socket.data.vid, kind: 'host', visibility: 'quick', startedAt: Date.now(), socketId: socket.id })
+      // Still alone after a few seconds → ping the owners (notify.js).
+      if (notifyEnabled()) {
+        const w = hostWaits.get(res.code)
+        setTimeout(() => {
+          if (hostWaits.get(res.code) !== w) return // matched or gone
+          notifyAdmins(searchMessage({ name, code: res.code, waitedSec: Math.round(NOTIFY_AFTER_MS / 1000) })).catch(() => {})
+        }, NOTIFY_AFTER_MS)
+      }
+    } else {
+      endHostWait(res.code, 'joined')
+      const room = getRoomByCode(res.code)
+      if (room) { broadcastRoom(io, room); scheduleQuickStart(io, room) }
+    }
     broadcastLobbyList(io)
   })
 

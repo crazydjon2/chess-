@@ -18,7 +18,7 @@ const FAN = [
 ]
 
 // Sandbox has no menu button — it's the dev/test page at /sandbox.
-export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, unseenPatch }) {
+export default function MainMenu({ onQuickMatch, onPlayOnline, onPlayBot, onOpenPatchNotes, unseenPatch }) {
   const [howToPlayOpen, setHowToPlayOpen] = useState(false)
 
   return (
@@ -48,8 +48,8 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, un
         </div>
 
         <div className="mm-buttons">
-          <button className="mm-tile hero" data-tilt onClick={onPlayOnline} data-testid="menu-online">
-            <span className="mm-tile-title">{t('menu.playOnline')}</span>
+          <button className="mm-tile hero" data-tilt onClick={onQuickMatch} data-testid="menu-quick">
+            <span className="mm-tile-title">{t('menu.findOpponent')}</span>
             <span className="mm-hero-art">
               <Piece type="pawn" color="white" size={72} center />
               <Piece type="pawn" color="black" size={72} center />
@@ -57,6 +57,13 @@ export default function MainMenu({ onPlayOnline, onPlayBot, onOpenPatchNotes, un
           </button>
 
           <div className="mm-row">
+            <button className="mm-tile mode" data-tilt onClick={onPlayOnline} data-testid="menu-online">
+              <span className="mm-mode-art friend">
+                <Piece type="king" color="white" size={44} center />
+                <Piece type="king" color="black" size={44} center />
+              </span>
+              <span className="mm-tile-title">{t('menu.playFriend')}</span>
+            </button>
             <button className="mm-tile mode" data-tilt onClick={onPlayBot} data-testid="menu-bot">
               <span className="mm-mode-art bot"><IconRobot /></span>
               <span className="mm-tile-title">{t('menu.vsBot')}</span>

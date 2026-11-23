@@ -54,6 +54,14 @@ export default function App() {
 
   // Funnel step: reached the online screen (browser or a room via invite link).
   useEffect(() => { if (mode === 'online') track('online_open') }, [mode])
+  // Which door into it: the "С другом" screen or the AI dialog ("Найти
+  // соперника" is counted by the server as quick_search).
+  useEffect(() => {
+    if (location.pathname !== '/online') return
+    if (location.state?.bot) track('bot_open')
+    else if (!location.state?.quick) track('friend_open')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 
   // Old-style invite links (…/?room=KX92F) still work — forwarded to the
   // room's own address.
@@ -84,6 +92,7 @@ export default function App() {
           <>
             {patchNotesOpen && <PatchNotes onClose={() => setPatchNotesOpen(false)} />}
             <MainMenu
+              onQuickMatch={() => navigate('/online', { state: { quick: true } })}
               onPlayOnline={() => navigate('/online')}
               onPlayBot={() => navigate('/online', { state: { bot: true } })}
               onOpenPatchNotes={openPatchNotes}

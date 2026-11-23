@@ -20,6 +20,8 @@ import { getValidTargets } from './game/cards'
 import { needsPromotion } from './game/chess'
 import { boardModeReducer, IDLE } from './game/boardMode'
 import { play } from './sound'
+import { track } from './analytics'
+import { flashTitle } from './tabAlert'
 
 const other = color => (color === 'white' ? 'black' : 'white')
 
@@ -43,13 +45,22 @@ export default function OnlineApp({ onExit }) {
   navigateRef.current = navigate
   const urlCode = useMatch('/room/:code')?.params.code?.toUpperCase() ?? null
   // Main menu's "Против ИИ" lands here with the bot dialog open.
-  const openBotOnEnter = !!useLocation().state?.bot
+  const location = useLocation()
+  const openBotOnEnter = !!location.state?.bot
+  // Main menu's "Найти соперника" lands here and starts searching at once.
+  const quickPendingRef = useRef(!!location.state?.quick)
+  // True from that click until we're seated — the waiting screen shows right
+  // away instead of flashing the "С другом" menu.
+  const [searching, setSearching] = useState(quickPendingRef.current)
   const [phase, setPhase]       = useState('menu') // 'menu' | 'waiting' | 'match'
   const [busy, setBusy]         = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [room, setRoom]         = useState(null)   // { code, color, players }
   const [match, setMatch]       = useState(null)   // per-color redacted match view
   const [opponentLeft, setOpponentLeft] = useState(false)
+  // "Остаться" on the opponent-left dialog hides it until they come back and leave again.
+  const [oppLeftSeen, setOppLeftSeen] = useState(false)
+  useEffect(() => { if (!opponentLeft) setOppLeftSeen(false) }, [opponentLeft])
   // Live list of open public lobbies, pushed by the server while we're on
   // the browse screen (see rooms.js's broadcastLobbyList).
   const [lobbyRooms, setLobbyRooms] = useState([])
@@ -226,7 +237,7 @@ export default function OnlineApp({ onExit }) {
   // progress has no use for it, and the server would otherwise keep fanning
   // list updates out to every player mid-match.
   useEffect(() => {
-    if (phase !== 'menu') {
+    if (phase !== 'menu' || quickPendingRef.current) {
       getSocket().emit('unlist_rooms')
       return
     }
@@ -249,10 +260,52 @@ export default function OnlineApp({ onExit }) {
   // match itself, if one is running, arrives separately as match_update.
   function seat(res) {
     saveSeat(res.code, res.token)
-    setRoom({ code: res.code, color: res.color, host: res.host, visibility: res.visibility, players: res.players })
+    setRoom({ code: res.code, color: res.color, host: res.host, visibility: res.visibility, quick: !!res.quick, players: res.players })
     setPhase(prev => (prev === 'match' ? prev : 'waiting'))
     navigate(`/room/${res.code}`, { replace: urlCode === res.code })
   }
+
+  // "Найти соперника": join whoever is waiting, or open a room and wait.
+  async function handleQuick() {
+    setBusy(true)
+    try {
+      seat(await request('quick_match', { name: nickname }))
+    } catch (e) {
+      flashError(e.message)
+      onExit()
+    }
+    setSearching(false)
+    setBusy(false)
+  }
+  useEffect(() => {
+    if (!quickPendingRef.current || urlCode) return
+    const socket = connectSocket()
+    const go = () => { quickPendingRef.current = false; handleQuick() }
+    if (socket.connected) go()
+    else socket.once('connect', go)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Someone sat down while we were waiting — a chime, and if this tab is in
+  // the background, a blinking title until the player looks again.
+  const oppHere = !!(room && room.players?.[other(room.color)]?.connected)
+  const oppHereRef = useRef(oppHere)
+  useEffect(() => {
+    const was = oppHereRef.current
+    oppHereRef.current = oppHere
+    if (!oppHere || was || phase !== 'waiting') return
+    play('win')
+    flashTitle(`⚔ ${t('wait.oppFound')}`)
+  }, [oppHere, phase])
+
+  // The opponent offered a rematch on the match-over screen — same alert.
+  const rematchOffered = !!(match?.phase === 'match_over' && room && match.rematch?.[other(room.color)] && !match.rematch?.[room.color])
+  useEffect(() => {
+    if (!rematchOffered) return
+    play('win')
+    flashTitle(`⚔ ${t('online.rematchOffer', { name: playerName(room?.players?.[other(room.color)]) || t('common.opponent') })}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rematchOffered])
 
   async function handleCreate(color, visibility) {
     setBusy(true)
@@ -303,6 +356,7 @@ export default function OnlineApp({ onExit }) {
           clearSeat() // seat's gone (e.g. lobby seats free up on disconnect) — try joining fresh
         }
       }
+      track('invite_open') // walking into someone else's room by its link
       seat(await request('join_room', { code, name: nickname }))
     } catch (e) {
       flashError(e.message)
@@ -368,10 +422,13 @@ export default function OnlineApp({ onExit }) {
   }
 
   function handleLeave() {
+    const wasQuick = !!room?.quick || searching
     getSocket().emit('leave_room')
     clearSeat()
     resetRoomState()
-    if (urlCode) navigate('/online') // already off /room/:code if we got here via browser back
+    // A search was started from the main menu — that's where leaving it goes.
+    if (wasQuick) onExit()
+    else if (urlCode) navigate('/online') // already off /room/:code if we got here via browser back
   }
 
   // Transient messages (server rejections, "opponent declined the draw", …)
@@ -381,10 +438,10 @@ export default function OnlineApp({ onExit }) {
   // ── Menu / waiting for the second seat — no match yet ─────────────
   if (phase !== 'match' || !room || !match) {
     return (
-      <PageTransition pageKey={phase === 'menu' ? 'online-menu' : 'online-waiting'}>
+      <PageTransition pageKey={phase === 'menu' && !searching ? 'online-menu' : 'online-waiting'}>
         <Lobby
-          phase={phase === 'menu' ? 'menu' : 'waiting'}
-          room={room}
+          phase={phase === 'menu' && !searching ? 'menu' : 'waiting'}
+          room={room ?? (searching ? { quick: true, players: {} } : null)}
           busy={busy}
           errorMsg={errorMsg}
           onCreate={handleCreate}
@@ -426,6 +483,19 @@ export default function OnlineApp({ onExit }) {
       onCancel={() => setLeaveConfirm(false)}
     />
   )
+  // Battle shows its own banner over the board; recruit and the round
+  // summary had nothing, so the one left behind just sat there.
+  const oppLeftModal = opponentLeft && !oppLeftSeen && match.phase === 'draft' && (
+    <ConfirmModal
+      icon={<IconExit />}
+      tone="danger"
+      title={t('online.opponentLeft')}
+      confirmLabel={t('online.leaveToMenu')}
+      cancelLabel={t('online.stay')}
+      onConfirm={handleLeave}
+      onCancel={() => setOppLeftSeen(true)}
+    />
+  )
 
   // ── Round-over summary ───────────────────────────────────────────────
   // Server-driven: stays up until the server has registered MY "continue"
@@ -445,7 +515,7 @@ export default function OnlineApp({ onExit }) {
             onExit={() => setLeaveConfirm(true)}
           />
         </PageTransition>
-        {leaveModal}
+        {leaveModal}{oppLeftModal}
       </>
     )
   }
@@ -465,7 +535,7 @@ export default function OnlineApp({ onExit }) {
             onExit={() => setLeaveConfirm(true)}
           />
         </PageTransition>
-        {leaveModal}
+        {leaveModal}{oppLeftModal}
       </>
     )
   }
@@ -620,8 +690,15 @@ export default function OnlineApp({ onExit }) {
               me={{ color: myColor, name: names[myColor], score: match.scores[myColor] }}
               opp={{ color: oppColor, name: names[oppColor], score: match.scores[oppColor] }}
               secondary={{ label: t('online.toMenu'), onClick: handleLeave }}
-              primary={opponentLeft ? undefined : { label: rematch[myColor] ? t('common.waitingOpponent') : t('online.rematch'), onClick: () => getSocket().emit('rematch'), disabled: !!rematch[myColor] }}
-              note={!rematch[myColor] && rematch[oppColor] ? t('online.rematchAsked', { name: names[oppColor] }) : null}
+              primary={opponentLeft ? undefined : {
+                label: rematch[myColor] ? t('online.rematchSent', { name: names[oppColor] }) : rematch[oppColor] ? t('online.acceptRematch') : t('online.rematch'),
+                onClick: () => getSocket().emit('rematch'),
+                disabled: !!rematch[myColor],
+                pulse: !rematch[myColor] && !!rematch[oppColor],
+              }}
+              banner={opponentLeft
+                ? { tone: 'muted', color: oppColor, text: t('online.opponentLeft') }
+                : !rematch[myColor] && rematch[oppColor] ? { tone: 'offer', color: oppColor, text: t('online.rematchOffer', { name: names[oppColor] }) } : null}
               footer={<DiscordNudge />}
             />
           )}

@@ -105,6 +105,8 @@
 }
 .mm-mode-art.bot { background-color: var(--c-tile-bot); --mi-bg: var(--c-tile-bot); }
 .mm-mode-art.sandbox { background-color: var(--c-tile-sandbox); --mi-bg: var(--c-tile-sandbox); }
+.mm-mode-art.friend { background-color: var(--c-tile-sandbox); --mi-bg: var(--c-tile-sandbox); gap: 0; }
+.mm-mode-art.friend > * + * { margin-left: -10px; }
 /* menu icons draw with their tile colour (ui/menuIcons.js) */
 .mm-mode-art, .mm-mi {
   --mi-c: color-mix(in srgb, var(--mi-bg, #8C7F79) 70%, #16141F);

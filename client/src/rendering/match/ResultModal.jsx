@@ -8,7 +8,8 @@ export default function ResultModal({
   title, reason, outcome = 'draw', // 'win' | 'loss' | 'draw'
   me, opp,                          // { color, name, score }
   roundsToWin = 2, showDots = true,
-  primary, secondary, note,         // primary/secondary: { label, onClick, disabled, countdownMs }
+  primary, secondary, note,         // primary/secondary: { label, onClick, disabled, countdownMs, pulse }
+  banner,                           // { tone: 'offer' | 'muted', color, text } — e.g. "X предлагает реванш!"
   footer,                           // optional extra row under the actions
 }) {
   const side = (p, mine) => (
@@ -36,10 +37,16 @@ export default function ResultModal({
           <div className="rs-nums"><span className="me">{me.score}</span><span>:</span><span>{opp.score}</span></div>
           {side(opp, false)}
         </div>
+        {banner && (
+          <div className={`rs-banner ${banner.tone}`} role="status" data-testid="result-banner">
+            <span className={`ui-avatar md ${banner.color}`}><Piece type="king" color={banner.color} size={24} center thin /></span>
+            <span className="rs-banner-text">{banner.text}</span>
+          </div>
+        )}
         <div className="ui-modal-actions" style={{ marginTop: 0 }}>
           {secondary && <button className="ui-btn" onClick={secondary.onClick} disabled={secondary.disabled}>{secondary.label}</button>}
           {primary && (
-            <button className="ui-btn primary rs-next" onClick={primary.onClick} disabled={primary.disabled} data-testid="result-primary">
+            <button className={`ui-btn primary rs-next${primary.pulse ? ' pulse' : ''}`} onClick={primary.onClick} disabled={primary.disabled} data-testid="result-primary">
               {primary.label}
               {primary.countdownMs > 0 && <span className="rs-next-bar" style={{ animationDuration: `${primary.countdownMs}ms` }} />}
             </button>

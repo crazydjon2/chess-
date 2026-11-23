@@ -60,6 +60,9 @@ function source() {
       const host = new URL(document.referrer).hostname.replace(/^www\./, '')
       if (host && host !== location.hostname) return host
     }
+    // Messengers often send no referrer — a first visit straight onto a
+    // room is still somebody's invite link.
+    if (location.pathname.startsWith('/room/')) return 'invite'
   } catch { /* ignore */ }
   return ''
 }

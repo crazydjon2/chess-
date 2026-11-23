@@ -27,12 +27,26 @@ export async function openOnline(page, base, nickname) {
   await page.locator('[data-testid=nick-input]').waitFor({ state: 'detached', timeout: T.short })
 }
 
+// Main menu → "Найти соперника": seated in a quick room (own or someone's).
+export async function quickMatch(page, base, nickname) {
+  await page.goto(base + '/')
+  await page.locator('[data-testid=nick-btn]').click({ timeout: T.normal })
+  await page.locator('[data-testid=nick-input]').fill(nickname)
+  await page.locator('[data-testid=nick-input]').press('Enter')
+  await page.locator('[data-testid=nick-input]').waitFor({ state: 'detached', timeout: T.short })
+  await page.locator('[data-testid=menu-quick]').click({ timeout: T.normal })
+  await page.waitForURL(/\/room\/[A-Z0-9]+$/, { timeout: T.normal })
+  return page.url().split('/room/')[1]
+}
+
 const COLOR_INDEX = { white: 0, black: 1, random: 2 }
 export async function createRoom(page, { visibility = 'public', color = 'random' } = {}) {
   await page.locator('[data-testid=create-lobby]').click({ timeout: T.normal })
   const segs = page.locator('.po-modal .ui-seg')
   await segs.nth(0).locator('button').nth(COLOR_INDEX[color]).click()
-  await segs.nth(1).locator('button').nth(visibility === 'public' ? 0 : 1).click()
+  // Access picker only exists while the room list is shown (SHOW_ROOM_LIST);
+  // without it every "С другом" room is private.
+  if (await segs.count() > 1) await segs.nth(1).locator('button').nth(visibility === 'public' ? 0 : 1).click()
   await page.locator('[data-testid=create-submit]').click()
   await page.waitForURL(/\/room\/[A-Z0-9]+$/, { timeout: T.normal })
   return page.url().split('/room/')[1]
