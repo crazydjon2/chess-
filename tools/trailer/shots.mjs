@@ -41,6 +41,21 @@ export const SANDBOX_SHOTS = {
     tail: 1000,
   },
 
+  // Quiz "promote through a guarded square": the rook on a5 owns d5, so
+  // d4-d5 just loses the pawn. Shield the pawn, push — the rook bounces off,
+  // and the pawn queens next move.
+  shieldpawn: {
+    position: pos('Kb1 Pd4 Pa2 Pb2', 'Kf6 Ra5 Pf5', { white: ['shield', 'meteor', 'freeze'] }),
+    async play(a) {
+      await a.sleep(800) // still frame for the question
+      await a.card('shield', 'd4', 1000) // a card doesn't end the turn
+      await a.move('d4', 'd5', 900)
+      await a.move('a5', 'd5', 1700) // bounces off the shield
+      await a.move('d5', 'd6', 1600, 'queen')
+    },
+    tail: 1300,
+  },
+
   // Invisible freeze mine: the queen steps on it, gets stuck, gets taken.
   freeze: {
     position: pos('Kb1 Bc2 Pa2 Pb2 Nf1', 'Kf6 Qd5 Ra6 Pe6 Pf5', { white: ['freeze', 'meteor', 'shield'] }),

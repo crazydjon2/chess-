@@ -37,3 +37,10 @@ tools/trailer/out/
 # third-party SFX (Pixabay forbids redistributing the raw files; see sfx/LICENSES.md)
 tools/trailer/sfx/pixabay/
 tools/trailer/sfx/kenney/
+
+# Downloaded prod stats DB snapshots (visitor ids, feedback text)
+analytics/
+
+# Research notes and reports (deep-research output, not code)
+reports/
+research_notes/

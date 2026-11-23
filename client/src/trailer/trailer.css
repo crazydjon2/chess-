@@ -166,9 +166,12 @@
   text-transform: uppercase; letter-spacing: -0.01em; color: #FFF6E8;
   -webkit-text-stroke: 3px #16141F; paint-order: stroke fill; text-shadow: 0 5px 0 #16141F, 0 10px 24px rgba(0,0,0,0.5); }
 .qz-words .qz-hl { color: #F2B544; }
-.qz-kicker { position: absolute; z-index: 6; left: 0; right: 0; top: 60px; text-align: center;
-  font-family: 'Rubik', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: 0.14em; text-transform: uppercase; color: #CDB8AA;
-  text-shadow: 0 3px 0 #16141F; }
+.qz-kicker { position: absolute; z-index: 6; left: 0; right: 0; top: 50px; text-align: center; }
+.qz-kicker span { display: inline-flex; align-items: center; gap: 9px; padding: 6px 16px 6px 9px; border-radius: 999px;
+  background: #FFF6E8; border: 3px solid #16141F; box-shadow: 0 4px 0 #16141F;
+  font-family: 'Rubik', sans-serif; font-weight: 900; font-size: 19px; letter-spacing: 0.08em; text-transform: uppercase; color: #16141F; }
+.qz-kicker i { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #16141F; }
+.qz-kicker i.black { background: #2A2230; }
 .qz-dim { position: absolute; z-index: 3; left: 8px; right: 8px; background: #0B0706; border-radius: 14px; pointer-events: none; }
 .qz-arrow { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .qz-timer { position: absolute; z-index: 5; left: 50%; top: 238px; width: 170px; height: 190px; }

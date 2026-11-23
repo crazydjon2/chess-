@@ -28,6 +28,7 @@ export const QUIZZES = {
     hand: [['barricade', 'Stone'], ['meteor', 'Meteor'], ['shield', 'Shield']],
     pick: 0, desc: 'a wall with 2 HP', // the answer card in `hand`
     threat: [[66, 505], [292, 505]], // red arrow: the rook's line to the king
+    rings: [[318, 503]], ringFrom: 3.5, // footage coords of key pieces: the boxed king
     kicker: 'white to move',
     q: ['how do you stop', 'back rank mate?'],
     obvious: 'make luft?',
@@ -38,6 +39,54 @@ export const QUIZZES = {
     stamp: { at: 5.05, text: 'CLONK!' },
     // after the reveal: footage [from, to, clip seconds] — slow-mo on the hit
     play: [[2.2, 4.0, 1.5], [4.0, 4.7, 0.55], [4.7, 5.35, 1.5], [5.35, 7.4, 2.1]],
+    // extra sound cues at footage times (keys of S below)
+    cues: [[2.7, 'confirm', 0.5], [4.05, 'drop', 0.8], [5.02, 'boulder', 0.9], [5.02, 'mining', 1]],
+  },
+
+  // Promotion through a guarded square: the a5 rook owns d5, so d4-d5 just
+  // drops the pawn. Shield it, push — the rook bounces off and the pawn
+  // queens next move. Footage: shots.mjs `shieldpawn`.
+  promopawn: {
+    src: 'shieldpawn', color: '#7C8CFF',
+    still: 0.4,
+    board: [176, 578],
+    hand: [['shield', 'Shield'], ['meteor', 'Meteor'], ['freeze', 'Freeze Mine']],
+    pick: 0, desc: 'the attacker bounces off',
+    threat: [[70, 280], [226, 280]], // the rook's grip on d5
+    rings: [[251, 333]], ringFrom: 99, // the pawn (question only — it moves)
+    kicker: 'white to move',
+    q: ['how do you queen', 'this pawn?'], qSize: 29,
+    obvious: 'push and pray?',
+    reveal: ['we have', 'cards.'],
+    doing: ['shield', 'the pawn.'],
+    punch: ['rook bonks.', 'pawn queens.', 'gg.'],
+    punchAt: 7.45,
+    stamp: { at: 4.92, text: 'BONK!' },
+    // jump cut over the promotion picker (6.9 → 7.42)
+    play: [[2.2, 3.6, 1.2], [3.6, 4.7, 0.8], [4.7, 5.05, 1.2], [5.05, 6.9, 1.0], [7.42, 9.2, 2.1]],
+    cues: [[3.35, 'confirm', 0.5], [3.8, 'drop', 0.6], [4.9, 'bell', 0.8], [4.9, 'metal', 0.9], [7.43, 'correct', 0.6]],
+  },
+
+  // Protected queen: nothing can trade into her. Meteor on her square —
+  // black wastes both turns, the sky does the rest. Footage: shots.mjs `meteor`.
+  meteorqueen: {
+    src: 'meteor', color: '#FF7A3D',
+    still: 0.2,
+    board: [176, 578],
+    hand: [['shield', 'Shield'], ['meteor', 'Meteor'], ['barricade', 'Stone']],
+    pick: 1, desc: 'lands in 2 turns',
+    threat: [[315, 282], [266, 318]], // the e5 pawn guards her
+    rings: [[251, 333]], ringFrom: 2.9, // the queen
+    kicker: 'white to move',
+    q: ['how do you take', 'a guarded queen?'], qSize: 27,
+    obvious: 'trade pieces?',
+    reveal: ['we have', 'cards.'],
+    doing: ['call a', 'meteor.'],
+    punch: ['she had', '2 turns', 'to move.'],
+    punchAt: 6.25,
+    stamp: { at: 5.85, text: 'BOOM!' },
+    play: [[1.5, 2.9, 1.2], [2.9, 5.45, 1.7], [5.45, 5.85, 1.0], [5.85, 7.2, 2.0]],
+    cues: [[2.6, 'confirm', 0.5], [5.5, 'whoosh', 0.8], [5.83, 'boulder', 1], [5.83, 'metal', 0.6]],
   },
 }
 
@@ -76,6 +125,9 @@ const S = {
   card: 'kenney/interface/Audio/select_002.ogg',
   confirm: 'kenney/interface/Audio/confirmation_002.ogg',
   drop: 'kenney/interface/Audio/drop_002.ogg',
+  bell: 'kenney/impact/Audio/impactBell_heavy_001.ogg',
+  metal: 'kenney/impact/Audio/impactMetal_heavy_002.ogg',
+  plate: 'kenney/impact/Audio/impactPlate_heavy_001.ogg',
 }
 export function quizSfx(c) {
   const end = PLAY + playDur(c)
@@ -90,10 +142,7 @@ export function quizSfx(c) {
     ...c.hand.map((_, i) => ({ t: HAND + i * 0.12, f: S.card, v: 0.8 })),
     { t: HILITE, f: S.correct, v: 0.6 },
     { t: PLAY, f: S.whoosh, v: 0.5 },
-    { t: clipTimeOf(c, 2.7), f: S.confirm, v: 0.5 },
-    { t: clipTimeOf(c, 4.05), f: S.drop, v: 0.8 },
-    { t: clipTimeOf(c, c.stamp.at) - 0.03, f: S.boulder, v: 0.9 },
-    { t: clipTimeOf(c, c.stamp.at) - 0.03, f: S.mining, v: 1 },
+    ...c.cues.map(([ft, k, v]) => ({ t: clipTimeOf(c, ft), f: S[k], v })),
     { t: clipTimeOf(c, c.punchAt), f: S.pop2, v: 0.7 },
     { t: end, f: S.whoosh, v: 0.5 },
     { t: end + 0.15, f: S.confirm, v: 0.5 },
@@ -211,8 +260,17 @@ export function QuizClip({ c, t, footage }) {
     0.28 * prog(t, THINK0 - 0.2, THINK0 + 0.1) * (1 - prog(t, OBV, OBV + 0.3)),
     0.6 * prog(t, HAND - 0.2, HAND) * (1 - prog(t, PLAY - 0.25, PLAY)),
   )
-  const [[ax, ay], [bx, by]] = c.threat
-  const arrow = prog(t, 0.4, 0.75) * (1 - prog(t, REVEAL, REVEAL + 0.2))
+  const [[ax, ay], [bx, by]] = c.threat ?? [[0, 0], [0, 0]]
+  const arrow = c.threat ? prog(t, 0.4, 0.75) * (1 - prog(t, REVEAL, REVEAL + 0.2)) : 0
+  // key pieces: pulsing rings during the question, and again while the card
+  // plays out (until the hit)
+  const ringOn = Math.max(
+    prog(t, 0.2, 0.5) * (1 - prog(t, REVEAL, REVEAL + 0.2)),
+    // back once the played card has landed (`ringFrom`, footage time)
+    playing ? prog(ft, c.ringFrom, c.ringFrom + 0.15) * (1 - prog(ft, c.stamp.at - 0.15, c.stamp.at)) : 0,
+  )
+  const ringPulse = 1 + 0.08 * Math.sin(t * 7)
+  const ap = easeOut(prog(t, 0.4, 0.9))
   const flashW = Math.max(0, 1 - Math.abs(t - WRONG - 0.04) / 0.22)
   const flashS = playing ? Math.max(0, 1 - Math.abs(ft - c.stamp.at) / 0.1) : 0
 
@@ -227,9 +285,15 @@ export function QuizClip({ c, t, footage }) {
       {/* the threat: red arrow along the back rank */}
       <svg className="qz-arrow" width={QUIZ_W} height={QUIZ_H} style={{ opacity: arrow }}>
         <defs><marker id="qzh" markerWidth="5" markerHeight="5" refX="2.6" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#FF4A3D" /></marker></defs>
-        <line x1={ax} y1={ay + DY} x2={lerp(ax, bx, easeOut(prog(t, 0.4, 0.9)))} y2={by + DY}
+        <line x1={ax} y1={ay + DY} x2={lerp(ax, bx, ap)} y2={lerp(ay, by, ap) + DY}
           stroke="#FF4A3D" strokeWidth="9" strokeLinecap="round" markerEnd="url(#qzh)" strokeDasharray="2 16"
           strokeDashoffset={-t * 40} style={{ filter: 'drop-shadow(0 0 6px rgba(255,74,61,0.8))' }} />
+      </svg>
+      <svg className="qz-arrow qz-rings" width={QUIZ_W} height={QUIZ_H} style={{ opacity: ringOn }}>
+        {(c.rings ?? []).map(([x, y, col = '#FF4A3D'], i) => (
+          <circle key={i} cx={x} cy={y + DY} r={31 * ringPulse} fill="none" stroke={col} strokeWidth="5"
+            style={{ filter: `drop-shadow(0 0 7px ${col})` }} />
+        ))}
       </svg>
 
       {/* think: dim the board, stopwatch on top */}
@@ -261,8 +325,10 @@ export function QuizClip({ c, t, footage }) {
       {/* words */}
       {t < REVEAL && (
         <>
-          <div className="qz-kicker" style={{ opacity: prog(t, -1, 0) * (1 - 0.6 * prog(t, OBV, OBV + 0.2)) }}>{c.kicker}</div>
-          <Words t={t} t0={-1} lines={c.q} y={98} size={30} hl={[1]} dim={0.6 * prog(t, OBV, OBV + 0.2)} />
+          <div className="qz-kicker" style={{ opacity: prog(t, -1, 0) * (1 - 0.6 * prog(t, OBV, OBV + 0.2)) }}>
+            <span><i className={/^black/.test(c.kicker) ? 'black' : ''} />{c.kicker}</span>
+          </div>
+          <Words t={t} t0={-1} lines={c.q} y={98} size={c.qSize ?? 30} hl={[1]} dim={0.6 * prog(t, OBV, OBV + 0.2)} />
         </>
       )}
       {t >= OBV && t < REVEAL && (

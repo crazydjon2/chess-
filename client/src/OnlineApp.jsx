@@ -240,7 +240,9 @@ export default function OnlineApp({ onExit }) {
     }
     if (socket.connected) subscribe()
     else socket.once('connect', subscribe)
-    return () => { cancelled = true }
+    // Leaving the menu (incl. back to the main page) ends the server's
+    // "browsing the room list" timer — see waits in server/analytics.js.
+    return () => { cancelled = true; getSocket().emit('unlist_rooms') }
   }, [phase])
 
   // Seated in a room (create/join/rejoin all answer the same shape) — the

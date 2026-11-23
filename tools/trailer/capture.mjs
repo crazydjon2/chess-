@@ -158,9 +158,15 @@ async function shootSandbox(ids) {
       const wait = ms => sleep(ms * SLOW) // script pauses are in real-pace ms
       const a = {
         sleep: wait,
-        async move(from, to, pause = 900) {
+        // `promo`: piece to pick in the promotion picker (pawn reaching the far rank)
+        async move(from, to, pause = 900, promo) {
           await cell(from).click({ force: true }); await wait(320)
-          await cell(to).click({ force: true }); await wait(pause)
+          await cell(to).click({ force: true })
+          if (promo) {
+            await wait(450)
+            await page.locator(`.pr-opt[data-promo="${promo}"]`).click({ force: true })
+          }
+          await wait(pause)
         },
         async card(cardId, target, pause = 1100) {
           if (DESKTOP) {

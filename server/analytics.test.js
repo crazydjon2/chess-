@@ -26,6 +26,21 @@ describe('analytics', () => {
     expect({ ...db.prepare('SELECT * FROM visitors').get() }).toEqual({ vid: VID, first_day: day, source: 'reddit', lang: 'en', device: 'mobile', ua: '', tz: 'America/New_York' })
   })
 
+  it('records how long an opponent wait lasted and shows it in the funnel report', () => {
+    const t = Date.parse(`${day}T12:00:00Z`)
+    a.wait({ vid: VID, kind: 'browse', roomsSeen: 0, startedAt: t - 40e3 }, 'back')
+    a.wait({ vid: 'bad id', kind: 'host', visibility: 'public', startedAt: t - 90e3 }, 'left')
+    const w = db.prepare('SELECT day, vid, kind, visibility, rooms_seen, wait_ms, outcome FROM waits ORDER BY id').all().map(r => ({ ...r }))
+    expect(w).toEqual([
+      { day, vid: VID, kind: 'browse', visibility: null, rooms_seen: 0, wait_ms: 40000, outcome: 'back' },
+      { day, vid: null, kind: 'host', visibility: 'public', rooms_seen: null, wait_ms: 90000, outcome: 'left' },
+    ])
+    const html = buildFunnelReport(db, { now: t })
+    expect(html).toContain('Ожидание соперника')
+    expect(html).toContain('40 с')
+    expect(html).toContain('1.5 мин')
+  })
+
   it('drops a malformed time zone', () => {
     a.ingest({ vid: VID, events: ['visit'], meta: { tz: "x'); DROP TABLE visitors;--" } })
     a.ingest({ vid: 'zyxwvuts9876', events: ['visit'], meta: { tz: 'y'.repeat(41) } })

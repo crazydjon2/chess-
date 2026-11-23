@@ -8,3 +8,6 @@ server/data
 .git
 .claude
 **/*.test.js
+analytics
+reports
+research_notes

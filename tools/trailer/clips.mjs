@@ -17,12 +17,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '../..')
 const CLIENT = path.join(ROOT, 'client')
 const OUT = path.join(HERE, 'out', 'clips')
-const FPS = 30, SCALE = 2.5, W = 432, H0 = 540
+const OUT_SM = path.join(OUT, 'sm') // 9:16 quizzes for TikTok / Reels / Shorts
+const FPS = 30, SCALE = 2.5, W = 432, H0 = 540, QUIZ_H = 768
 const args = process.argv.slice(2)
 const sheetOnly = args.includes('--sheet')
 const raw = args.includes('--raw')
 const ids = args.filter(a => !a.startsWith('--'))
-fs.mkdirSync(OUT, { recursive: true })
+fs.mkdirSync(OUT_SM, { recursive: true })
 
 if (raw) {
   // the footage itself, every 0.25 s (10 per row: row r, column k = r*2.5 + k*0.25 s)
@@ -96,12 +97,15 @@ try {
       console.log(`${id}: sheet (${duration.toFixed(1)} s)`)
       continue
     }
-    const mp4 = path.join(OUT, `${id}.mp4`), gif = path.join(OUT, `${id}.gif`)
+    // 9:16 quizzes are for TikTok/Reels/Shorts → their own folder, no gif
+    const quiz = H === QUIZ_H
+    const dir = quiz ? OUT_SM : OUT
+    const mp4 = path.join(dir, `${id}.mp4`), gif = path.join(dir, `${id}.gif`)
     ffmpeg([...inp, '-c:v', 'libx264', '-crf', '18', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4])
     if (sfx?.length) mixSfx(mp4, sfx, duration)
-    ffmpeg(['-i', mp4, '-vf', 'fps=15,scale=540:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle', '-loop', '0', gif])
+    if (!quiz) ffmpeg(['-i', mp4, '-vf', 'fps=15,scale=540:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle', '-loop', '0', gif])
     const mb = f => (fs.statSync(f).size / 1e6).toFixed(1)
-    console.log(`${id}: ${duration.toFixed(1)} s → mp4 ${mb(mp4)} MB, gif ${mb(gif)} MB`)
+    console.log(`${id}: ${duration.toFixed(1)} s → ${mp4} (${mb(mp4)} MB)${quiz ? '' : `, gif ${mb(gif)} MB`}`)
   }
 } finally {
   await browser.close()

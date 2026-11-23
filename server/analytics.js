@@ -38,6 +38,22 @@ CREATE TABLE IF NOT EXISTS daily (
   PRIMARY KEY (day, vid, event)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS daily_event ON daily(event, day);
+-- How long people wait for an opponent, one row per finished wait:
+--   kind 'browse' — looked at the public room list (rooms_seen = rooms in it
+--                   when opened); outcome created | joined | bot | back | closed
+--   kind 'host'   — sat alone in their own room; outcome joined | left | closed
+CREATE TABLE IF NOT EXISTS waits (
+  id         INTEGER PRIMARY KEY,
+  day        TEXT NOT NULL,     -- UTC day the wait started
+  vid        TEXT,
+  kind       TEXT NOT NULL,
+  visibility TEXT,              -- host waits: 'public' | 'private'
+  rooms_seen INTEGER,           -- browse waits
+  started_at INTEGER NOT NULL,  -- epoch ms
+  wait_ms    INTEGER NOT NULL,
+  outcome    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS waits_day ON waits(day);
 `
 
 export const today = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
@@ -53,6 +69,15 @@ export function createAnalytics(db, { now = () => Date.now() } = {}) {
   for (const c of ['ua', 'tz']) if (!cols.has(c)) db.exec(`ALTER TABLE visitors ADD COLUMN ${c} TEXT`)
   const bump = db.prepare('INSERT INTO daily (day, vid, event) VALUES (?, ?, ?) ON CONFLICT(day, vid, event) DO UPDATE SET n = n + 1')
   const addVisitor = db.prepare('INSERT OR IGNORE INTO visitors (vid, first_day, source, lang, device, ua, tz) VALUES (?, ?, ?, ?, ?, ?, ?)')
+
+  const addWait = db.prepare('INSERT INTO waits (day, vid, kind, visibility, rooms_seen, started_at, wait_ms, outcome) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+
+  // w = { vid, kind, visibility?, roomsSeen?, startedAt } — the wait ends now with `outcome`.
+  function wait(w, outcome) {
+    try {
+      addWait.run(today(w.startedAt), isVid(w.vid) ? w.vid : null, w.kind, w.visibility ?? null, w.roomsSeen ?? null, w.startedAt, Math.max(0, now() - w.startedAt), outcome)
+    } catch (e) { console.error('[analytics]', e.message) }
+  }
 
   function track(vid, event) {
     if (!isVid(vid)) return
@@ -81,7 +106,7 @@ export function createAnalytics(db, { now = () => Date.now() } = {}) {
     return true
   }
 
-  return { track, ingest }
+  return { track, ingest, wait }
 }
 
 // Tiny fixed-window limiter per key (IP) — keeps one abusive client from

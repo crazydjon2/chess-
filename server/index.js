@@ -46,6 +46,29 @@ setEventHook((room, name) => {
   }
 })
 
+// Waiting-for-an-opponent timers (→ analytics `waits`). In memory only: a
+// restart just drops the waits in flight.
+//   socket.data.browse — this socket is looking at the public room list
+//   hostWaits          — room code → its creator, alone in it since startedAt
+const hostWaits = new Map()
+function endBrowse(socket, outcome) {
+  const b = socket.data.browse
+  if (!b) return
+  socket.data.browse = null
+  analytics?.wait(b, outcome)
+}
+function endHostWait(code, outcome) {
+  const w = code && hostWaits.get(code)
+  if (!w) return
+  hostWaits.delete(code)
+  analytics?.wait(w, outcome)
+}
+// The creator walking out of their own still-empty room.
+function hostLeaving(socket, outcome) {
+  const code = socket.data.roomCode
+  if (code && hostWaits.get(code)?.socketId === socket.id) endHostWait(code, outcome)
+}
+
 const PORT = process.env.PORT || 3001
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CLIENT_DIST = path.join(__dirname, '../client/dist')
@@ -58,6 +81,15 @@ app.set('trust proxy', true)
 // Must come before the SPA catch-all below.
 app.get('/healthz', (_req, res) => res.send('ok'))
 mountAdmin(app, () => statsDb)
+
+// Short typed-by-hand links for bios that aren't clickable (TikTok below
+// 1000 followers): mischess.com/tt → tagged as source 'tiktok' in analytics.
+const SHORT_SOURCES = { tt: 'tiktok' }
+app.get('/:short', (req, res, next) => {
+  const src = SHORT_SOURCES[req.params.short.toLowerCase()]
+  if (!src) return next()
+  res.redirect(302, `/?utm_source=${src}`)
+})
 
 // Bodies arrive as text/plain JSON (navigator.sendBeacon and a "simple"
 // fetch — no CORS preflight from the dev client), parsed here.
@@ -124,10 +156,15 @@ io.on('connection', (socket) => {
   // pushes; the client unsubscribes when it leaves the browse screen so
   // idle games in progress aren't fanning out list updates to everyone.
   on(socket, 'list_rooms', (_data, reply) => {
-    reply({ rooms: subscribeLobby(socket) })
+    const list = subscribeLobby(socket)
+    if (!socket.data.browse) socket.data.browse = { vid: socket.data.vid, kind: 'browse', roomsSeen: list.length, startedAt: Date.now() }
+    reply({ rooms: list })
   })
 
-  on(socket, 'unlist_rooms', () => unsubscribeLobby(socket))
+  on(socket, 'unlist_rooms', () => {
+    unsubscribeLobby(socket)
+    endBrowse(socket, 'back')
+  })
 
   on(socket, 'create_room', ({ color, name, visibility }, reply) => {
     let res
@@ -139,6 +176,8 @@ io.on('connection', (socket) => {
     }
     reply(res)
     analytics?.track(socket.data.vid, 'room_create')
+    endBrowse(socket, 'created')
+    hostWaits.set(res.code, { vid: socket.data.vid, kind: 'host', visibility: res.visibility, startedAt: Date.now(), socketId: socket.id })
     // The creator is now sitting in a room, not browsing — and a new
     // public room just became joinable for everyone who still is.
     unsubscribeLobby(socket)
@@ -157,6 +196,7 @@ io.on('connection', (socket) => {
     }
     reply(res)
     unsubscribeLobby(socket)
+    endBrowse(socket, 'bot')
   })
 
   on(socket, 'join_room', ({ code, name }, reply) => {
@@ -169,6 +209,8 @@ io.on('connection', (socket) => {
     }
     reply(res)
     analytics?.track(socket.data.vid, 'room_join')
+    endBrowse(socket, 'joined')
+    endHostWait(res.code, 'joined')
     unsubscribeLobby(socket)
 
     // Just let both seats know the room is now full — the HOST decides when
@@ -222,9 +264,13 @@ io.on('connection', (socket) => {
   on(socket, 'offer_draw', () => handleOfferDraw(io, socket))
   on(socket, 'answer_draw', (answer) => handleAnswerDraw(io, socket, answer))
   on(socket, 'rematch', () => handleRematch(io, socket))
-  on(socket, 'leave_room', () => leaveRoom(io, socket))
+  on(socket, 'leave_room', () => {
+    hostLeaving(socket, 'left')
+    leaveRoom(io, socket)
+  })
 
   socket.on('disconnect', () => {
+    try { hostLeaving(socket, 'closed'); endBrowse(socket, 'closed') } catch (e) { console.error('[waits]', e) }
     try { handleDisconnect(io, socket) } catch (e) { console.error('[disconnect] handler failed:', e) }
   })
 })
