@@ -18,3 +18,7 @@ https://pixabay.com/service/license-summary/
 Pixabay's license forbids redistributing the sounds as standalone files, so
 keep this folder out of any public repo / build; using them inside our
 videos is fine.
+
+## Music (`music/`)
+- `music/trailer-loop.wav` — the only promo track (used in `out/clips/sm/meteorqueen.music.mp4`).
+  Original music written by the Mischess developer — our own, no credit or licence needed.

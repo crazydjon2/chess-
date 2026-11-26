@@ -20,8 +20,6 @@ import { createFeedback } from './feedback.js'
 import { mountAdmin } from './admin.js'
 import { notifyEnabled, notifyAdmins, searchMessage } from './notify.js'
 
-const NOTIFY_AFTER_MS = 10_000
-
 setBotHook(onRoomUpdate)
 
 // One SQLite file holds balance telemetry (stats.js), product analytics
@@ -245,13 +243,10 @@ io.on('connection', (socket) => {
     unsubscribeLobby(socket)
     if (created) {
       hostWaits.set(res.code, { vid: socket.data.vid, kind: 'host', visibility: 'quick', startedAt: Date.now(), socketId: socket.id })
-      // Still alone after a few seconds → ping the owners (notify.js).
+      // Nobody was waiting → ping the owners right away (notify.js). Real
+      // players leave a lonely search in ~3–5 s, so any delay meant no ping.
       if (notifyEnabled()) {
-        const w = hostWaits.get(res.code)
-        setTimeout(() => {
-          if (hostWaits.get(res.code) !== w) return // matched or gone
-          notifyAdmins(searchMessage({ name, code: res.code, waitedSec: Math.round(NOTIFY_AFTER_MS / 1000) }), { key: socket.data.vid ?? socket.id }).catch(() => {})
-        }, NOTIFY_AFTER_MS)
+        notifyAdmins(searchMessage({ name, code: res.code }), { key: socket.data.vid ?? socket.id }).catch(() => {})
       }
     } else {
       endHostWait(res.code, 'joined')

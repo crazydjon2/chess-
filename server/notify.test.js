@@ -13,7 +13,7 @@ describe('owner pings (notify.js)', () => {
     const calls = []
     const fetchFn = async (url, opts) => { calls.push({ url, body: JSON.parse(opts.body) }); return { ok: true } }
     const env = { ADMIN_TG_TOKEN: 'T', ADMIN_TG_CHAT: '-100, 42', ADMIN_DISCORD_WEBHOOK: 'https://discord.test/hook' }
-    const text = searchMessage({ name: '@everyone', code: 'ABCDE', waitedSec: 10 })
+    const text = searchMessage({ name: '@everyone', code: 'ABCDE' })
     expect(text).toContain('/room/ABCDE')
     expect(await notifyAdmins(text, { env, fetchFn, now: 1_000_000 })).toBe(true)
     expect(calls.map(c => c.url)).toEqual(['https://api.telegram.org/botT/sendMessage', 'https://api.telegram.org/botT/sendMessage', 'https://discord.test/hook'])

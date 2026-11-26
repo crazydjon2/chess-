@@ -192,3 +192,18 @@
   -webkit-text-stroke: 2.5px #16141F; paint-order: stroke fill; text-shadow: 0 4px 0 #16141F; }
 .qz-flash { position: absolute; inset: 0; z-index: 7; mix-blend-mode: multiply; pointer-events: none; }
 .cl-free { font-family: 'Rubik', sans-serif; font-weight: 800; font-size: 18px; color: #CDB8AA; }
+/* "grandmaster theory" parody (Theory.jsx) */
+.th-stage { position: absolute; inset: 0; }
+.th-film { position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: multiply; }
+.th-film svg { position: absolute; inset: 0; }
+.th-burn { position: absolute; inset: 0; background: radial-gradient(90% 70% at 50% 50%, transparent 55%, rgba(60,35,10,0.55) 100%); }
+.th-note { position: absolute; z-index: 6; left: 50%; white-space: nowrap; font-weight: 900; font-size: 36px; line-height: 1; text-transform: uppercase; text-align: center; color: #FFF6E8;
+  -webkit-text-stroke: 3px #16141F; paint-order: stroke fill; text-shadow: 0 5px 0 #16141F, 0 10px 24px rgba(0,0,0,0.5); }
+.th-serif { font-family: Georgia, 'Times New Roman', serif; font-style: italic; color: #F4E6C8; letter-spacing: 0.01em; }
+.th-kicker span { background: #F4E6C8; font-family: Georgia, serif; font-style: italic; letter-spacing: 0.14em; }
+.th-sub { position: absolute; z-index: 6; left: 0; right: 0; top: 196px; text-align: center; font-family: Georgia, serif; font-style: italic; font-weight: 700;
+  font-size: 22px; color: #E9D9B8; -webkit-text-stroke: 2px #16141F; paint-order: stroke fill; text-shadow: 0 3px 0 #16141F; }
+.th-glitch { position: absolute; z-index: 8; left: 0; right: 0; background: rgba(140,160,255,0.35); mix-blend-mode: screen; }
+.th-note small { display: block; margin-top: 8px; font-family: Georgia, serif; font-style: italic; font-weight: 700; font-size: 19px;
+  text-transform: none; color: #CDB8AA; -webkit-text-stroke: 2px #16141F; text-shadow: 0 3px 0 #16141F; }
+.th-serif { font-style: normal; text-transform: none; }

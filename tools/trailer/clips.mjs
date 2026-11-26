@@ -38,7 +38,12 @@ if (raw) {
 
 // Lay the clip's sound cues ({t, f, v, ss, dur}; files in tools/trailer/sfx,
 // licences in sfx/LICENSES.md) under the silent mp4, in place.
-function mixSfx(mp4, cues, duration) {
+// Music cues may add `fadeIn`/`fadeOut` (s) and `fx` (an extra ffmpeg audio
+// filter, e.g. an old-gramophone band-pass). A missing (or junk — e.g. a
+// saved error page) file is skipped.
+const usable = f => { try { return !/^\s*</.test(fs.readFileSync(f).subarray(0, 64).toString('latin1')) } catch { return false } }
+function mixSfx(mp4, allCues, duration) {
+  const cues = allCues.filter(c => usable(path.join(HERE, 'sfx', c.f)) || console.warn(`  sfx missing, skipped: ${c.f}`))
   const args = ['-i', mp4]
   const chains = []
   cues.forEach((c, i) => {
@@ -46,7 +51,9 @@ function mixSfx(mp4, cues, duration) {
     if (c.dur != null) args.push('-t', String(c.dur))
     args.push('-i', path.join(HERE, 'sfx', c.f))
     const ms = Math.max(0, Math.round(c.t * 1000))
-    chains.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${c.v ?? 1},adelay=${ms}:all=1[a${i}]`)
+    const fx = [c.fx, c.fadeIn && `afade=t=in:d=${c.fadeIn}`,
+      c.fadeOut && c.dur && `afade=t=out:st=${(c.dur - c.fadeOut).toFixed(3)}:d=${c.fadeOut}`].filter(Boolean)
+    chains.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,${fx.map(f => f + ',').join('')}volume=${c.v ?? 1},adelay=${ms}:all=1[a${i}]`)
   })
   const mix = `${cues.map((_, i) => `[a${i}]`).join('')}amix=inputs=${cues.length}:normalize=0:dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,apad,atrim=0:${duration.toFixed(3)}[aout]`
   const tmp = mp4.replace(/\.mp4$/, '.sfx.mp4')

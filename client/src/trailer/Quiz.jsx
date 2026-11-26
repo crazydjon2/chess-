@@ -111,7 +111,7 @@ function clipTimeOf(c, ft) {
 
 // Sound cues, mixed in by tools/trailer/clips.mjs. f = file under
 // tools/trailer/sfx (see sfx/LICENSES.md), v = gain, ss/dur = trim (s).
-const S = {
+export const S = {
   whoosh: 'pixabay/dragon-studio-simple-whoosh-382724.mp3',
   ticking: 'pixabay/dragon-studio-clock-ticking-down-376897.mp3',
   buzzer: 'pixabay/eritnhut1992-buzzer-or-wrong-answer-20582.mp3',
@@ -160,7 +160,7 @@ function footTime(c, t) {
 }
 
 // Big outlined words, popping in one line after another (no boxes).
-function Words({ t, t0, lines, y, size = 34, hl = [], dim = 0, out }) {
+export function Words({ t, t0, lines, y, size = 34, hl = [], dim = 0, out }) {
   const o = out == null ? 1 : 1 - prog(t, out, out + 0.15)
   return (
     <div className="qz-words" style={{ top: y, fontSize: size, opacity: o * (1 - dim) }}>
@@ -176,7 +176,7 @@ function Words({ t, t0, lines, y, size = 34, hl = [], dim = 0, out }) {
   )
 }
 
-function Stamp({ t, t0, text, color, y, size, rot = -7, life = 1.4 }) {
+export function Stamp({ t, t0, text, color, y, size, rot = -7, life = 1.4 }) {
   const lt = t - t0
   if (lt < 0) return null
   const p = backOut(prog(lt, 0, 0.16), 2.6)
@@ -214,7 +214,7 @@ function Timer({ t }) {
   )
 }
 
-function EndCard({ t }) {
+export function EndCard({ t }) {
   const p = backOut(prog(t, 0, 0.22), 2)
   return (
     <div className="tr-title">

@@ -18,9 +18,9 @@ export function notifyEnabled(env = process.env) {
   return !!((env.ADMIN_TG_TOKEN && env.ADMIN_TG_CHAT) || env.ADMIN_DISCORD_WEBHOOK)
 }
 
-export function searchMessage({ name, code, waitedSec }) {
+export function searchMessage({ name, code }) {
   const who = typeof name === 'string' && name.trim() ? name.trim().slice(0, 24) : 'Игрок'
-  return `🔎 ${who} ищет соперника уже ${waitedSec} с\n${SITE}/room/${code}`
+  return `🔎 ${who} ищет соперника\n${SITE}/room/${code}`
 }
 
 // Fire-and-forget: a failed ping must never touch the game.

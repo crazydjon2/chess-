@@ -104,6 +104,28 @@ export const SANDBOX_SHOTS = {
     tail: 900,
   },
 
+  // "Grandmaster theory": Morphy's Opera Game (1858) after 15...Nxd7 —
+  // 16.Qb8+! Nxb8 17.Rd8#. In Mischess black still has a turn: Shield on
+  // the king, the king eats the rook, and the guarding bishop bonks off. 8×8, real position.
+  opera: {
+    position: {
+      board: { rows: 8, cols: 8, blockedCells: [] },
+      white: army('white', 'Kc1 Qb3 Rd1 Bg5 Pa2 Pb2 Pc2 Pe4 Pf2 Pg2 Ph2'),
+      black: army('black', 'Ke8 Qe6 Rh8 Bf8 Nd7 Pa7 Pe5 Pf7 Pg7 Ph7'),
+      cards: { white: ['meteor', 'freeze', 'barricade'], black: ['shield', 'meteor', 'barricade'] },
+    },
+    async play(a) {
+      await a.sleep(1200) // still frame for the intro
+      await a.move('b3', 'b8', 1100) // 16.Qb8+!!
+      await a.move('d7', 'b8', 1100) // 16...Nxb8
+      await a.move('d1', 'd8', 2200) // 17.Rd8# — the famous mate
+      await a.card('shield', 'e8', 1100) // ...but black has cards
+      await a.move('e8', 'd8', 1000) // the shielded king eats the mating rook
+      await a.move('g5', 'd8', 1800) // the bishop goes for the king — bonks off
+    },
+    tail: 1200,
+  },
+
   // Unstable: the enemy queen starts shape-shifting.
   unstable: {
     position: pos('Ke1 Qc1 Pa2 Pb2 Nb1', 'Kf6 Qd4 Ra6 Pe5 Pf5', { white: ['unstable', 'meteor', 'shield'] }),
